@@ -101,9 +101,13 @@ assertIncludes('server.js', [
 assertIncludesAny('README.md', 'first-time setup instructions', ['First-Time Setup', 'วิธีตั้งค่าครั้งแรก']);
 assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบบกันพัง']);
 assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
-assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md']);
+assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
+assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge']);
 
 const pkg = JSON.parse(read('package.json'));
+if (pkg.author !== 'KOGA.EXE') {
+  fail('package.json author must be "KOGA.EXE"');
+}
 for (const dependency of ['express', 'ini', 'diff']) {
   if (!pkg.dependencies || !pkg.dependencies[dependency]) {
     fail(`package.json is missing dependency "${dependency}"`);

@@ -252,6 +252,31 @@ code {
   background: linear-gradient(180deg, rgba(136, 194, 255, 0.18), rgba(136, 194, 255, 0.05));
 }
 
+.credit-badge {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid rgba(95, 224, 191, 0.2);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(95, 224, 191, 0.16), transparent 42%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.credit-badge strong {
+  display: block;
+  margin-top: 6px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+}
+
+.credit-badge p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .main {
   min-width: 0;
   padding: 28px 32px 40px;

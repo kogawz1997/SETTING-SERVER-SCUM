@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Local-first SCUM config control panel for personal use.",
+  "author": "KOGA.EXE",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
