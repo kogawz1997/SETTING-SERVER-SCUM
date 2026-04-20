@@ -33,6 +33,13 @@ function assertIncludes(relPath, needles) {
   }
 }
 
+function assertIncludesAny(relPath, label, needles) {
+  const source = read(relPath);
+  if (!needles.some((needle) => source.includes(needle))) {
+    fail(`${relPath} must include ${label}`);
+  }
+}
+
 function assertPackageScript(name) {
   const pkg = JSON.parse(read('package.json'));
   if (!pkg.scripts || !pkg.scripts[name]) fail(`package.json is missing script "${name}"`);
@@ -52,6 +59,8 @@ function assertPackageScript(name) {
   'public/style.css',
   'public/loot-overrides.js',
   'public/loot-overrides.css',
+  'docs/assets/dashboard.png',
+  'docs/INSTALL_TH.md',
   'docs/USAGE_GUIDE.md',
   'docs/PROJECT_STRUCTURE.md',
   'docs/RELEASE_CHECKLIST.md',
@@ -89,7 +98,10 @@ assertIncludes('server.js', [
   '/api/items',
   '/api/backups',
 ]);
-assertIncludes('README.md', ['First-Time Setup', 'Safety Model', 'More Documentation']);
+assertIncludesAny('README.md', 'first-time setup instructions', ['First-Time Setup', 'วิธีตั้งค่าครั้งแรก']);
+assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบบกันพัง']);
+assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
+assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md']);
 
 const pkg = JSON.parse(read('package.json'));
 for (const dependency of ['express', 'ini', 'diff']) {
