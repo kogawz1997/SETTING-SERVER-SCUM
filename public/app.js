@@ -9,6 +9,7 @@ const state = {
   selectedCorePath: 'GameUserSettings.ini',
   currentCoreContent: '',
   selectedLootPath: '',
+  pendingRouteLootPath: '',
   currentLootObject: null,
   currentLootContent: '',
   currentLootAnalysis: null,
@@ -323,11 +324,23 @@ function normalizeRoutePath(pathname = window.location.pathname){
   const canonicalPath = routeByView[view] || routeByView.dashboard;
   return { view, canonicalPath, shouldNormalize: path !== canonicalPath };
 }
-function updateRoute(view, mode = 'push'){
-  const path = routeByView[view] || routeByView.dashboard;
-  if(window.location.pathname === path) return;
+function currentRouteQuery(){
+  return new URLSearchParams(window.location.search || '');
+}
+function lootRoutePath(filePath = ''){
+  const base = routeByView.loot || '/loot-studio';
+  const file = String(filePath || '').trim();
+  return file ? `${base}?file=${encodeURIComponent(file)}` : base;
+}
+function routePathForView(view, extra = {}){
+  if(view === 'loot') return lootRoutePath(extra.file || '');
+  return routeByView[view] || routeByView.dashboard;
+}
+function updateRoute(view, mode = 'push', extra = {}){
+  const path = routePathForView(view, extra);
+  if(`${window.location.pathname}${window.location.search}` === path) return;
   const method = mode === 'replace' ? 'replaceState' : 'pushState';
-  window.history[method]({ view }, '', path);
+  window.history[method]({ view, file: extra.file || '' }, '', path);
 }
 function setView(view, options = {}){
   const nextView = pageTitles[view] ? view : 'dashboard';
@@ -344,12 +357,16 @@ function setView(view, options = {}){
   viewEl.classList.add('active');
   $('page-title').textContent = t(pageTitles[nextView] || 'dashboard');
   document.title = `${t(pageTitles[nextView] || 'dashboard')} · SETTING SERVER SCUM`;
-  if(options.updateRoute !== false) updateRoute(nextView, options.replaceRoute ? 'replace' : 'push');
+  if(options.updateRoute !== false) updateRoute(nextView, options.replaceRoute ? 'replace' : 'push', options.route || {});
 }
 function setViewFromRoute(){
   const route = normalizeRoutePath();
+  const params = currentRouteQuery();
+  state.pendingRouteLootPath = route.view === 'loot' ? (params.get('file') || '') : '';
   setView(route.view, { updateRoute: false });
-  if(route.shouldNormalize) updateRoute(route.view, 'replace');
+  if(route.shouldNormalize) {
+    updateRoute(route.view, 'replace', route.view === 'loot' && state.pendingRouteLootPath ? { file: state.pendingRouteLootPath } : {});
+  }
 }
 function setStatus(ok, text){ $('status-dot').classList.toggle('good', ok); $('status-text').textContent=text; }
 function writeConsole(text){ $('command-output').textContent = text || ''; }
@@ -1036,7 +1053,7 @@ function renderLootLists(){
   $('nodes-list').innerHTML = filterList(state.lootFiles.nodes).map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || '<div class="muted">No node files</div>';
   $('spawners-list').innerHTML = filterList(state.lootFiles.spawners).map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || '<div class="muted">No spawner files</div>';
   document.querySelectorAll('[data-loot-path]').forEach((button) => {
-    button.onclick = () => openLootFile(button.dataset.lootPath);
+    button.onclick = () => openLootFile(button.dataset.lootPath).catch((error)=>showToast(error.message || String(error), true));
   });
 }
 async function simulateLoot(){ const count=Number($('simulate-count').value||100); const data=await api('/api/loot/simulate',{method:'POST',body:JSON.stringify({path:state.selectedLootPath,count})}); const r=data.result; $('simulate-output').textContent=`Runs: ${r.count}\nAverage items/run: ${r.averageItemsPerRun}\n\nTop results:\n${r.distinctItems.slice(0,20).map(x=>`${x.name}: ${x.hits}`).join('\n')}\n\nSample runs:\n${r.sampleRuns.map((run,i)=>`${i+1}. ${run.join(', ')||'(empty)'}`).join('\n')}`; }
@@ -1047,7 +1064,7 @@ function makeKit(type){ if(type==='sniper') return { Name:'Sniper_KIT', Notes:'G
 function applyKit(type){ state.currentLootObject = makeKit(type); $('loot-editor').value = fmtJson(state.currentLootObject); renderVisualBuilder(); showToast(`${type.toUpperCase()} kit loaded into editor`); }
 
 function fileButton(file, active){ return `<button class="file-item ${active?'active':''}" data-loot-path="${file.relPath}"><strong>${escapeHtml(file.logicalName||file.name)}</strong><span class="item-sub">${escapeHtml(file.relPath)}</span><span class="item-sub">${escapeHtml(lootFileBlurb(file.summary))}</span></button>`; }
-async function openLootFile(path){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; $('loot-editor-title').textContent=path; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); renderVisualBuilder(); setLootEditorMode('visual'); renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
+async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; $('loot-editor-title').textContent=path; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); renderVisualBuilder(); setLootEditorMode('visual'); renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
 function syncVisualBuilderToRaw(){ $('loot-editor').value=fmtJson(state.currentLootObject || {}); state.currentLootContent=$('loot-editor').value; showToast(uiText('อัปเดต JSON ดิบแล้ว','Raw JSON updated')); }
 
 function refreshLootItemDatalist(){
@@ -1549,7 +1566,13 @@ async function refreshAll(){
   else clearLootViews();
   await Promise.allSettled(tasks);
   if(state.selectedCorePath) openCoreFile(state.selectedCorePath).catch(()=>{});
-  if(lootReady && state.selectedLootPath) openLootFile(state.selectedLootPath).catch(()=>{});
+  const routeLootPath = state.pendingRouteLootPath || '';
+  if(lootReady && routeLootPath) {
+    state.pendingRouteLootPath = '';
+    openLootFile(routeLootPath, { fromRoute: true }).catch((error)=>showToast(error.message || String(error), true));
+  } else if(lootReady && state.selectedLootPath) {
+    openLootFile(state.selectedLootPath, { fromRoute: true }).catch(()=>{});
+  }
 }
 
 function bindEvents(){

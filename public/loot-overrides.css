@@ -434,6 +434,18 @@
   justify-content: space-between;
   gap: 12px;
   align-items: start;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.search-result-head > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.search-result-head > .ghost.tiny {
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .search-match-list {

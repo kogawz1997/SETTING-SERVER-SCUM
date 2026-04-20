@@ -192,6 +192,53 @@ test('analyzer advice opens the affected loot file when a concrete target exists
   await expect(page.locator('#loot-editor-title')).toContainText(targetPath);
 });
 
+test('loot studio deep links open the requested file from the route query', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const targetPath = 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json';
+
+  await page.goto(`${baseUrl}/loot-studio?file=${encodeURIComponent(targetPath)}`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page.locator('#loot-editor-title')).toContainText(targetPath, { timeout: 60000 });
+  await expect(page).toHaveURL(/\/loot-studio\?file=/);
+});
+
+test('analyzer result cards can open their exact loot files', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="analyzer"]').click();
+  await page.locator('#refresh-analyzer').click();
+
+  const openButton = page.locator('[data-analyzer-open-file]').first();
+  await expect(openButton).toBeVisible({ timeout: 60000 });
+  const targetPath = await openButton.getAttribute('data-analyzer-open-file');
+  expect(targetPath).toMatch(/^(Nodes|Spawners)\/.+\.json$/);
+
+  await openButton.click();
+
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page.locator('#loot-editor-title')).toContainText(targetPath);
+  await expect(page).toHaveURL(/\/loot-studio\?file=/);
+});
+
+test('opening a loot search result updates the route to a shareable file link', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+  await page.locator('#global-search-scope').selectOption('spawners');
+  await page.locator('#global-search-term').fill('Boar_Back_Leg');
+  await page.locator('#global-search-btn').click();
+  const openButton = page.locator('[data-search-open^="Spawners/"]').first();
+  await expect(openButton).toBeVisible({ timeout: 60000 });
+  const targetPath = await openButton.getAttribute('data-search-open');
+
+  await openButton.click();
+
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page.locator('#loot-editor-title')).toContainText(targetPath);
+  await expect(page).toHaveURL(/\/loot-studio\?file=/);
+});
+
 test('global search supports scope and issue filters', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });

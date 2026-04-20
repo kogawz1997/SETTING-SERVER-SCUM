@@ -1,6 +1,6 @@
-# P2.5 Local Status
+# P2.6 Local Status
 
-This project is now in a practical local-ready P2.5 state.
+This project is now in a practical local-ready P2.6 state.
 
 ## Done
 - Local web UI and Express backend.
@@ -8,13 +8,13 @@ This project is now in a practical local-ready P2.5 state.
 - Dashboard readiness, Quick Start, diagnostics export, and command health.
 - Parsed Server Settings editor with grouped filters, field-level explanations, and boolean controls that show enabled/disabled choices instead of raw typing.
 - Core file editor with validation and diff preview.
-- Loot Studio with cleaner workspace, visual editing, beginner cheat sheets, probability presets for selected item rows, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
+- Loot Studio with cleaner workspace, visual editing, beginner cheat sheets, probability presets for selected item rows, shareable file deep links, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
 - Item Catalog with discovered items, icons from `scum_items-main`, friendly names, categories, favorites, notes, import, and export.
-- Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, spawner coverage, and human-readable next actions that can open the related loot file when a concrete target exists.
+- Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, spawner coverage, human-readable next actions, and direct open-file buttons on result cards.
 - Graph with focus/filter, zoom/pan style controls in the UI layer, and dependency inspection.
 - Profiles, rotation, backups, restore selected file, backup notes/tags, backup compare, and backup cleanup.
 - Activity log.
-- Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`, and `/backups`.
+- Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`, and `/backups`; Loot Studio also supports `/loot-studio?file=Nodes/...` or `/loot-studio?file=Spawners/...`.
 - In-app Help guide for first setup, a five-step working flow, Loot Studio concepts, safe save flow, and Server Settings filters.
 - Release check script and Windows launchers.
 - Bulk case-sensitive loot ref repair script with backup-before-write.

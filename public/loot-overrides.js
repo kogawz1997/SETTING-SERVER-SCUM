@@ -430,6 +430,14 @@
     });
   }
 
+  function openAnalyzerLootFile(targetPath) {
+    if (!targetPath || !(targetPath.startsWith('Nodes/') || targetPath.startsWith('Spawners/'))) return;
+    if (typeof setView === 'function') setView('loot');
+    if (typeof openLootFile === 'function') {
+      openLootFile(targetPath).catch((error) => showToast(error.message || String(error), true));
+    }
+  }
+
   function renderGlobalSearchResults(results = []) {
     const target = $('global-search-results');
     if (!target) return;
@@ -1812,6 +1820,17 @@
     return items?.length ? items.slice(0, 60).map(renderItem).join('') : `<div class="success-card">${escapeHtml(emptyText)}</div>`;
   }
 
+  function analyzerOpenFileButton(path, label = uiText('เปิดไฟล์', 'Open file')) {
+    if (!path || !(String(path).startsWith('Nodes/') || String(path).startsWith('Spawners/'))) return '';
+    return `<button type="button" class="ghost tiny" data-analyzer-open-file="${escapeHtml(path)}">${escapeHtml(label)}</button>`;
+  }
+
+  function bindAnalyzerOpenFileButtons() {
+    document.querySelectorAll('[data-analyzer-open-file]').forEach((button) => {
+      button.onclick = () => openAnalyzerLootFile(button.dataset.analyzerOpenFile || '');
+    });
+  }
+
   function analyzerAdviceItems(overview = {}) {
     const balance = overview.balance || {};
     const missingRefs = overview.missingRefs || [];
@@ -1920,8 +1939,7 @@
         const targetPath = button.dataset.analyzerTargetPath || '';
         const targetTerm = button.dataset.analyzerTargetTerm || '';
         if (targetPath && (targetPath.startsWith('Nodes/') || targetPath.startsWith('Spawners/')) && typeof openLootFile === 'function') {
-          if (typeof setView === 'function') setView('loot');
-          openLootFile(targetPath).catch((error) => showToast(error.message || String(error), true));
+          openAnalyzerLootFile(targetPath);
           return;
         }
         if (view === 'graph' && targetTerm) {
@@ -1960,17 +1978,18 @@
     $('analyzer-missing').innerHTML = renderAnalyzerRiskList(
       overview.missingRefs || [],
       uiText('ไม่พบ ref ที่หาย', 'No missing node refs.'),
-      (item) => `<div class="file-item static"><strong>${escapeHtml(item.nodeName)}</strong><span class="item-sub">${escapeHtml(item.spawner || '')}</span></div>`
+      (item) => `<div class="file-item static"><div><strong>${escapeHtml(item.nodeName)}</strong><span class="item-sub">${escapeHtml(item.spawner || '')}</span></div>${analyzerOpenFileButton(item.path || item.spawnerPath || '')}</div>`
     );
     $('analyzer-unused').innerHTML = renderAnalyzerRiskList(
       overview.unusedNodes || [],
       uiText('ไม่พบ node ที่ไม่ได้ใช้', 'No unused nodes.'),
-      (item) => `<div class="file-item static"><strong>${escapeHtml(item.nodeName)}</strong><span class="item-sub">${escapeHtml(item.path || '')}</span></div>`
+      (item) => `<div class="file-item static"><div><strong>${escapeHtml(item.nodeName)}</strong><span class="item-sub">${escapeHtml(item.path || '')}</span></div>${analyzerOpenFileButton(item.path || '')}</div>`
     );
     const topItems = (overview.topItems || []).slice(0, 18).map((item) => `<div class="result-card analyzer-item-card">${renderCatalogItemIdentity(item.name, `${item.category} · ${item.count} ${uiText('ครั้ง', 'hits')}`)}</div>`).join('');
-    const powerScores = (overview.nodePowerScores || []).slice(0, 12).map((node) => `<div class="result-card analyzer-node-power"><strong>${escapeHtml(node.name)}</strong><div class="muted">${escapeHtml(`${uiText('score', 'score')} ${node.score} · ${node.itemCount} ${uiText('items', 'items')}`)}</div><div class="pill-row"><span class="tag weapon">${escapeHtml(`W ${node.categoryMix?.weapon || 0}`)}</span><span class="tag ammo">${escapeHtml(`A ${node.categoryMix?.ammo || 0}`)}</span><span class="tag medical">${escapeHtml(`M ${node.categoryMix?.medical || 0}`)}</span></div></div>`).join('');
-    const spawnerCoverage = (overview.spawnerCoverage || []).slice(0, 12).map((entry) => `<div class="result-card analyzer-coverage-card"><strong>${escapeHtml(entry.name)}</strong><div class="muted">${escapeHtml(`${entry.validRefs}/${entry.refs} refs · ${entry.coverage}%`)}</div>${entry.missingRefs ? `<span class="tag critical">${escapeHtml(`${entry.missingRefs} missing`)}</span>` : `<span class="tag ok">${escapeHtml(uiText('ครบ', 'clean'))}</span>`}</div>`).join('');
+    const powerScores = (overview.nodePowerScores || []).slice(0, 12).map((node) => `<div class="result-card analyzer-node-power"><div class="search-result-head"><div><strong>${escapeHtml(node.name)}</strong><div class="muted">${escapeHtml(`${uiText('score', 'score')} ${node.score} · ${node.itemCount} ${uiText('items', 'items')}`)}</div></div>${analyzerOpenFileButton(node.path || '')}</div><div class="pill-row"><span class="tag weapon">${escapeHtml(`W ${node.categoryMix?.weapon || 0}`)}</span><span class="tag ammo">${escapeHtml(`A ${node.categoryMix?.ammo || 0}`)}</span><span class="tag medical">${escapeHtml(`M ${node.categoryMix?.medical || 0}`)}</span></div></div>`).join('');
+    const spawnerCoverage = (overview.spawnerCoverage || []).slice(0, 12).map((entry) => `<div class="result-card analyzer-coverage-card"><div class="search-result-head"><div><strong>${escapeHtml(entry.name)}</strong><div class="muted">${escapeHtml(`${entry.validRefs}/${entry.refs} refs · ${entry.coverage}%`)}</div></div>${analyzerOpenFileButton(entry.path || '')}</div>${entry.missingRefs ? `<span class="tag critical">${escapeHtml(`${entry.missingRefs} missing`)}</span>` : `<span class="tag ok">${escapeHtml(uiText('ครบ', 'clean'))}</span>`}</div>`).join('');
     $('analyzer-top-items').innerHTML = `<div class="analyzer-wide-grid"><div><h4>${escapeHtml(uiText('ไอเท็มที่เจอบ่อย', 'Most repeated items'))}</h4><div class="result-grid">${topItems || `<div class="muted">${escapeHtml(uiText('ยังไม่มีไอเท็ม', 'No items.'))}</div>`}</div></div><div><h4>${escapeHtml(uiText('Node power score', 'Node power score'))}</h4><div class="result-grid">${powerScores || `<div class="muted">${escapeHtml(uiText('ยังไม่มีคะแนน node', 'No node scores.'))}</div>`}</div></div><div><h4>${escapeHtml(uiText('Spawner coverage', 'Spawner coverage'))}</h4><div class="result-grid">${spawnerCoverage || `<div class="muted">${escapeHtml(uiText('ยังไม่มี spawner coverage', 'No spawner coverage.'))}</div>`}</div></div></div>`;
+    bindAnalyzerOpenFileButtons();
   };
 
   function focusField(selector) {
@@ -2264,12 +2283,15 @@
     return `<div class="builder-guide-shell"><div class="section-head compact"><div><h4>${escapeHtml(coach.title)}</h4><p class="muted">${escapeHtml(coach.description)}</p></div><div class="actions tight wrap"><button id="loot-ui-simple" class="ghost tiny">${escapeHtml(lootUiLabel('simple'))}</button><button id="loot-ui-guides" class="ghost tiny">${escapeHtml(lootUiLabel('guides'))}</button><button id="loot-ui-compact" class="ghost tiny">${escapeHtml(lootUiLabel('compact'))}</button>${advancedToggle}</div></div><div class="guide-chip-list">${coach.chips.map((chip) => `<span class="guide-chip">${escapeHtml(chip)}</span>`).join('')}</div>${renderLootChangeGoals(summary)}${renderLootQuickTasks(summary)}${state.lootUi.showGuides ? `<div class="builder-guide-grid"><div class="builder-guide-card"><h4>${escapeHtml(uiText('ลำดับที่ควรแก้', 'Recommended order'))}</h4><ol class="guide-step-list">${coach.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}</ol></div><div class="builder-legend-card"><h4>${escapeHtml(uiText('อ่านความหมายของหน้าจอนี้', 'How to read this screen'))}</h4><ul class="guide-step-list">${coach.legend.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div></div>` : ''}</div>`;
   };
 
-  openLootFile = async function (path) {
+  openLootFile = async function (path, options = {}) {
     if (path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) {
       renderLootLists();
       return;
     }
     state.selectedLootPath = path;
+    if (!options.fromRoute && state.view === 'loot' && typeof updateRoute === 'function') {
+      updateRoute('loot', 'replace', { file: path });
+    }
     state.focusedLootField = null;
     state.treeSearch = '';
     state.itemCatalogSearch = '';
