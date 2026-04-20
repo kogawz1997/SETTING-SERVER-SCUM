@@ -1,122 +1,217 @@
-# Usage Guide
+# คู่มือใช้งาน
 
-## Safe Quick Start
-Use this order when setting up a real server:
-1. Open **App Settings** and set the real SCUM config folder.
-2. Set **Nodes folder** and **Spawners folder**, or leave them blank only if the default folders under the config root exist.
-3. Return to **Dashboard** and run **Preflight**.
-4. Open **Backups** and create a tagged backup. Use `keep`, `pinned`, or `protected` for snapshots that cleanup should skip.
-5. Open **Loot Studio**, edit with the visual builder, and use item autocomplete instead of typing unknown class names.
-6. Open the **Validation** context tab and fix critical issues before saving.
-7. Use **Preview Diff** before saving when the change is large.
-8. Use **Save + Reload** only after the reload command is configured and tested.
-9. If a change goes wrong, open **Backups**, select a snapshot, select a file, then restore only that file.
-10. Before handing the folder to another machine, run `npm run release:check` and `npm test`.
+คู่มือนี้อธิบายว่าแต่ละหน้ามีไว้ทำอะไร และควรใช้ลำดับไหนเวลาจะยุ่งกับไฟล์เซิร์ฟเวอร์จริง
 
-## 1. Dashboard
-Use Dashboard for quick checks:
-- Confirm the config directory is set
-- Confirm Nodes and Spawners folders are found
-- Follow the Quick Start workflow
-- Run the readiness Preflight report
-- Run backup, reload, or restart actions
-- Search globally for items, nodes, spawners, or setting names
+## เริ่มแบบปลอดภัย
 
-## 2. App Settings
-Fields:
-- **SCUM config folder**: Main SCUM config directory
-- **Backup folder**: Where timestamped backups will be stored
-- **Reload loot command**: Optional shell command or script
-- **Restart server command**: Optional shell command or script
-- **Auto backup core files on start**: Creates backups for core files during startup if enabled
+ถ้าเพิ่งเริ่มใช้กับเซิร์ฟจริง ให้ทำตามนี้ก่อน:
 
-## 3. Server Settings
-- Use the filter box to narrow keys
-- Edit values directly in the parsed grid
-- Use preset cards to preview or apply common loot-related setups
-- Use **Save + Reload** after changes when needed
+1. ไปหน้า `App Settings` แล้วตั้ง path ให้ถูก
+2. ตั้ง `Nodes folder` และ `Spawners folder` ถ้าไม่ได้อยู่ใต้ config root
+3. กลับไป `Dashboard` แล้วกด `Run Preflight`
+4. ไปหน้า `Backups` แล้วสร้าง backup ใส่ tag เช่น `keep`
+5. เข้า `Loot Studio` แล้วแก้ผ่าน visual builder ก่อน อย่าเริ่มจาก raw JSON ถ้ายังไม่ชัวร์
+6. ดู validation ก่อน save ทุกครั้ง
+7. ถ้าแก้เยอะ ให้กด `Preview Diff`
+8. ใช้ `Save + Reload` เฉพาะตอนตั้ง reload command ถูกแล้ว
+9. ถ้ามีปัญหา ให้ restore เฉพาะไฟล์ที่เสียจากหน้า `Backups`
+10. ก่อนส่งต่อให้เครื่องอื่น รัน `npm run release:check` และ `npm test`
 
-## 4. Core Files
-- Choose `GameUserSettings.ini` or `EconomyOverride.json`
-- Review validation and metadata
-- Use **Preview Diff** before saving
-- Save writes a backup first
+## Dashboard
 
-## 5. Loot Studio
-### Left column
-- Search files
-- Browse `Nodes` and `Spawners`
-- Create new files
+หน้านี้เอาไว้ดูภาพรวม ไม่ต้องเดาว่าระบบพร้อมหรือยัง
 
-### Middle column
-- Validation results
-- Auto-fix preview and auto-fix save
-- Dependency list
-- Loot simulator
-- Quick kit templates
+ใช้เช็ค:
 
-### Right column
-- Edit using either visual builder or raw JSON
-- Clone or delete the current file
-- Save or save with reload
+- config folder ตั้งแล้วหรือยัง
+- Nodes/Spawners เจอไหม
+- backup พร้อมไหม
+- Preflight ผ่านไหม
+- reload/restart command พร้อมใช้หรือยัง
+- ค้นหา item, node, spawner หรือ setting ทั้งระบบ
 
-### Item Catalog
-- Use the catalog search when you do not remember the exact item class name
-- Icons appear when matching files exist in `scum_items-main`
-- Edit friendly names, categories, favorite flags, and notes from the catalog card
-- Export metadata before sharing a tuned catalog with another server
-- Import metadata in merge mode unless you intentionally want to replace all local overrides
+ถ้า Dashboard ยังมี critical issue อย่าเพิ่งไป save ไฟล์จริง
 
-### Validation
-- Critical issues should be fixed before saving
-- Warnings are usually safe to review manually, but missing refs and invalid probabilities should not be ignored
-- The schema endpoint is available at `/api/schemas/loot` for tooling or diagnostics
+## App Settings
 
-## 6. Analyzer
-Use Analyzer to spot:
-- Missing node references
-- Unused nodes
-- Frequently repeated items
-- Category distribution
-- Balance indicators for weapon/ammo/medical ratios and spawner coverage
+หน้านี้สำคัญที่สุดตอนเริ่มต้น เพราะเป็นตัวบอกแอปว่าจะไปอ่าน/เขียนไฟล์ที่ไหน
 
-## 7. Graph
-Use Graph to understand relationships:
-- Filter by item, node, or spawner name
-- Click cards to inspect focus neighborhoods
+ช่องหลัก:
 
-## 8. Profiles
-- Create snapshots of the whole config state
-- Select one and apply it later
-- Configure rotation entries and run them manually or on schedule
+- `SCUM config folder`: โฟลเดอร์ config หลักของ SCUM server
+- `Backup folder`: ที่เก็บ backup
+- `Nodes folder`: โฟลเดอร์ Nodes ถ้าใช้ path แยก
+- `Spawners folder`: โฟลเดอร์ Spawners ถ้าใช้ path แยก
+- `Reload loot command`: script หรือ command สำหรับ reload loot
+- `Restart server command`: script หรือ command สำหรับ restart server
+- `Auto backup core files on start`: ให้แอป backup ไฟล์หลักตอนเปิด
 
-## 9. Backups
-- Choose a backup snapshot
-- Inspect individual files
-- Restore only the file you need
-- Add notes and tags to important snapshots
-- Compare two backups before restoring
-- Cleanup old backups after previewing the delete list
-- Tags `keep`, `pinned`, and `protected` are skipped by cleanup unless explicitly included
+reload/restart ควรทดสอบนอกแอปก่อน ถ้าข้างนอกยังไม่ผ่าน ในแอปก็ไม่ควรใช้
 
-## 10. Activity
-- Review recent operations and timestamps
-- Filter activity by operation type, path, or text
+## Server Settings
 
-## 11. Local Handoff
-- Run `npm install` once on the target machine
-- Run `npm run release:check`
-- Run `npm test` if Playwright browsers are installed
-- Start with `start-local.cmd`
-- Configure paths from **App Settings**
-- Create one tagged backup before the first save
+ใช้แก้ `ServerSettings.ini` แบบแยกหมวดและกรองหา key ได้ ไม่ต้องไล่ไฟล์ยาวๆ เอง
 
-## 12. Repair Tools
-- Run `npm run repair:loot-refs -- --dry-run` to preview case-sensitive node ref repairs.
-- Run `npm run repair:loot-refs` to apply safe case repairs after the dry run reports `unresolvedRefs: 0`.
-- The repair script creates a backup named like `YYYY-MM-DD_HH-MM-SS-repair-loot-refs` before writing files.
+เหมาะกับ:
 
-## 13. Analyzer Advisory Ignore
-- `data/loot-advisory-ignore.json` stores known-safe advisory exceptions.
-- `Insects` is ignored as an unused-node advisory because it is a standalone forage/insect tree and should not be deleted or wired through a fake spawner just to improve coverage numbers.
-- Do not add missing refs or validation errors to this file; only use it for non-blocking analyzer noise.
+- ค่า `True/False`
+- ตัวเลข
+- ข้อความ
+- setting ที่อยากแก้เร็วโดยไม่เปิด raw file
+
+ถ้าเปลี่ยนค่าหลายตัว ให้ preview ก่อน save และ backup ไว้ก่อนเสมอ
+
+## Core Files
+
+ใช้แก้ไฟล์หลักที่ยังเป็น raw editor:
+
+- `GameUserSettings.ini`
+- `EconomyOverride.json`
+
+หน้านี้มี validation และ metadata ช่วยดูว่าไฟล์พังหรือไม่ ก่อน save ให้ใช้ `Preview Diff` ถ้าแก้เยอะ
+
+## Loot Studio
+
+หน้านี้คือส่วนหลักสำหรับจัดการ loot
+
+ด้านซ้าย:
+
+- ค้นหาไฟล์
+- เลือก `Nodes`
+- เลือก `Spawners`
+- สร้างไฟล์ใหม่
+
+ตรงกลาง:
+
+- validation
+- auto-fix preview
+- dependency
+- simulator
+- kit template
+
+ด้านขวา:
+
+- visual builder
+- raw JSON
+- clone/delete
+- save หรือ save + reload
+
+แนะนำให้เริ่มจาก visual builder ก่อน เพราะอ่านง่ายกว่า raw JSON และลดโอกาสพิมพ์ผิด
+
+## Item Catalog
+
+ใช้ตอนจำชื่อ item/class ไม่ได้
+
+ทำได้:
+
+- ค้นหา item
+- ดู icon ถ้ามีไฟล์ตรงใน `scum_items-main`
+- แก้ friendly name
+- ใส่ category
+- favorite item ที่ใช้บ่อย
+- import/export metadata
+
+ถ้าจะส่ง catalog ให้เครื่องอื่น แนะนำ export metadata ก่อน แล้วอีกเครื่อง import แบบ merge
+
+## Validation
+
+validation ใช้แยกปัญหาที่ควรแก้ก่อน save
+
+ให้สนใจเป็นพิเศษ:
+
+- missing refs
+- JSON ผิด
+- probability ดูผิดปกติ
+- field สำคัญหาย
+
+warning บางอย่างอาจไม่ต้องแก้ทันที แต่ critical ไม่ควรปล่อยผ่าน
+
+## Analyzer
+
+ใช้ดูภาพรวม loot ทั้งระบบ
+
+ช่วยหา:
+
+- spawner ที่อ้าง node หาย
+- node ที่ไม่ได้ถูกใช้
+- item ที่ซ้ำบ่อย
+- balance คร่าวๆ ของ weapon/ammo/medical
+- coverage ของ spawner
+
+ถ้าเห็น unused node อย่าลบทันที ให้เช็คก่อนว่าเป็น node พิเศษหรือ standalone หรือไม่
+
+## Graph
+
+ใช้ดูความสัมพันธ์ของ loot เป็น flow:
+
+```text
+Spawner -> Node -> Item
+```
+
+เหมาะกับตอนอยากรู้ว่า item หนึ่งมาจากทางไหน หรือ spawner หนึ่งลาก node อะไรอยู่
+
+## Profiles
+
+ใช้เก็บชุด config เพื่อสลับใช้งาน
+
+เหมาะกับ:
+
+- solo
+- pvp
+- hardcore
+- event
+- test config
+
+ก่อน apply profile จริง ควร backup ก่อนเสมอ
+
+## Backups
+
+ใช้ย้อนงานเวลาแก้พลาด
+
+ทำได้:
+
+- ดู snapshot
+- ใส่ note/tag
+- compare backup
+- restore รายไฟล์
+- cleanup backup เก่า
+
+tag `keep`, `pinned`, `protected` ใช้กัน backup สำคัญไม่ให้ถูก cleanup ง่ายๆ
+
+## Activity
+
+ใช้ดูประวัติว่าเคยทำอะไรไปบ้าง เช่น:
+
+- save
+- backup
+- restore
+- apply profile
+- run command
+
+ถ้าอยู่ดีๆ config แปลก หน้านี้ช่วยไล่ย้อนว่าล่าสุดไปแก้อะไรมา
+
+## Repair Tools
+
+ใช้ตอนเจอปัญหา node ref ตัวเล็ก/ตัวใหญ่ไม่ตรงกัน
+
+ดู preview ก่อน:
+
+```powershell
+npm run repair:loot-refs -- --dry-run
+```
+
+ถ้า preview บอกว่า unresolved refs เป็น `0` ค่อย apply:
+
+```powershell
+npm run repair:loot-refs
+```
+
+script จะสร้าง backup ก่อนเขียนไฟล์จริง
+
+## Analyzer Advisory Ignore
+
+ไฟล์ `data/loot-advisory-ignore.json` ใช้เก็บรายการที่รู้แล้วว่าเป็น warning ที่ปล่อยได้
+
+ตัวอย่างในโปรเจกต์นี้คือ `Insects` เพราะเป็น standalone forage/insect tree ไม่ควรไปต่อ spawner ปลอมแค่เพื่อให้ analyzer เงียบ
+
+อย่าเอา missing refs หรือ validation error จริงไปใส่ ignore file
