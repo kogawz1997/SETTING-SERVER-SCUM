@@ -1,0 +1,8 @@
+{
+  "unusedNodes": [
+    "Insects"
+  ],
+  "notes": {
+    "Insects": "Known standalone forage/insect tree. Keep it in the dataset; do not create a fake spawner just to silence analyzer coverage."
+  }
+}

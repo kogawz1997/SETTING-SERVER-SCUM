@@ -1,0 +1,135 @@
+const { test, expect } = require('@playwright/test');
+
+const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
+const views = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'settings', label: 'App Settings' },
+  { id: 'server', label: 'Server Settings' },
+  { id: 'corefiles', label: 'Core Files' },
+  { id: 'loot', label: 'Loot Studio' },
+  { id: 'analyzer', label: 'Analyzer' },
+  { id: 'graph', label: 'Graph' },
+  { id: 'profiles', label: 'Profiles' },
+  { id: 'backups', label: 'Backups' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'diff', label: 'Diff Preview' }
+];
+
+async function collectOverflowIssues(page, viewId) {
+  return page.evaluate((targetViewId) => {
+    const active = document.getElementById(`view-${targetViewId}`);
+    if (!active || !active.classList.contains('active')) return ['View is not active'];
+    const issues = [];
+    const width = document.documentElement.clientWidth;
+    const nodes = Array.from(active.querySelectorAll('*'));
+    for (const node of nodes) {
+      if (node.closest('.graph-viewport')) continue;
+      const style = window.getComputedStyle(node);
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const rects = node.getClientRects();
+      if (!rects.length) continue;
+      const rect = rects[0];
+      if (rect.right > width + 2) {
+        const label = node.id
+          ? `#${node.id}`
+          : `${node.tagName.toLowerCase()}${node.classList.length ? `.${Array.from(node.classList).slice(0, 2).join('.')}` : ''}`;
+        issues.push(`${label} overflows by ${Math.round(rect.right - width)}px`);
+        if (issues.length >= 10) break;
+      }
+    }
+    return issues;
+  }, viewId);
+}
+
+async function runViewportSweep(page, viewport, suffix) {
+  await page.setViewportSize(viewport);
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  for (const view of views) {
+    await page.locator(`.nav[data-view="${view.id}"]`).click();
+    await page.waitForTimeout(200);
+    await expect(page.locator(`#view-${view.id}`)).toBeVisible();
+    const issues = await collectOverflowIssues(page, view.id);
+    expect(issues, `${view.label} has layout overflow issues: ${issues.join('; ')}`).toEqual([]);
+    await page.screenshot({ path: `artifacts/ui-smoke/${suffix}-${view.id}.png`, fullPage: true });
+  }
+}
+
+test('desktop views render without horizontal overflow', async ({ page }) => {
+  await runViewportSweep(page, { width: 1440, height: 1200 }, 'desktop');
+});
+
+test('dashboard readiness preflight renders actionable checks', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-dashboard .hero')).not.toContainText(/landfill|betrayed|explodes/);
+  await expect(page.locator('#view-dashboard .hero')).toContainText(/applying changes|apply/);
+  await expect(page.locator('#readiness-panel')).toBeVisible();
+  await expect(page.locator('.readiness-score')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#quick-start-panel')).toBeVisible();
+  await expect(page.locator('.quick-start-step')).toHaveCount(7);
+  await page.locator('[data-quick-view="settings"]').first().click();
+  await expect(page.locator('#view-settings')).toBeVisible();
+  await page.locator('.nav[data-view="dashboard"]').click();
+  await expect(page.locator('#diagnostics-panel')).toBeVisible();
+  await page.locator('#diagnostics-include-paths').uncheck();
+  await page.locator('#generate-diagnostics').click();
+  await expect(page.locator('#diagnostics-output')).toContainText(/"readiness"|"loot"/);
+  await page.locator('#readiness-refresh').click();
+  await expect(page.locator('.readiness-check').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#readiness-panel')).toContainText(/Preflight|พร้อมใช้|PRODUCTION READY/);
+});
+
+test('mobile views render without horizontal overflow', async ({ page }) => {
+  await runViewportSweep(page, { width: 430, height: 932 }, 'mobile');
+});
+
+test('graph view has interactive focus and zoom controls', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="graph"]').click();
+  await page.locator('#refresh-graph').click();
+
+  await expect(page.locator('.graph-toolbar')).toBeVisible();
+  await expect(page.locator('.graph-viewport')).toBeVisible();
+  const firstNode = page.locator('.graph-map-node').first();
+  await expect(firstNode).toBeVisible({ timeout: 60000 });
+  await firstNode.click();
+  await expect(firstNode).toHaveClass(/active/);
+  await expect(page.locator('#graph-focus-summary')).toContainText(/Focus|โฟกัส/);
+
+  await page.locator('#graph-zoom-in').click();
+  await expect(page.locator('.graph-toolbar .tag').filter({ hasText: /%/ })).toContainText(/1(0|1|2)/);
+});
+
+test('analyzer shows deeper balance and coverage metrics', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="analyzer"]').click();
+  await page.waitForTimeout(1400);
+  await page.locator('#refresh-analyzer').click();
+
+  await expect(page.locator('.analyzer-deep-grid')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#analyzer-stats')).toContainText(/Balance score|คะแนนสมดุล/);
+  await expect(page.locator('#analyzer-categories')).toContainText(/Ammo \/ Weapon|Medical share|Node coverage/);
+  await expect(page.locator('#analyzer-top-items')).toContainText(/Node power score|Spawner coverage/);
+});
+
+test('global search supports scope and issue filters', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#global-search-filters')).toBeVisible();
+  await page.locator('#global-search-scope').selectOption('spawners');
+  await page.locator('#global-search-match').selectOption('exact');
+  await page.locator('#global-search-term').fill('Boar_Back_Leg');
+  await page.locator('#global-search-btn').click();
+  await expect(page.locator('.search-result-card').first()).toBeVisible();
+  await expect(page.locator('#global-search-results')).toContainText(/Spawners\//);
+
+  await page.locator('#global-search-issue').selectOption('unused_nodes');
+  await page.locator('#global-search-term').fill('');
+  await page.locator('#global-search-btn').click();
+  await expect(page.locator('#global-search-results')).toContainText(/results|No results|ผลลัพธ์|ไม่พบ/);
+});

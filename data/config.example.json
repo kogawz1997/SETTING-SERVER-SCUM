@@ -1,0 +1,6 @@
+{
+  "scumConfigDir": "C:\\scumserver\\SCUM\\Saved\\Config\\WindowsServer",
+  "backupDir": ".control-plane-backups",
+  "reloadLootCommand": "echo Replace this with your reload script or admin command wrapper",
+  "restartServerCommand": "echo Replace this with your restart script"
+}

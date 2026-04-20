@@ -1,0 +1,24 @@
+{
+  "name": "scum-local-control",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first SCUM config control panel for personal use.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node scripts/basic-checks.cjs",
+    "release:check": "node scripts/release-check.cjs",
+    "repair:loot-refs": "node scripts/repair-loot-refs.cjs",
+    "test": "npm run check && npm run release:check && npm run test:ui-smoke && npm run test:loot-regression && npm run test:settings-regression && npm run test:backup-activity",
+    "test:ui-smoke": "npx playwright test scripts/ui-smoke.spec.cjs --reporter=line",
+    "test:loot-regression": "npx playwright test scripts/loot-studio-regression.spec.cjs --reporter=line",
+    "test:settings-regression": "npx playwright test scripts/settings-command-regression.spec.cjs --reporter=line",
+    "test:backup-activity": "npx playwright test scripts/backup-activity-regression.spec.cjs --reporter=line"
+  },
+  "dependencies": {
+    "diff": "^5.2.0",
+    "express": "^4.19.2",
+    "ini": "^4.1.3"
+  }
+}

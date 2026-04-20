@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Runtime/private local state
+.control-plane-backups/
+artifacts/
+test-results/
+output/
+
+# Machine-specific config and logs
+data/config.json
+data/config.testbackup.json
+data/activity.jsonl
+data/activity.log
+data/profile-store/
+
+# Keep shareable data files
+!data/config.example.json
+!data/item-catalog-overrides.json
+!data/kit-templates.json
+!data/loot-advisory-ignore.json
+!data/profiles.json
+!data/rotation.json
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+*.tmp

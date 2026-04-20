@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SCUM Local Control Next</title>
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/loot-overrides.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar glass">
+      <div class="brand-block">
+        <div class="logo-badge">SC</div>
+        <div>
+          <h1>SCUM Local Control</h1>
+          <p class="muted">Next</p>
+        </div>
+      </div>
+      <div class="nav-group">
+        <button class="nav active" data-view="dashboard">Dashboard</button>
+        <button class="nav" data-view="settings">App Settings</button>
+        <button class="nav" data-view="server">Server Settings</button>
+        <button class="nav" data-view="corefiles">Core Files</button>
+        <button class="nav" data-view="loot">Loot Studio</button>
+        <button class="nav" data-view="analyzer">Analyzer</button>
+        <button class="nav" data-view="graph">Graph</button>
+        <button class="nav" data-view="profiles">Profiles</button>
+        <button class="nav" data-view="backups">Backups</button>
+        <button class="nav" data-view="activity">Activity</button>
+        <button class="nav" data-view="diff">Diff Preview</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="eyebrow">LOCAL-FIRST CONTROL PLANE</div>
+          <h2 id="page-title">Dashboard</h2>
+          <div class="status-line"><span class="dot" id="status-dot"></span><span id="status-text" class="muted">Loading…</span></div>
+        </div>
+        <div class="topbar-actions wrap">
+          <button id="lang-toggle" class="ghost">ไทย</button>
+          <button id="global-refresh" class="ghost">Refresh</button>
+          <button id="global-backup" class="ghost">Backup core</button>
+          <button id="global-reload">Reload loot</button>
+          <button id="global-restart" class="danger-outline">Restart server</button>
+        </div>
+      </div>
+
+      <section id="view-dashboard" class="view active">
+        <div class="hero card glass">
+          <div>
+            <div class="eyebrow">READY CHECK</div>
+            <h3>Edit server settings, tune loot, validate references, and keep backups before applying changes.</h3>
+            <p class="muted">Use the preflight panel below to confirm paths, loot validation, backups, and reload commands before touching live files.</p>
+          </div>
+        </div>
+        <div id="setup-notice" class="card setup-card hidden"></div>
+        <div class="stats-grid">
+          <div class="card stat"><span class="stat-label">Config directory</span><strong id="stat-config">-</strong></div>
+          <div class="card stat"><span class="stat-label">Backups</span><strong id="stat-backups">-</strong></div>
+          <div class="card stat"><span class="stat-label">Nodes</span><strong id="stat-nodes">-</strong></div>
+          <div class="card stat"><span class="stat-label">Spawners</span><strong id="stat-spawners">-</strong></div>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <div class="section-head"><div><h3>Health</h3><p class="muted">What is configured and what is still missing.</p></div></div>
+            <div id="health-grid" class="health-grid"></div>
+            <div class="console-head"><strong>Command output</strong><button id="clear-console" class="ghost tiny">Clear</button></div>
+            <pre id="command-output" class="console"></pre>
+          </div>
+          <div class="card">
+            <div class="section-head"><div><h3>Global Search</h3><p class="muted">Search across settings, economy, nodes, and spawners.</p></div></div>
+            <div class="actions"><input id="global-search-term" placeholder="Search item, node, spawner, setting..." /><button id="global-search-btn">Search</button></div>
+            <div id="global-search-results" class="search-results"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="grid two settings-layout">
+          <div class="stack-spaced">
+            <div class="card">
+              <div class="section-head">
+                <div>
+                  <h3 id="settings-title">App Settings</h3>
+                  <p id="settings-hint" class="muted">Local paths and shell commands.</p>
+                </div>
+              </div>
+              <div class="section-block">
+                <div class="section-head compact">
+                  <div>
+                    <h4 id="settings-paths-title">Workspace Paths</h4>
+                    <p id="settings-paths-hint" class="muted">Point the app at the real folders it should edit.</p>
+                  </div>
+                </div>
+                <div class="form-grid settings-path-grid">
+                  <label><span id="label-scum-dir">SCUM config folder</span><input id="cfg-scum-dir" /></label>
+                  <label><span id="label-backup-dir">Backup folder</span><input id="cfg-backup-dir" /></label>
+                  <label><span id="label-nodes-dir">Nodes folder</span><input id="cfg-nodes-dir" /></label>
+                  <label><span id="label-spawners-dir">Spawners folder</span><input id="cfg-spawners-dir" /></label>
+                </div>
+                <p id="settings-paths-note" class="muted small">Leave Nodes and Spawners blank to use the default subfolders under the SCUM config root.</p>
+              </div>
+              <div class="section-block">
+                <div class="section-head compact">
+                  <div>
+                    <h4 id="settings-commands-title">Commands</h4>
+                    <p id="settings-commands-hint" class="muted">Optional automation when you save or apply changes.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <label><span id="label-reload-cmd">Reload loot command</span><textarea id="cfg-reload-cmd" class="command-input" rows="2"></textarea></label>
+                  <label><span id="label-restart-cmd">Restart server command</span><textarea id="cfg-restart-cmd" class="command-input" rows="2"></textarea></label>
+                </div>
+                <div id="settings-command-assist" class="stack-spaced"></div>
+                <label class="checkline"><input type="checkbox" id="cfg-autobackup" /> <span id="label-autobackup">Auto backup core files on start</span></label>
+              </div>
+              <div class="actions">
+                <button id="save-config-btn">Save App Config</button>
+                <button id="check-config-btn" class="ghost">Check folder</button>
+                <button id="discover-config-btn" class="ghost">Find likely folders</button>
+              </div>
+            </div>
+          </div>
+          <div class="stack-spaced">
+            <div class="card">
+              <div class="section-head compact">
+                <div>
+                  <h4 id="settings-status-title">Setup Status</h4>
+                  <p id="settings-status-hint" class="muted">Check whether the root, loot folders, and required files are all ready.</p>
+                </div>
+              </div>
+              <div id="settings-status-summary" class="stack-spaced"></div>
+              <div id="settings-check-result" class="stack-spaced"></div>
+            </div>
+            <div class="card">
+              <div class="section-head compact">
+                <div>
+                  <h4 id="settings-discovery-title">Likely Folders</h4>
+                  <p id="settings-discovery-hint" class="muted">Windows paths that commonly contain a dedicated server config.</p>
+                </div>
+              </div>
+              <div id="settings-discovery-results" class="stack-spaced"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-server" class="view">
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <h3 id="server-title">Parsed Server Settings</h3>
+              <p id="server-hint" class="muted">Filter, edit, preview presets, and save.</p>
+            </div>
+            <div class="actions tight server-toolbar">
+              <select id="server-section-filter" class="server-filter-select">
+                <option value="__all">All sections</option>
+              </select>
+              <select id="server-group-filter" class="server-filter-select">
+                <option value="__all">All groups</option>
+              </select>
+              <input id="server-field-filter" placeholder="Filter keys..." />
+              <button id="reload-server-parsed" class="ghost">Reload</button>
+              <button id="save-server-parsed">Save</button>
+              <button id="save-server-parsed-reload" class="ghost">Save + Reload</button>
+            </div>
+          </div>
+          <div id="server-section-summary" class="stats-grid compact-stats server-summary-grid"></div>
+          <div id="preset-list" class="preset-list"></div>
+          <div id="parsed-server-grid" class="parsed-grid"></div>
+        </div>
+      </section>
+
+      <section id="view-corefiles" class="view">
+        <div class="grid three top-align core-grid">
+          <div class="card"><div class="section-head compact"><div><h4>Files</h4><p class="muted">Raw editor for GameUser and Economy.</p></div></div><div id="core-file-list" class="file-list tall"></div></div>
+          <div class="card"><div class="section-head compact"><div><h4>Meta</h4><p class="muted">Validation and stats.</p></div></div><div id="core-file-meta"></div><div class="divider"></div><div id="core-file-validation"></div></div>
+          <div class="card"><div class="section-head compact"><div><h4 id="core-file-title">No file selected</h4><p class="muted">Preview diff before saving.</p></div><div class="actions tight"><button id="core-preview-diff" class="ghost">Preview Diff</button><button id="core-save">Save</button></div></div><textarea id="core-editor" class="editor code"></textarea></div>
+        </div>
+      </section>
+
+      <section id="view-loot" class="view">
+        <div class="card loot-workspace-bar">
+          <div class="section-head compact">
+            <div>
+              <h4 id="loot-workspace-title">Loot Workspace</h4>
+              <p id="loot-workspace-hint" class="muted">Keep only the panels you need open while editing.</p>
+            </div>
+            <div class="actions tight wrap">
+              <span id="loot-current-file" class="tag node">No loot file selected</span>
+              <span id="loot-dirty-indicator" class="tag">Saved</span>
+            </div>
+          </div>
+          <div class="actions tight wrap">
+            <button id="loot-files-toggle" class="ghost tiny">Hide Files</button>
+            <button id="loot-inspector-toggle" class="ghost tiny">Hide Context</button>
+            <button id="loot-focus-toggle" class="ghost tiny">Focus Editor</button>
+            <button id="loot-reset-layout" class="ghost tiny">Reset Layout</button>
+          </div>
+        </div>
+        <div class="loot-grid top-align">
+          <div class="card loot-files-card">
+            <div class="section-head compact"><div><h4 id="loot-files-title">Loot Files</h4><p id="loot-files-hint" class="muted">Nodes and spawners with create/clone/delete.</p></div></div>
+            <input id="loot-search" placeholder="Search loot files..." />
+            <div class="list-head"><h5>Nodes</h5><button id="new-node-btn" class="ghost tiny">New</button></div>
+            <div id="nodes-list" class="file-list"></div>
+            <div class="list-head"><h5>Spawners</h5><button id="new-spawner-btn" class="ghost tiny">New</button></div>
+            <div id="spawners-list" class="file-list"></div>
+          </div>
+          <div class="loot-main-column">
+            <div class="card loot-editor-card">
+              <div class="section-head compact loot-editor-head"><div><h4 id="loot-editor-title">No loot file selected</h4><p id="loot-editor-hint" class="muted">Visual builder and raw JSON stay in sync.</p></div><div class="actions tight wrap"><button id="loot-preview-diff" class="ghost">Preview Diff</button><button id="loot-save">Save</button><button id="loot-save-reload" class="ghost">Save + Reload</button></div></div>
+              <div class="loot-editor-toolbar">
+                <div class="actions tight wrap loot-mode-actions"><button id="toggle-visual" class="ghost">Visual Builder</button><button id="toggle-raw" class="ghost">Raw JSON</button></div>
+                <div class="actions tight wrap loot-file-actions"><button id="clone-loot" class="ghost">Clone</button><button id="delete-loot" class="danger-outline">Delete</button></div>
+              </div>
+              <div class="loot-stage">
+                <div id="visual-builder" class="stack-spaced"></div>
+                <textarea id="loot-editor" class="editor code hidden"></textarea>
+              </div>
+            </div>
+            <div class="card loot-inspector-card loot-context-card">
+              <div class="section-head compact">
+                <div>
+                  <h4 id="loot-context-title">Editing Context</h4>
+                  <p id="loot-context-hint" class="muted">Open one support panel at a time so the page stays readable.</p>
+                </div>
+                <div class="actions tight wrap">
+                  <span id="loot-context-file-kind" class="tag">Overview</span>
+                </div>
+              </div>
+              <div class="loot-context-tabs" role="tablist" aria-label="Loot context tabs">
+                <button id="loot-context-overview-tab" class="ghost tiny active" type="button" data-loot-context-tab="overview" role="tab" aria-selected="true">Overview</button>
+                <button id="loot-context-validation-tab" class="ghost tiny" type="button" data-loot-context-tab="validation" role="tab" aria-selected="false">Validation</button>
+                <button id="loot-context-deps-tab" class="ghost tiny" type="button" data-loot-context-tab="deps" role="tab" aria-selected="false">Used By</button>
+                <button id="loot-context-simulator-tab" class="ghost tiny" type="button" data-loot-context-tab="simulator" role="tab" aria-selected="false">Simulator</button>
+              </div>
+              <div class="loot-context-panels">
+                <section class="loot-context-panel active" data-loot-context-panel="overview" role="tabpanel">
+                  <div class="loot-overview-grid">
+                    <div class="loot-context-block">
+                      <div class="section-head compact"><div><h4 id="loot-inspector-title">Overview</h4><p id="loot-inspector-hint" class="muted">Summary of the file shape and what it affects.</p></div></div>
+                      <div id="loot-summary"></div>
+                    </div>
+                    <div class="loot-context-block">
+                      <div class="section-head compact"><div><h4 id="loot-kit-title">Kit Templates</h4><p id="loot-kit-hint" class="muted">Quick presets for common item packs.</p></div></div>
+                      <div class="actions wrap"><button class="ghost tiny" data-kit="ak">AK kit</button><button class="ghost tiny" data-kit="sniper">Sniper kit</button><button class="ghost tiny" data-kit="medical">Medical kit</button></div>
+                    </div>
+                  </div>
+                </section>
+                <section class="loot-context-panel" data-loot-context-panel="validation" role="tabpanel" hidden>
+                  <div class="loot-context-block">
+                    <div class="list-head"><h4 id="loot-validation-title">Validation</h4><div class="actions tight"><button id="loot-autofix-preview" class="ghost tiny">Auto-fix Preview</button><button id="loot-autofix-apply" class="tiny">Auto-fix + Save</button></div></div>
+                    <div id="loot-validation"></div>
+                    <div id="loot-autofix-notes" class="muted small"></div>
+                  </div>
+                </section>
+                <section class="loot-context-panel" data-loot-context-panel="deps" role="tabpanel" hidden>
+                  <div class="loot-context-block">
+                    <div class="section-head compact"><div><h4 id="loot-usedby-title">Used By</h4><p id="loot-usedby-hint" class="muted">See which spawners or refs point back to this file.</p></div></div>
+                    <div id="loot-deps"></div>
+                  </div>
+                </section>
+                <section class="loot-context-panel" data-loot-context-panel="simulator" role="tabpanel" hidden>
+                  <div class="loot-context-block">
+                    <div class="list-head"><h4 id="loot-simulator-title">Simulator</h4><div class="actions tight"><input id="simulate-count" type="number" value="100" min="1" max="5000" class="mini-input" /><button id="simulate-btn" class="ghost tiny">Run</button></div></div>
+                    <div id="simulate-output" class="console small-console"></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-analyzer" class="view">
+        <div class="grid two">
+          <div class="card">
+            <div class="section-head"><div><h3>Analyzer Overview</h3><p class="muted">Find missing refs, unused nodes, and top repeated items.</p></div><button id="refresh-analyzer" class="ghost">Refresh</button></div>
+            <div id="analyzer-stats" class="stats-grid compact-stats"></div>
+            <div id="analyzer-categories" class="category-bars"></div>
+          </div>
+          <div class="card">
+            <div class="section-head"><div><h3>Warnings</h3><p class="muted">Things worth checking before you wonder why bunker loot feels cursed.</p></div></div>
+            <div class="grid two compact-grid">
+              <div><h4>Missing Node References</h4><div id="analyzer-missing" class="file-list tall"></div></div>
+              <div><h4>Unused Nodes</h4><div id="analyzer-unused" class="file-list tall"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div><h3>Top Items</h3><p class="muted">Repeated items across nodes.</p></div></div>
+          <div id="analyzer-top-items" class="result-grid"></div>
+        </div>
+      </section>
+
+      <section id="view-graph" class="view">
+        <div class="card">
+          <div class="section-head"><div><h3>Dependency Graph</h3><p class="muted">Spawner → Node → Item. Not cinematic, but useful. Humanity can survive without a flashy force-directed graph for one more day.</p></div><div class="actions tight"><input id="graph-filter" placeholder="Filter nodes/spawners/items..." /><button id="refresh-graph" class="ghost">Refresh</button></div></div>
+          <div class="grid two"><div><div id="graph-canvas" class="graph-canvas"></div></div><div class="card graph-side"><div class="section-head compact"><div><h4>Focus Inspector</h4><p class="muted">Click a graph card or type a filter to inspect its neighborhood.</p></div></div><div id="graph-focus-summary" class="stack-spaced"><div class="muted">No focus selected.</div></div></div></div>
+        </div>
+      </section>
+
+      <section id="view-profiles" class="view">
+        <div class="grid two">
+          <div class="card">
+            <div class="section-head"><div><h3>Profiles</h3><p class="muted">Snapshot the whole config state and apply later.</p></div><div class="actions tight"><button id="profile-create" class="ghost">Create Snapshot</button><button id="refresh-profiles" class="ghost">Refresh</button></div></div>
+            <div id="profiles-list" class="file-list tall"></div>
+          </div>
+          <div class="card stack-spaced">
+            <div>
+              <div class="section-head compact"><div><h4>Rotation</h4><p class="muted">Cycle profiles on a timer when you feel like automating your chaos.</p></div></div>
+              <label class="checkline"><input type="checkbox" id="rotation-enabled" /> <span>Enable rotation</span></label>
+              <label><span>Every minutes</span><input id="rotation-minutes" type="number" min="0" value="0" /></label>
+              <div id="rotation-entries" class="stack-spaced"></div>
+              <div class="actions wrap"><button id="rotation-save">Save Rotation</button><button id="rotation-run" class="ghost">Run Now</button></div>
+              <div id="rotation-status" class="muted"></div>
+            </div>
+            <div>
+              <h4>Selected Profile</h4>
+              <div id="profile-detail" class="muted">Select a profile to see details.</div>
+              <div class="actions wrap"><button id="profile-apply">Apply + Reload</button><button id="profile-delete" class="danger-outline">Delete</button></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-backups" class="view">
+        <div class="grid two">
+          <div class="card"><div class="section-head"><div><h3>Backups</h3><p class="muted">Snapshots before regret.</p></div><button id="refresh-backups" class="ghost">Refresh</button></div><div id="backups-list" class="file-list tall"></div></div>
+          <div class="card"><div class="section-head"><div><h3>Backup Files</h3><p class="muted">Inspect and restore one file at a time.</p></div></div><div id="backup-files-list" class="file-list"></div><div class="actions"><button id="restore-backup-file" class="ghost">Restore Selected File</button></div><pre id="backup-file-preview" class="console"></pre></div>
+        </div>
+      </section>
+
+      <section id="view-activity" class="view"><div class="card"><div class="section-head"><div><h3>Activity</h3><p class="muted">Save, backup, restore, apply, rotate.</p></div><button id="refresh-activity" class="ghost">Refresh</button></div><pre id="activity-log" class="console tall-console"></pre></div></section>
+      <section id="view-diff" class="view"><div class="card"><div class="section-head"><div><h3>Diff Preview</h3><p class="muted">Preview before you commit damage.</p></div></div><pre id="diff-output" class="console tall-console"></pre></div></section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+  <script src="/loot-overrides.js"></script>
+</body>
+</html>
