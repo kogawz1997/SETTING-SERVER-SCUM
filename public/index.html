@@ -28,6 +28,7 @@
         <button class="nav" data-view="profiles">Profiles</button>
         <button class="nav" data-view="backups">Backups</button>
         <button class="nav" data-view="activity">Activity</button>
+        <button class="nav" data-view="help">Help</button>
         <button class="nav" data-view="diff">Diff Preview</button>
       </div>
       <div class="credit-badge" aria-label="Project credits">
@@ -341,6 +342,26 @@
       </section>
 
       <section id="view-activity" class="view"><div class="card"><div class="section-head"><div><h3>Activity</h3><p class="muted">Save, backup, restore, apply, rotate.</p></div><button id="refresh-activity" class="ghost">Refresh</button></div><pre id="activity-log" class="console tall-console"></pre></div></section>
+      <section id="view-help" class="view">
+        <div class="help-hero card glass">
+          <div>
+            <div class="eyebrow" id="help-eyebrow">LOCAL GUIDE</div>
+            <h3 id="help-title">Use the app without guessing the config structure.</h3>
+            <p id="help-body" class="muted">A short operating guide for setup, loot editing, validation, and safe save flow.</p>
+          </div>
+          <div class="help-hero-actions actions wrap">
+            <button class="ghost" data-help-view="settings">Open App Settings</button>
+            <button class="ghost" data-help-view="loot">Open Loot Studio</button>
+            <button class="ghost" data-help-view="analyzer">Open Analyzer</button>
+          </div>
+        </div>
+        <div class="help-grid">
+          <div id="help-quick-path" class="card help-card"></div>
+          <div id="help-loot-guide" class="card help-card"></div>
+          <div id="help-save-guide" class="card help-card"></div>
+          <div id="help-settings-guide" class="card help-card"></div>
+        </div>
+      </section>
       <section id="view-diff" class="view"><div class="card"><div class="section-head"><div><h3>Diff Preview</h3><p class="muted">Preview before you commit damage.</p></div></div><pre id="diff-output" class="console tall-console"></pre></div></section>
     </main>
   </div>

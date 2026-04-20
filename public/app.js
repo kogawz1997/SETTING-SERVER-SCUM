@@ -56,7 +56,7 @@ const state = {
 };
 
 
-const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', diff: 'diff' };
+const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', help: 'help', diff: 'diff' };
 const routeByView = {
   dashboard: '/dashboard',
   settings: '/settings',
@@ -68,6 +68,7 @@ const routeByView = {
   profiles: '/profiles',
   backups: '/backups',
   activity: '/activity',
+  help: '/help',
   diff: '/diff-preview'
 };
 const routeAliases = {
@@ -86,6 +87,8 @@ const routeAliases = {
   '/profiles': 'profiles',
   '/backups': 'backups',
   '/activity': 'activity',
+  '/help': 'help',
+  '/guide': 'help',
   '/diff': 'diff',
   '/diff-preview': 'diff'
 };
@@ -126,6 +129,8 @@ const i18n = {
   }
 };
 state.lang = localStorage.getItem('scum_lang') || 'en';
+i18n.en.help = 'Help';
+i18n.th.help = 'คู่มือ';
 function t(key){ return (i18n[state.lang] && i18n[state.lang][key]) || i18n.en[key] || key; }
 function uiText(th, en){ return state.lang === 'th' ? th : en; }
 function setLanguage(lang){ state.lang = lang === 'th' ? 'th' : 'en'; localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
@@ -148,7 +153,7 @@ function applyTranslations(){
   set('#view-graph h3', t('dependencyGraph')); set('#view-graph .section-head p.muted', t('graphHint')); setp('#graph-filter', t('graphFilter')); set('#refresh-graph', t('refresh')); const focusH=document.querySelector('#view-graph .graph-side h4'); if(focusH) focusH.textContent=t('focusInspector'); const focusP=document.querySelector('#view-graph .graph-side p.muted'); if(focusP) focusP.textContent=t('focusHint'); const focusEmpty=document.querySelector('#graph-focus-summary .muted'); if(focusEmpty) focusEmpty.textContent=t('noFocusSelected');
   set('#view-profiles .grid.two .card:nth-child(1) h3', t('profilesTitle')); set('#view-profiles .grid.two .card:nth-child(1) p.muted', t('profilesHint')); set('#profile-create', t('createSnapshot')); set('#refresh-profiles', t('refresh')); const rotationHead=document.querySelector('#view-profiles .card.stack-spaced h4'); if(rotationHead) rotationHead.textContent=t('rotation'); const rotationP=document.querySelector('#view-profiles .card.stack-spaced p.muted'); if(rotationP) rotationP.textContent=t('rotationHint'); const rotSpan=document.querySelector('#rotation-enabled + span'); if(rotSpan) rotSpan.textContent=t('enableRotation'); const rotLabel=document.querySelector('#rotation-minutes')?.parentElement?.querySelector('span'); if(rotLabel) rotLabel.textContent=t('everyMinutes'); set('#rotation-save', t('saveRotation')); set('#rotation-run', t('runNow')); const selectedP=document.querySelector('#view-profiles .card.stack-spaced > div:last-child h4'); if(selectedP) selectedP.textContent=t('selectedProfile'); const pd=document.querySelector('#profile-detail'); if(pd && pd.textContent.includes('Select a profile')) pd.textContent=t('selectProfileHint'); set('#profile-apply', t('applyReload')); set('#profile-delete', t('delete'));
   set('#view-backups .grid.two .card:nth-child(1) h3', t('backupsTitle')); set('#view-backups .grid.two .card:nth-child(1) p.muted', t('backupsHint')); set('#refresh-backups', t('refresh')); set('#view-backups .grid.two .card:nth-child(2) h3', t('backupFiles')); set('#view-backups .grid.two .card:nth-child(2) p.muted', t('backupFilesHint')); set('#restore-backup-file', t('restoreSelectedFile'));
-  set('#view-activity h3', t('activityTitle')); set('#view-activity p.muted', t('activityHint')); set('#refresh-activity', t('refresh')); set('#view-diff h3', t('diffPreview')); set('#view-diff p.muted', t('diffHint'));
+  set('#view-activity h3', t('activityTitle')); set('#view-activity p.muted', t('activityHint')); set('#refresh-activity', t('refresh')); renderHelpGuide(); set('#view-diff h3', t('diffPreview')); set('#view-diff p.muted', t('diffHint'));
 }
 
 const $ = (id) => document.getElementById(id);
@@ -158,6 +163,44 @@ function escapeHtml(v=''){ return String(v).replace(/[&<>"']/g, (c)=>({ '&':'&am
 function fmtJson(obj){ return JSON.stringify(obj, null, 2); }
 function fmtDate(v){ return v ? new Date(v).toLocaleString() : '-'; }
 function showToast(message, isError=false){ const el=$('toast'); el.textContent=message; el.classList.remove('hidden'); el.style.borderColor=isError?'rgba(255,115,115,.5)':'rgba(118,179,255,.45)'; clearTimeout(showToast.t); showToast.t=setTimeout(()=>el.classList.add('hidden'),2600); }
+function renderHelpGuide(){
+  const set=(id,val)=>{ const el=$(id); if(el) el.innerHTML=val; };
+  const step = (label, body) => `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtml(body)}</span></li>`;
+  const chip = (label, tone='') => `<span class="guide-chip ${tone}">${escapeHtml(label)}</span>`;
+  const title = $('help-title');
+  const body = $('help-body');
+  const eyebrow = $('help-eyebrow');
+  if(eyebrow) eyebrow.textContent = uiText('คู่มือใช้งานในเครื่อง', 'Local guide');
+  if(title) title.textContent = uiText('ใช้งานโดยไม่ต้องเดาโครงไฟล์เอง', 'Use the app without guessing the config structure.');
+  if(body) body.textContent = uiText('สรุปลำดับทำงานจริงสำหรับตั้งค่า path, แก้ loot, ตรวจ validation และ save แบบไม่ลุ้นดวง', 'A short operating guide for setup, loot editing, validation, and safe save flow.');
+  document.querySelectorAll('[data-help-view]').forEach((button)=>{
+    const target = button.dataset.helpView;
+    button.textContent = {
+      settings: uiText('เปิด App Settings', 'Open App Settings'),
+      loot: uiText('เปิด Loot Studio', 'Open Loot Studio'),
+      analyzer: uiText('เปิด Analyzer', 'Open Analyzer')
+    }[target] || target;
+    button.onclick = () => setView(target);
+  });
+  set('help-quick-path', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('เริ่มใช้งานจริง', 'Real-use starting path'))}</h4><p class="muted">${escapeHtml(uiText('ทำตามนี้ก่อนแก้ไฟล์จริง จะลดโอกาส save แล้วงงว่าอะไรพัง', 'Follow this before editing real files so failed saves are easier to understand.'))}</p></div></div><ol class="help-step-list">${[
+    step(uiText('ตั้งค่า SCUM config folder', 'Set the SCUM config folder'), uiText('ไป App Settings แล้วเลือกโฟลเดอร์ WindowsServer ที่มี ServerSettings.ini, Nodes และ Spawners', 'Open App Settings and point it at the WindowsServer folder that contains ServerSettings.ini, Nodes, and Spawners.')),
+    step(uiText('ตั้งค่า backup folder', 'Set the backup folder'), uiText('ให้ระบบมีที่เก็บสำเนาก่อน save หรือ restore', 'Give the app a place to store snapshots before save or restore.')),
+    step(uiText('กดตรวจโฟลเดอร์', 'Check the folders'), uiText('ดูว่า Nodes folder, Spawners folder และไฟล์หลักเจอครบหรือยัง', 'Confirm that Nodes folder, Spawners folder, and core files are found.')),
+    step(uiText('ค่อยเริ่มแก้', 'Start editing after setup'), uiText('ถ้าสถานะยังแดง ให้แก้ path ก่อน ไม่ต้องเริ่มจาก Loot Studio', 'If status is still red, fix paths first instead of starting in Loot Studio.'))
+  ].join('')}</ol>`);
+  set('help-loot-guide', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('Loot Studio อ่านยังไง', 'How to read Loot Studio'))}</h4><p class="muted">${escapeHtml(uiText('จำแค่นี้ก่อน จะไม่หลงกับไฟล์ยาว ๆ', 'Remember these basics first so long files do not feel random.'))}</p></div></div><div class="help-concept-grid"><div>${chip('Nodes', 'info')}<p>${escapeHtml(uiText('คือกล่องรายการของที่อาจถูกสุ่ม เช่น ปืน กระสุน ยา หรือของทั่วไป', 'A bucket of items that can be rolled, such as weapons, ammo, medicine, or general loot.'))}</p></div><div>${chip('Spawners', 'warning')}<p>${escapeHtml(uiText('คือจุดหรือ preset ที่ไปเรียก Nodes อีกที ถ้า Spawner ชี้ node ผิด ลูทจุดนั้นจะเพี้ยน', 'A spawn preset that points to Nodes. If a Spawner points to the wrong node, that location will feel wrong.'))}</p></div><div>${chip(uiText('Probability', 'Probability'), 'critical')}<p>${escapeHtml(uiText('คือค่าน้ำหนัก ยิ่งสูงยิ่งมีโอกาสออกมากกว่า ใช้ Normalize เมื่ออยากจัดสัดส่วนใหม่', 'A weight value. Higher means more likely. Use Normalize when you want the rows balanced again.'))}</p></div></div><div class="help-note">${escapeHtml(uiText('ถ้าไฟล์ยาว ให้ใช้ Focus Editor, ซ่อนรายชื่อไฟล์, เปิดเฉพาะแถวนั้น และใช้ Item catalog แทนการพิมพ์ชื่อเอง', 'For large files, use Focus Editor, hide the file list, open only the row you need, and use Item catalog instead of typing names manually.'))}</div>`);
+  set('help-save-guide', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('ลำดับ save ที่ปลอดภัย', 'Safe save flow'))}</h4><p class="muted">${escapeHtml(uiText('อย่ากด Save แบบเดา ให้ตรวจความต่างก่อน', 'Do not save blindly. Check the diff first.'))}</p></div></div><ol class="help-step-list">${[
+    step('Preview Diff', uiText('ดูว่าระบบกำลังเปลี่ยนไฟล์ตรงไหนบ้างก่อนบันทึก', 'See exactly what will change before saving.')),
+    step(uiText('Validation', 'Validation'), uiText('ดู critical/warning ก่อน ถ้ามี fix draft ให้ใช้เฉพาะรายการที่เข้าใจ', 'Review critical/warning items first. Use Fix draft only for issues you understand.')),
+    step(uiText('Backup', 'Backup'), uiText('ระบบควรมี backup ก่อน save ถ้ายังไม่มั่นใจให้กด Backup core เพิ่มเอง', 'The app should have backups before saving. If unsure, create another core backup manually.')),
+    step(uiText('Save หรือ Save + Reload', 'Save or Save + Reload'), uiText('Save เฉย ๆ เมื่อยังทดสอบอยู่ ใช้ Save + Reload เมื่อพร้อมส่งผลเข้าเซิร์ฟเวอร์', 'Use Save while testing. Use Save + Reload only when you are ready to apply it to the server.'))
+  ].join('')}</ol>`);
+  set('help-settings-guide', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('หน้า Server Settings', 'Server Settings page'))}</h4><p class="muted">${escapeHtml(uiText('หน้านี้ควรแก้แบบเลือกหมวด ไม่ต้องไล่อ่านทุกค่า', 'Use this page by section and group instead of scanning every field.'))}</p></div></div><ul class="help-step-list">${[
+    step(uiText('ใช้ dropdown ทุกหมวด/ทุกกลุ่ม', 'Use section/group dropdowns'), uiText('กรองค่าที่ต้องการก่อน จะไม่รกทั้งหน้า', 'Filter down to the relevant settings first so the page stays readable.')),
+    step('True / False', uiText('ช่อง boolean ใช้ select แล้ว ไม่ต้องพิมพ์เอง', 'Boolean fields use selects now, so you do not have to type them manually.')),
+    step(uiText('ช่องเลข', 'Number fields'), uiText('แก้เฉพาะค่าที่รู้ผลกระทบ ถ้าไม่แน่ใจให้ Preview Diff ก่อน', 'Only change values you understand. If unsure, inspect Preview Diff first.'))
+  ].join('')}</ul>`);
+}
 async function api(url, options={}){ const res=await fetch(url,{ headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options }); const data=await res.json(); if(!data.ok) throw new Error(data.error||'Request failed'); return data; }
 function setLootSaveBusy(busy){
   const labelMap = {

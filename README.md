@@ -14,7 +14,7 @@
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.3` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบและช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.3/P2.4` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบและช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
@@ -25,14 +25,15 @@
 - Loot Studio สำหรับแก้ `Nodes/*.json` และ `Spawners/*.json`
 - Loot Builder ช่วยเพิ่ม/ลบ/clone/reorder item, ปรับ probability, normalize และใช้ autocomplete
 - Item Catalog พร้อม icon จาก `scum_items-main` เพื่อช่วยจำชื่อ item/class
-- Analyzer สำหรับดู missing refs, unused nodes, item ที่ใช้บ่อย และภาพรวม balance
+- Analyzer สำหรับดู missing refs, unused nodes, item ที่ใช้บ่อย, ภาพรวม balance และคำแนะนำว่าควรแก้อะไรก่อน
 - Graph สำหรับดูความสัมพันธ์ `Spawner -> Node -> Item`
 - Search ทั้งระบบสำหรับหา item, node, spawner หรือข้อความในไฟล์
 - Auto-Fix preview สำหรับแก้โครง JSON พื้นฐานก่อน apply
 - Backup / Restore พร้อม note, tag, compare และ restore รายไฟล์
 - Profiles / Rotation สำหรับเก็บชุด config หลายแบบแล้วสลับใช้
 - Activity log สำหรับดูว่าเคย save, backup, restore หรือ apply อะไรไปบ้าง
-- แต่ละหน้ามี route ของตัวเอง เช่น `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`
+- Help ในแอปสำหรับอธิบายลำดับตั้งค่า, วิธีอ่าน Loot Studio, safe save flow และการใช้ filter ใน Server Settings
+- แต่ละหน้ามี route ของตัวเอง เช่น `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`
 - UI สลับไทย/อังกฤษได้
 
 ## เครดิต

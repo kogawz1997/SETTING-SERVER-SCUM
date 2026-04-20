@@ -13,6 +13,7 @@ const views = [
   { id: 'profiles', label: 'Profiles' },
   { id: 'backups', label: 'Backups' },
   { id: 'activity', label: 'Activity' },
+  { id: 'help', label: 'Help' },
   { id: 'diff', label: 'Diff Preview' }
 ];
 
@@ -106,6 +107,35 @@ test('top-level routes open the matching page and support browser history', asyn
   await expect(page).toHaveURL(/\/core-files$/);
 });
 
+test('thai mode renders readable app copy without mojibake artifacts', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('scum_lang', 'th'));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#page-title')).toContainText('แดชบอร์ด');
+  await expect(page.locator('#view-dashboard .hero')).toContainText('ตรวจความพร้อม');
+  await expect(page.locator('body')).not.toContainText(/à¸|à¹|â€¦|â†|Â·/);
+
+  await page.locator('.nav[data-view="loot"]').click();
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page.locator('#loot-workspace-title')).toContainText('พื้นที่ทำงานลูท');
+  await expect(page.locator('#view-loot')).not.toContainText(/à¸|à¹|â€¦|â†|Â·/);
+});
+
+test('help route explains setup and loot editing in plain Thai', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('scum_lang', 'th'));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseUrl}/help`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-help')).toBeVisible();
+  await expect(page).toHaveURL(/\/help$/);
+  await expect(page.locator('.nav[data-view="help"]')).toHaveClass(/active/);
+  await expect(page.locator('#help-quick-path')).toContainText('เริ่มใช้งานจริง');
+  await expect(page.locator('#help-loot-guide')).toContainText('Nodes');
+  await expect(page.locator('#help-loot-guide')).toContainText('Spawners');
+  await expect(page.locator('#help-save-guide')).toContainText('Preview Diff');
+});
+
 test('mobile views render without horizontal overflow', async ({ page }) => {
   await runViewportSweep(page, { width: 430, height: 932 }, 'mobile');
 });
@@ -135,6 +165,8 @@ test('analyzer shows deeper balance and coverage metrics', async ({ page }) => {
   await page.waitForTimeout(1400);
   await page.locator('#refresh-analyzer').click();
 
+  await expect(page.locator('#analyzer-advice')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#analyzer-advice')).toContainText(/Next actions|ควรทำต่อ/);
   await expect(page.locator('.analyzer-deep-grid')).toBeVisible({ timeout: 60000 });
   await expect(page.locator('#analyzer-stats')).toContainText(/Balance score|คะแนนสมดุล/);
   await expect(page.locator('#analyzer-categories')).toContainText(/Ammo \/ Weapon|Medical share|Node coverage/);

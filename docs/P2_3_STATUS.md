@@ -1,6 +1,6 @@
-# P2.3 Status
+# P2.3 / P2.4 Local Status
 
-This project is now in a practical local-ready P2.3 state.
+This project is now in a practical local-ready P2.3/P2.4 state.
 
 ## Done
 - Local web UI and Express backend.
@@ -10,11 +10,12 @@ This project is now in a practical local-ready P2.3 state.
 - Core file editor with validation and diff preview.
 - Loot Studio with cleaner workspace, visual editing, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
 - Item Catalog with discovered items, icons from `scum_items-main`, friendly names, categories, favorites, notes, import, and export.
-- Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, and spawner coverage.
+- Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, spawner coverage, and human-readable next actions.
 - Graph with focus/filter, zoom/pan style controls in the UI layer, and dependency inspection.
 - Profiles, rotation, backups, restore selected file, backup notes/tags, backup compare, and backup cleanup.
 - Activity log.
-- Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, and `/backups`.
+- Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`, and `/backups`.
+- In-app Help guide for first setup, Loot Studio concepts, safe save flow, and Server Settings filters.
 - Release check script and Windows launchers.
 - Bulk case-sensitive loot ref repair script with backup-before-write.
 - Direct item spawner validation that supports SCUM weight-style `Probability` values above 1.

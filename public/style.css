@@ -1671,6 +1671,86 @@ input[type="range"] {
   margin-top: 8px;
 }
 
+.help-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.help-hero h3 {
+  max-width: 760px;
+}
+
+.help-hero-actions {
+  justify-content: flex-end;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.help-card {
+  min-height: 260px;
+}
+
+.help-step-list {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.help-step-list li {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-soft);
+}
+
+.help-step-list li strong {
+  color: var(--text);
+}
+
+.help-step-list li span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.help-concept-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.help-concept-grid > div,
+.help-note {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-soft);
+}
+
+.help-concept-grid p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.help-note {
+  margin-top: 12px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
 .static {
   cursor: default;
 }
@@ -1731,6 +1811,16 @@ input[type="range"] {
   .server-group-grid,
   .result-grid {
     grid-template-columns: 1fr;
+  }
+
+  .help-hero,
+  .help-grid,
+  .help-step-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .help-hero-actions {
+    justify-content: flex-start;
   }
 
   .graph-side {

@@ -1812,6 +1812,107 @@
     return items?.length ? items.slice(0, 60).map(renderItem).join('') : `<div class="success-card">${escapeHtml(emptyText)}</div>`;
   }
 
+  function analyzerAdviceItems(overview = {}) {
+    const balance = overview.balance || {};
+    const missingRefs = overview.missingRefs || [];
+    const unusedNodes = overview.unusedNodes || [];
+    const warnings = overview.warnings || [];
+    const items = [];
+    if (missingRefs.length) {
+      items.push({
+        tone: 'critical',
+        title: uiText('แก้ Missing refs ก่อน', 'Fix missing refs first'),
+        body: uiText(
+          `มี ref หาย ${missingRefs.length} จุด ถ้ายังไม่แก้ spawner บางตัวจะสุ่มไปหา node ที่ไม่มีอยู่จริง`,
+          `${missingRefs.length} refs point to missing nodes. Fix these before tuning drop rates.`
+        ),
+        view: 'graph',
+        action: uiText('ดูกราฟความสัมพันธ์', 'Open graph')
+      });
+    }
+    if (Number(balance.spawnerCoverage || 0) < 90) {
+      items.push({
+        tone: 'warning',
+        title: uiText('เช็ก Spawner coverage', 'Check spawner coverage'),
+        body: uiText(
+          `coverage ตอนนี้ ${balance.spawnerCoverage ?? 0}% แปลว่าบาง spawner ยังชี้ node ได้ไม่ครบ`,
+          `Spawner coverage is ${balance.spawnerCoverage ?? 0}%, so some spawners may not be fully wired.`
+        ),
+        view: 'loot',
+        action: uiText('เปิด Loot Studio', 'Open Loot Studio')
+      });
+    }
+    if (unusedNodes.length) {
+      items.push({
+        tone: 'info',
+        title: uiText('ทบทวน node ที่ไม่ได้ใช้', 'Review unused nodes'),
+        body: uiText(
+          `มี node ${unusedNodes.length} ไฟล์ที่ยังไม่มี spawner เรียกใช้ ถ้าเป็นของเก่าค่อยลบ ถ้าเป็นของใหม่ให้เอาไปผูกกับ spawner`,
+          `${unusedNodes.length} node files are not referenced. Delete old ones or wire new ones into spawners.`
+        ),
+        view: 'analyzer',
+        action: uiText('ดูรายการด้านล่าง', 'Review below')
+      });
+    }
+    if (Number(balance.ammoToWeaponRatio || 0) < 0.75) {
+      items.push({
+        tone: 'warning',
+        title: uiText('กระสุนอาจน้อยกว่าปืน', 'Ammo may be low'),
+        body: uiText(
+          `Ammo / Weapon อยู่ที่ ${balance.ammoToWeaponRatio ?? 0} ถ้าอยากให้เล่นลื่น ให้เพิ่ม ammo หรือ magazine ใน node ที่มีปืนเยอะ`,
+          `Ammo / Weapon is ${balance.ammoToWeaponRatio ?? 0}. Add ammo or magazines to weapon-heavy nodes if players run dry too often.`
+        ),
+        view: 'loot',
+        action: uiText('ไปแก้ loot', 'Edit loot')
+      });
+    }
+    if (Number(balance.medicalShare || 0) < 4) {
+      items.push({
+        tone: 'info',
+        title: uiText('ของแพทย์อาจเบาไป', 'Medical loot may be light'),
+        body: uiText(
+          `Medical share อยู่ที่ ${balance.medicalShare ?? 0}% ถ้าเป็นเซิร์ฟ survival หนักอาจตั้งใจได้ แต่ถ้าเล่นทั่วไปควรเติมยา/ผ้าพันแผล`,
+          `Medical share is ${balance.medicalShare ?? 0}%. That can be intentional for hardcore servers, but normal play usually needs more meds.`
+        ),
+        view: 'loot',
+        action: uiText('เปิด Item catalog', 'Open item catalog')
+      });
+    }
+    if (!items.length && !(warnings || []).length) {
+      items.push({
+        tone: 'ok',
+        title: uiText('ภาพรวมยังไม่เจอปัญหาหนัก', 'No major blocker detected'),
+        body: uiText(
+          'เริ่มจูนจาก node power score หรือ simulator ได้เลย อย่าเพิ่งลบไฟล์ที่ไม่แน่ใจ',
+          'Start tuning from node power score or simulator. Do not delete files you are not sure about.'
+        ),
+        view: 'loot',
+        action: uiText('เปิด Loot Studio', 'Open Loot Studio')
+      });
+    }
+    return items.slice(0, 5);
+  }
+
+  function renderAnalyzerAdvice(overview = {}) {
+    const stats = $('analyzer-stats');
+    if (!stats) return;
+    let host = $('analyzer-advice');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'analyzer-advice';
+      host.className = 'analyzer-advice';
+      stats.insertAdjacentElement('afterend', host);
+    }
+    const actions = analyzerAdviceItems(overview);
+    host.innerHTML = `<div class="section-head compact"><div><h4>${escapeHtml(uiText('ควรทำต่อ', 'Next actions'))}</h4><p class="muted">${escapeHtml(uiText('แปลผลตัวเลขให้เป็นงานที่ควรไล่แก้ก่อน ไม่ต้องเดาเองจากกราฟทั้งหมด', 'Turns analyzer numbers into the first few tasks to check.'))}</p></div><span class="tag">${escapeHtml(String(actions.length))}</span></div><div class="analyzer-advice-grid">${actions.map((item) => `<article class="analyzer-advice-card ${escapeHtml(item.tone)}"><div><span class="tag ${escapeHtml(item.tone)}">${escapeHtml(item.tone)}</span><h5>${escapeHtml(item.title)}</h5><p>${escapeHtml(item.body)}</p></div><button type="button" class="ghost tiny" data-analyzer-advice-view="${escapeHtml(item.view)}">${escapeHtml(item.action)}</button></article>`).join('')}</div>`;
+    host.querySelectorAll('[data-analyzer-advice-view]').forEach((button) => {
+      button.onclick = () => {
+        const view = button.dataset.analyzerAdviceView || 'analyzer';
+        if (view !== 'analyzer' && typeof setView === 'function') setView(view);
+      };
+    });
+  }
+
   loadAnalyzer = async function () {
     const data = await api('/api/analyzer/overview');
     state.analyzer = data.overview;
@@ -1830,6 +1931,7 @@
       { label: uiText('Missing refs', 'Missing refs'), value: (overview.missingRefs || []).length, tone: (overview.missingRefs || []).length ? 'critical' : 'ok' },
     ].map((entry) => `<div class="card stat analyzer-stat ${entry.tone || ''}"><span class="stat-label">${escapeHtml(entry.label)}</span><strong>${escapeHtml(entry.value)}</strong></div>`).join('');
 
+    renderAnalyzerAdvice(overview);
     $('analyzer-categories').innerHTML = `<div class="analyzer-deep-grid"><div class="section-card"><h4>${escapeHtml(uiText('สัดส่วนหมวดไอเท็ม', 'Item category mix'))}</h4>${renderAnalyzerBars(categoryCounts, categoryTotal)}</div><div class="section-card"><h4>${escapeHtml(uiText('Rarity ของ leaf nodes', 'Leaf rarity distribution'))}</h4>${renderAnalyzerBars(overview.rarityCounts || {}, rarityTotal)}</div><div class="section-card analyzer-score-card"><h4>${escapeHtml(uiText('อ่านภาพรวมสมดุล', 'Balance readout'))}</h4><div class="mini-stat-grid"><div class="mini-stat"><span>${escapeHtml(uiText('Node coverage', 'Node coverage'))}</span><strong>${escapeHtml(`${balance.nodeCoverage ?? 0}%`)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('Spawner coverage', 'Spawner coverage'))}</span><strong>${escapeHtml(`${balance.spawnerCoverage ?? 0}%`)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('Ammo / Weapon', 'Ammo / Weapon'))}</span><strong>${escapeHtml(balance.ammoToWeaponRatio ?? 0)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('Medical share', 'Medical share'))}</span><strong>${escapeHtml(`${balance.medicalShare ?? 0}%`)}</strong></div></div></div><div class="section-card"><h4>${escapeHtml(uiText('คำเตือนเชิงออกแบบ', 'Design warnings'))}</h4>${(overview.warnings || []).length ? overview.warnings.map((warning) => `<div class="validation-row analyzer-warning ${escapeHtml(warning.severity || 'info')}"><div class="validation-copy"><strong>${escapeHtml(warning.message)}</strong><div class="muted small">${escapeHtml(warning.hint || '')}</div></div><span class="tag ${escapeHtml(warning.severity || 'info')}">${escapeHtml(warning.severity || 'info')}</span></div>`).join('') : `<div class="success-card">${escapeHtml(uiText('ยังไม่เจอคำเตือนสมดุลใหญ่ ๆ', 'No major balance warnings detected.'))}</div>`}</div></div>`;
 
     $('analyzer-missing').innerHTML = renderAnalyzerRiskList(

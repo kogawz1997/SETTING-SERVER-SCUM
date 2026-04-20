@@ -103,7 +103,7 @@ assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบ
 assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
 assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge']);
-assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio']);
+assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help']);
 
 const pkg = JSON.parse(read('package.json'));
 if (pkg.author !== 'KOGA.EXE') {
