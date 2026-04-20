@@ -29,3 +29,20 @@ test('settings setup wizard summarizes path and command readiness', async ({ pag
   await page.locator('#wizard-check-now').click();
   await expect(page.locator('#setup-wizard-panel')).toContainText(/Nodes folder|Spawners folder/);
 });
+
+test('server settings explain fields and boolean choices in human labels', async ({ page }) => {
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="server"]').click();
+
+  await expect(page.locator('.server-guide-panel')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('.server-guide-panel')).toContainText(/Start with one section|เริ่มจากหมวดเดียว/);
+  await expect(page.locator('.server-field-help').first()).toBeVisible();
+
+  const firstBooleanSection = await page.locator('[data-field-kind="boolean"]').first().getAttribute('data-server-section');
+  await page.locator('#server-section-filter').selectOption(firstBooleanSection);
+
+  const booleanField = page.locator(`[data-field-kind="boolean"][data-server-section="${firstBooleanSection}"]`).first();
+  await expect(booleanField).toBeVisible();
+  await expect(booleanField.locator('option').first()).toContainText(/Enabled \(True\)|เปิด \(True\)/);
+  await expect(booleanField.locator('option').nth(1)).toContainText(/Disabled \(False\)|ปิด \(False\)/);
+});

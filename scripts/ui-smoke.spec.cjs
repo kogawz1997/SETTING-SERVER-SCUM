@@ -134,6 +134,8 @@ test('help route explains setup and loot editing in plain Thai', async ({ page }
   await expect(page.locator('#help-loot-guide')).toContainText('Nodes');
   await expect(page.locator('#help-loot-guide')).toContainText('Spawners');
   await expect(page.locator('#help-save-guide')).toContainText('Preview Diff');
+  await expect(page.locator('#help-flow-map')).toBeVisible();
+  await expect(page.locator('#help-flow-map .help-flow-step')).toHaveCount(5);
 });
 
 test('mobile views render without horizontal overflow', async ({ page }) => {
@@ -171,6 +173,23 @@ test('analyzer shows deeper balance and coverage metrics', async ({ page }) => {
   await expect(page.locator('#analyzer-stats')).toContainText(/Balance score|คะแนนสมดุล/);
   await expect(page.locator('#analyzer-categories')).toContainText(/Ammo \/ Weapon|Medical share|Node coverage/);
   await expect(page.locator('#analyzer-top-items')).toContainText(/Node power score|Spawner coverage/);
+});
+
+test('analyzer advice opens the affected loot file when a concrete target exists', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="analyzer"]').click();
+  await page.locator('#refresh-analyzer').click();
+
+  const coverageAdvice = page.locator('.analyzer-advice-card').filter({ hasText: /Spawner coverage|coverage/ }).first();
+  await expect(coverageAdvice).toBeVisible({ timeout: 60000 });
+  const button = coverageAdvice.locator('[data-analyzer-advice-view]').first();
+  const targetPath = await button.getAttribute('data-analyzer-target-path');
+  expect(targetPath).toMatch(/^Spawners\/.+\.json$/);
+
+  await button.click();
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page.locator('#loot-editor-title')).toContainText(targetPath);
 });
 
 test('global search supports scope and issue filters', async ({ page }) => {

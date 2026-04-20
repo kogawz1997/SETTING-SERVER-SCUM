@@ -277,6 +277,44 @@ code {
   line-height: 1.45;
 }
 
+.help-flow-map {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.help-flow-step {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(136, 194, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.help-flow-step span {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: rgba(136, 194, 255, 0.16);
+  color: #b9d8ff;
+  font-weight: 900;
+}
+
+.help-flow-step strong,
+.help-flow-step small {
+  display: block;
+}
+
+.help-flow-step small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .main {
   min-width: 0;
   padding: 28px 32px 40px;
@@ -420,6 +458,37 @@ label > span {
 
 .settings-path-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.server-guide-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid rgba(95, 224, 191, 0.22);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(95, 224, 191, 0.1), transparent 48%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.server-guide-panel p {
+  margin: 4px 0 0;
+}
+
+.server-guide-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.server-field-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .command-input {
@@ -1809,8 +1878,14 @@ input[type="range"] {
   .preset-list,
   .health-grid,
   .server-group-grid,
+  .server-guide-panel,
+  .help-flow-map,
   .result-grid {
     grid-template-columns: 1fr;
+  }
+
+  .server-guide-steps {
+    justify-content: flex-start;
   }
 
   .help-hero,

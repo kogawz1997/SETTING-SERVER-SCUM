@@ -96,16 +96,16 @@ const i18n = {
   en: {
     dashboard:'Dashboard', settings:'App Settings', server:'Server Settings', corefiles:'Core Files', loot:'Loot Studio', analyzer:'Analyzer', graph:'Graph', profiles:'Profiles', backups:'Backups', activity:'Activity', diff:'Diff Preview',
     loading:'Loading…', refresh:'Refresh', backupCore:'Backup core', reloadLoot:'Reload loot', restartServer:'Restart server',
-    localFirst:'LOCAL-FIRST CONTROL PLANE', readyCheck:'READY CHECK', heroTitle:'Use this to edit config, design loot, snapshot profiles, rotate setups, and avoid turning your server into a landfill with one bad JSON save.', heroBody:'Round after round, humans keep choosing raw text editors for game configs and then act betrayed when it explodes. This app intervenes.',
+    localFirst:'LOCAL-FIRST CONTROL PLANE', readyCheck:'READY CHECK', heroTitle:'Edit server config, design loot, snapshot profiles, and keep every risky change recoverable.', heroBody:'Start with readiness, preview diffs, save with backups, and reload only when the config is ready.',
     configDirectory:'Config directory', backupsLabel:'Backups', nodes:'Nodes', spawners:'Spawners', health:'Health', healthHint:'What is configured and what is still missing.', commandOutput:'Command output', clear:'Clear', globalSearch:'Global Search', searchHint:'Search across settings, economy, nodes, and spawners.', searchPlaceholder:'Search item, node, spawner, setting...', search:'Search',
     appSettings:'App Settings', appSettingsHint:'Local paths and shell commands.', scumConfigFolder:'SCUM config folder', backupFolder:'Backup folder', reloadLootCommand:'Reload loot command', restartServerCommand:'Restart server command', autoBackupCore:'Auto backup core files on start', saveAppConfig:'Save App Config',
     parsedServerSettings:'Parsed Server Settings', parsedHint:'Filter, edit, preview presets, and save.', filterKeys:'Filter keys...', reload:'Reload', save:'Save', saveReload:'Save + Reload',
     files:'Files', rawCoreHint:'Raw editor for GameUser and Economy.', meta:'Meta', metaHint:'Validation and stats.', noFileSelected:'No file selected', previewBeforeSaving:'Preview diff before saving.', previewDiff:'Preview Diff',
     lootFiles:'Loot Files', lootHint:'Nodes and spawners with create/clone/delete.', new:'New', inspector:'Inspector', inspectorHint:'Summary, validation, dependencies, simulator.', validation:'Validation', autoFixPreview:'Auto-fix Preview', autoFixSave:'Auto-fix + Save', usedBy:'Used By', simulator:'Simulator', run:'Run', kitTemplates:'Kit Templates', akKit:'AK kit', sniperKit:'Sniper kit', medicalKit:'Medical kit', noLootFileSelected:'No loot file selected', visualSyncHint:'Visual builder and raw JSON stay in sync.', visualBuilder:'Visual Builder', rawJson:'Raw JSON', clone:'Clone', delete:'Delete',
-    analyzerOverview:'Analyzer Overview', analyzerHint:'Find missing refs, unused nodes, and top repeated items.', warnings:'Warnings', warningHint:'Things worth checking before you wonder why bunker loot feels cursed.', missingNodeReferences:'Missing Node References', unusedNodes:'Unused Nodes', topItems:'Top Items', topItemsHint:'Repeated items across nodes.',
+    analyzerOverview:'Analyzer Overview', analyzerHint:'Find missing refs, unused nodes, and top repeated items.', warnings:'Warnings', warningHint:'Checks that explain why a loot area feels wrong before you start changing random values.', missingNodeReferences:'Missing Node References', unusedNodes:'Unused Nodes', topItems:'Top Items', topItemsHint:'Repeated items across nodes.',
     dependencyGraph:'Dependency Graph', graphHint:'Spawner → Node → Item. Not cinematic, but useful.', graphFilter:'Filter nodes/spawners/items...', focusInspector:'Focus Inspector', focusHint:'Click a graph card or type a filter to inspect its neighborhood.', noFocusSelected:'No focus selected.',
     profilesTitle:'Profiles', profilesHint:'Snapshot the whole config state and apply later.', createSnapshot:'Create Snapshot', rotation:'Rotation', rotationHint:'Cycle profiles on a timer when you feel like automating your chaos.', enableRotation:'Enable rotation', everyMinutes:'Every minutes', saveRotation:'Save Rotation', runNow:'Run Now', selectedProfile:'Selected Profile', selectProfileHint:'Select a profile to see details.', applyReload:'Apply + Reload',
-    backupsTitle:'Backups', backupsHint:'Snapshots before regret.', backupFiles:'Backup Files', backupFilesHint:'Inspect and restore one file at a time.', restoreSelectedFile:'Restore Selected File', activityTitle:'Activity', activityHint:'Save, backup, restore, apply, rotate.', diffPreview:'Diff Preview', diffHint:'Preview before you commit damage.',
+    backupsTitle:'Backups', backupsHint:'Snapshots before changing live config.', backupFiles:'Backup Files', backupFilesHint:'Inspect and restore one file at a time.', restoreSelectedFile:'Restore Selected File', activityTitle:'Activity', activityHint:'Save, backup, restore, apply, rotate.', diffPreview:'Diff Preview', diffHint:'Review the exact file changes before saving.',
     ok:'OK', missingConfig:'Missing / not configured', ready:'Ready', configPathNotSet:'Config path not set', nextRun:'Next run', notScheduled:'Not scheduled',
     healthConfigDir:'Config directory set', healthBackupDir:'Backup directory set', healthReloadCmd:'Reload command set', healthRestartCmd:'Restart command set', healthServerSettings:'ServerSettings.ini found', healthNodesFolder:'Nodes folder found', healthSpawnersFolder:'Spawners folder found',
     savedAppConfig:'App config saved', backupCreated:'Backup created', commandFinished:'Command finished', commandWarn:'Command returned warnings', serverSettingsSaved:'Server settings saved', serverSettingsSavedReload:'Server settings saved + reload sent', presetApplied:'Preset applied', coreSaved:'Core file saved', selectProfileFirst:'Select a profile first', profileCreated:'Profile snapshot created', profileApplied:'Profile applied + reload sent', profileDeleted:'Profile deleted', rotationSaved:'Rotation saved', rotationApplied:'Rotation applied', fileRestored:'File restored', updated:'Updated', size:'Size', bytes:'bytes', profileNamePrompt:'Profile name', profileNotesPrompt:'Notes (optional)', deleteProfileConfirm:'Delete selected profile?', restoreBackupConfirm:'Restore selected file from backup?', normalize:'Normalize', duplicate:'Duplicate', moveUp:'Up', moveDown:'Down', applyAutoFixDraft:'Load autofix draft', slider:'Slider', number:'Number', quickAdd:'Quick add', graphCounts:'Graph counts'
@@ -113,7 +113,7 @@ const i18n = {
   th: {
     dashboard:'แดชบอร์ด', settings:'ตั้งค่าแอป', server:'ตั้งค่าเซิร์ฟเวอร์', corefiles:'ไฟล์หลัก', loot:'จัดการลูท', analyzer:'ตัววิเคราะห์', graph:'กราฟความสัมพันธ์', profiles:'โปรไฟล์', backups:'แบ็กอัป', activity:'กิจกรรม', diff:'พรีวิวความต่าง',
     loading:'กำลังโหลด…', refresh:'รีเฟรช', backupCore:'แบ็กอัปไฟล์หลัก', reloadLoot:'รีโหลดลูท', restartServer:'รีสตาร์ตเซิร์ฟเวอร์',
-    localFirst:'ศูนย์ควบคุมแบบโลคัล', readyCheck:'ตรวจความพร้อม', heroTitle:'ใช้แอปนี้เพื่อแก้ config ออกแบบลูท เก็บ snapshot โปรไฟล์ หมุนชุดตั้งค่า และกันไม่ให้เซิร์ฟเวอร์พังเพราะ JSON พลาดครั้งเดียว', heroBody:'มนุษย์ชอบใช้ text editor ดิบ ๆ แก้ config เกม แล้วค่อยงงตอนมันระเบิด แอปนี้เลยมาคั่นกลางให้',
+    localFirst:'ศูนย์ควบคุมแบบโลคัล', readyCheck:'ตรวจความพร้อม', heroTitle:'แก้คอนฟิกเซิร์ฟเวอร์ ออกแบบลูท เก็บโปรไฟล์ และย้อนกลับได้ก่อนงานพัง', heroBody:'เริ่มจากเช็กความพร้อม ดู diff ก่อน save สร้าง backup แล้วค่อย reload เมื่อค่าพร้อมใช้จริง',
     configDirectory:'โฟลเดอร์คอนฟิก', backupsLabel:'แบ็กอัป', nodes:'โหนด', spawners:'สปอว์นเนอร์', health:'สุขภาพระบบ', healthHint:'ดูว่าอะไรตั้งค่าแล้ว และอะไรยังขาดอยู่', commandOutput:'ผลลัพธ์คำสั่ง', clear:'ล้าง', globalSearch:'ค้นหาทั้งระบบ', searchHint:'ค้นหาข้าม settings, economy, nodes และ spawners', searchPlaceholder:'ค้นหา item, node, spawner หรือ setting...', search:'ค้นหา',
     appSettings:'ตั้งค่าแอป', appSettingsHint:'กำหนด path และคำสั่ง shell ภายในเครื่อง', scumConfigFolder:'โฟลเดอร์คอนฟิก SCUM', backupFolder:'โฟลเดอร์แบ็กอัป', reloadLootCommand:'คำสั่งรีโหลดลูท', restartServerCommand:'คำสั่งรีสตาร์ตเซิร์ฟเวอร์', autoBackupCore:'แบ็กอัปไฟล์หลักอัตโนมัติเมื่อเปิด', saveAppConfig:'บันทึกการตั้งค่าแอป',
     parsedServerSettings:'ตั้งค่าเซิร์ฟเวอร์แบบแยกช่อง', parsedHint:'กรอง แก้ไข พรีวิว preset และบันทึก', filterKeys:'กรองคีย์...', reload:'รีโหลด', save:'บันทึก', saveReload:'บันทึก + รีโหลด',
@@ -167,6 +167,13 @@ function renderHelpGuide(){
   const set=(id,val)=>{ const el=$(id); if(el) el.innerHTML=val; };
   const step = (label, body) => `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtml(body)}</span></li>`;
   const chip = (label, tone='') => `<span class="guide-chip ${tone}">${escapeHtml(label)}</span>`;
+  const flowMap = () => `<div id="help-flow-map" class="help-flow-map">${[
+    [uiText('ตั้ง Path', 'Set paths'), uiText('ชี้ root, Nodes, Spawners', 'Point root, Nodes, Spawners')],
+    [uiText('เปิดไฟล์', 'Open file'), uiText('เลือก node หรือ spawner', 'Pick a node or spawner')],
+    [uiText('แก้แบบง่าย', 'Edit simple'), uiText('ใช้ปุ่มลัดและ catalog', 'Use shortcuts and catalog')],
+    [uiText('ตรวจปัญหา', 'Validate'), uiText('ดู warning/critical ก่อน save', 'Check warning/critical before save')],
+    [uiText('Save อย่างปลอดภัย', 'Safe save'), uiText('Preview Diff, backup, แล้วค่อย reload', 'Preview Diff, backup, then reload')]
+  ].map(([titleText, bodyText], index)=>`<div class="help-flow-step"><span>${index + 1}</span><strong>${escapeHtml(titleText)}</strong><small>${escapeHtml(bodyText)}</small></div>`).join('')}</div>`;
   const title = $('help-title');
   const body = $('help-body');
   const eyebrow = $('help-eyebrow');
@@ -187,7 +194,7 @@ function renderHelpGuide(){
     step(uiText('ตั้งค่า backup folder', 'Set the backup folder'), uiText('ให้ระบบมีที่เก็บสำเนาก่อน save หรือ restore', 'Give the app a place to store snapshots before save or restore.')),
     step(uiText('กดตรวจโฟลเดอร์', 'Check the folders'), uiText('ดูว่า Nodes folder, Spawners folder และไฟล์หลักเจอครบหรือยัง', 'Confirm that Nodes folder, Spawners folder, and core files are found.')),
     step(uiText('ค่อยเริ่มแก้', 'Start editing after setup'), uiText('ถ้าสถานะยังแดง ให้แก้ path ก่อน ไม่ต้องเริ่มจาก Loot Studio', 'If status is still red, fix paths first instead of starting in Loot Studio.'))
-  ].join('')}</ol>`);
+  ].join('')}</ol>${flowMap()}`);
   set('help-loot-guide', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('Loot Studio อ่านยังไง', 'How to read Loot Studio'))}</h4><p class="muted">${escapeHtml(uiText('จำแค่นี้ก่อน จะไม่หลงกับไฟล์ยาว ๆ', 'Remember these basics first so long files do not feel random.'))}</p></div></div><div class="help-concept-grid"><div>${chip('Nodes', 'info')}<p>${escapeHtml(uiText('คือกล่องรายการของที่อาจถูกสุ่ม เช่น ปืน กระสุน ยา หรือของทั่วไป', 'A bucket of items that can be rolled, such as weapons, ammo, medicine, or general loot.'))}</p></div><div>${chip('Spawners', 'warning')}<p>${escapeHtml(uiText('คือจุดหรือ preset ที่ไปเรียก Nodes อีกที ถ้า Spawner ชี้ node ผิด ลูทจุดนั้นจะเพี้ยน', 'A spawn preset that points to Nodes. If a Spawner points to the wrong node, that location will feel wrong.'))}</p></div><div>${chip(uiText('Probability', 'Probability'), 'critical')}<p>${escapeHtml(uiText('คือค่าน้ำหนัก ยิ่งสูงยิ่งมีโอกาสออกมากกว่า ใช้ Normalize เมื่ออยากจัดสัดส่วนใหม่', 'A weight value. Higher means more likely. Use Normalize when you want the rows balanced again.'))}</p></div></div><div class="help-note">${escapeHtml(uiText('ถ้าไฟล์ยาว ให้ใช้ Focus Editor, ซ่อนรายชื่อไฟล์, เปิดเฉพาะแถวนั้น และใช้ Item catalog แทนการพิมพ์ชื่อเอง', 'For large files, use Focus Editor, hide the file list, open only the row you need, and use Item catalog instead of typing names manually.'))}</div>`);
   set('help-save-guide', `<div class="section-head compact"><div><h4>${escapeHtml(uiText('ลำดับ save ที่ปลอดภัย', 'Safe save flow'))}</h4><p class="muted">${escapeHtml(uiText('อย่ากด Save แบบเดา ให้ตรวจความต่างก่อน', 'Do not save blindly. Check the diff first.'))}</p></div></div><ol class="help-step-list">${[
     step('Preview Diff', uiText('ดูว่าระบบกำลังเปลี่ยนไฟล์ตรงไหนบ้างก่อนบันทึก', 'See exactly what will change before saving.')),
@@ -894,12 +901,41 @@ function booleanFieldMeta(value){
     falseValue: capitalized ? 'False' : 'false'
   };
 }
+function serverFieldKind(value){
+  if(booleanFieldMeta(value)) return 'boolean';
+  const raw = String(value ?? '').trim();
+  return raw !== '' && /^-?\d+(\.\d+)?$/.test(raw) ? 'number' : 'text';
+}
+function serverFieldExplanation(key, value){
+  const normalized = String(key || '').toLowerCase();
+  const kind = serverFieldKind(value);
+  if(normalized.includes('maxplayers')) return uiText('จำนวนผู้เล่นสูงสุดที่เซิร์ฟเวอร์รับได้ ปรับแล้วควรเช็ก performance ด้วย', 'Maximum players the server accepts. Check performance after changing it.');
+  if(normalized.includes('allowmapscreen')) return uiText('เปิดหรือปิดหน้าจอแผนที่ของผู้เล่น', 'Turns the player map screen on or off.');
+  if(normalized.includes('allowglobalchat')) return uiText('เปิดหรือปิดแชตรวมของเซิร์ฟเวอร์', 'Turns global server chat on or off.');
+  if(normalized.includes('allowthirdperson')) return uiText('อนุญาตมุมมองบุคคลที่สาม ถ้าต้องการ hardcore มักปิดค่านี้', 'Allows third-person camera. Hardcore servers often disable this.');
+  if(normalized.includes('allowfirstperson')) return uiText('อนุญาตมุมมองบุคคลที่หนึ่ง ปกติควรเปิดไว้', 'Allows first-person camera. Usually this should stay enabled.');
+  if(normalized.includes('famegain')) return uiText('ตัวคูณ Fame ยิ่งสูงยิ่งเก็บแต้มเร็ว', 'Fame multiplier. Higher values make fame progress faster.');
+  if(normalized.includes('logout')) return uiText('เวลาหรือกติกาที่เกี่ยวกับการออกจากเกม ใช้กัน combat logging', 'Logout timing or behavior. Useful for reducing combat logging.');
+  if(normalized.includes('puppet')) return uiText('จำนวนหรือพฤติกรรม puppet/zombie ส่งผลกับความยากและ performance', 'Puppet/zombie amount or behavior. Affects difficulty and performance.');
+  if(normalized.includes('sentry')) return uiText('จำนวนหรือพฤติกรรมหุ่น sentry ส่งผลกับพื้นที่ military และ performance', 'Sentry amount or behavior. Affects military areas and performance.');
+  if(normalized.includes('damage')) return uiText('ค่าความเสียหายหรือสภาพไอเท็ม แก้ทีละน้อยแล้วทดสอบในเกม', 'Damage or item condition value. Change in small steps and test in game.');
+  if(normalized.includes('time')) return uiText('ค่าที่เกี่ยวกับเวลาในเกม เช่น รอบกลางวัน/กลางคืน หรือ cooldown', 'Time-related value such as day/night pacing or cooldowns.');
+  if(kind === 'boolean') return uiText('เลือกเปิดหรือปิด ไม่ต้องพิมพ์ True/False เอง', 'Choose enabled or disabled instead of typing True/False manually.');
+  if(kind === 'number') return uiText('ค่าเป็นตัวเลข แนะนำให้แก้ทีละน้อยแล้ว Preview Diff ก่อนบันทึก', 'Numeric value. Change gradually and inspect Preview Diff before saving.');
+  return uiText('ค่าแบบข้อความ คงรูปแบบเดิมไว้ถ้าไม่แน่ใจว่าระบบต้องการอะไร', 'Text value. Keep the existing format if you are not sure what the server expects.');
+}
+function renderServerGuidePanel(summary, visibleFieldCount){
+  return `<div class="server-guide-panel"><div><strong>${escapeHtml(uiText('เริ่มจากหมวดเดียวก่อน', 'Start with one section first'))}</strong><p class="muted">${escapeHtml(uiText('ใช้ dropdown เลือกหมวด/กลุ่ม แล้วค่อยแก้เฉพาะค่าที่รู้ผลกระทบ ช่วยให้หน้าไม่รกและลดโอกาสแก้ผิดช่อง', 'Use the section and group dropdowns first, then edit only values whose impact you understand. This keeps the page readable and reduces wrong edits.'))}</p></div><div class="server-guide-steps"><span class="tag">${escapeHtml(`${visibleFieldCount}/${summary.fieldCount} ${uiText('ฟิลด์ที่เห็น', 'visible fields')}`)}</span><span class="tag">${escapeHtml(uiText('True/False เป็นตัวเลือก', 'True/False uses selects'))}</span><span class="tag">${escapeHtml(uiText('ดูคำอธิบายใต้ช่อง', 'Read the hint under each field'))}</span></div></div>`;
+}
 function renderServerValueControl(section, entry){
   const booleanMeta = booleanFieldMeta(entry.value);
   if(booleanMeta){
-    return `<select class="field-input server-boolean-select" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}"><option value="${escapeHtml(booleanMeta.trueValue)}"${booleanMeta.current === 'true' ? ' selected' : ''}>True</option><option value="${escapeHtml(booleanMeta.falseValue)}"${booleanMeta.current === 'false' ? ' selected' : ''}>False</option></select>`;
+    return `<select class="field-input server-boolean-select" data-field-kind="boolean" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}"><option value="${escapeHtml(booleanMeta.trueValue)}"${booleanMeta.current === 'true' ? ' selected' : ''}>${escapeHtml(uiText('เปิด (True)', 'Enabled (True)'))}</option><option value="${escapeHtml(booleanMeta.falseValue)}"${booleanMeta.current === 'false' ? ' selected' : ''}>${escapeHtml(uiText('ปิด (False)', 'Disabled (False)'))}</option></select>`;
   }
-  return `<input class="field-input" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}" value="${escapeHtml(String(entry.value))}" />`;
+  const kind = serverFieldKind(entry.value);
+  const type = kind === 'number' ? 'number' : 'text';
+  const step = kind === 'number' ? ' step="any"' : '';
+  return `<input class="field-input" data-field-kind="${escapeHtml(kind)}" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}" type="${type}"${step} value="${escapeHtml(String(entry.value))}" />`;
 }
 function renderParsedServerGrid(){
   if(!state.parsedServer) return;
@@ -924,10 +960,11 @@ function renderParsedServerGrid(){
     { label: uiText(term || selectedSection !== '__all' || selectedGroup !== '__all' ? 'ฟิลด์ที่เห็น' : 'ฟิลด์ทั้งหมด', term || selectedSection !== '__all' || selectedGroup !== '__all' ? 'Visible fields' : 'Fields'), value: term || selectedSection !== '__all' || selectedGroup !== '__all' ? visibleFieldCount : summary.fieldCount },
     { label: uiText('พรีเซ็ต', 'Presets'), value: Object.keys(state.presets || {}).length }
   ].map((item)=>`<div class="card stat compact"><span class="stat-label">${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join('');
-  $('parsed-server-grid').innerHTML = sections.length ? sections.map(({ section, groups })=>{
-    const groupCards = groups.map((group)=>`<div class="server-group"><div class="server-group-head"><h5>${escapeHtml(group.group)}</h5><span class="tag">${group.entries.length}</span></div>${group.entries.map((entry)=>`<label class="field-card"><div class="field-meta"><strong>${escapeHtml(prettyServerKey(entry.key))}</strong><code class="field-key">${escapeHtml(entry.key)}</code></div>${renderServerValueControl(section, entry)}</label>`).join('')}</div>`).join('');
+  const serverGuide = renderServerGuidePanel(summary, visibleFieldCount);
+  $('parsed-server-grid').innerHTML = sections.length ? serverGuide + sections.map(({ section, groups }, sectionIndex)=>{
+    const groupCards = groups.map((group)=>`<div class="server-group"><div class="server-group-head"><h5>${escapeHtml(group.group)}</h5><span class="tag">${group.entries.length}</span></div>${group.entries.map((entry)=>`<label class="field-card"><div class="field-meta"><strong>${escapeHtml(prettyServerKey(entry.key))}</strong><code class="field-key">${escapeHtml(entry.key)}</code><small class="server-field-help">${escapeHtml(serverFieldExplanation(entry.key, entry.value))}</small></div>${renderServerValueControl(section, entry)}</label>`).join('')}</div>`).join('');
     const sectionCount = groups.reduce((sum, group)=>sum + group.entries.length, 0);
-    const open = term || selectedSection !== '__all' || selectedGroup !== '__all' ? ' open' : '';
+    const open = term || selectedSection !== '__all' || selectedGroup !== '__all' || sectionIndex === 0 ? ' open' : '';
     return `<details class="section-card server-section-card"${open}><summary class="section-toggle"><div><h4>${escapeHtml(section)}</h4><p class="muted">${sectionCount} ${escapeHtml(uiText('ฟิลด์', 'fields'))}</p></div><span class="tag">${groups.length} ${escapeHtml(uiText('กลุ่ม', 'groups'))}</span></summary><div class="server-group-grid">${groupCards}</div></details>`;
   }).join('') : `<div class="section-card"><div class="muted">${escapeHtml(uiText('ไม่มีค่าตั้งค่าที่ตรงกับคำค้น', 'No settings matched the current filter.'))}</div></div>`;
   document.querySelectorAll('[data-server-key]').forEach((input)=>{

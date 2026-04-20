@@ -118,6 +118,17 @@ test('bulk edit can set probability for selected item rows', async ({ page }) =>
   await expect(page.locator('[data-entry-prob="0"]')).toHaveValue('0.25');
 });
 
+test('flat item simple mode offers probability presets for selected rows', async ({ page }) => {
+  await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
+
+  await expect(page.locator('.loot-field-cheatsheet')).toBeVisible();
+  await expect(page.locator('.loot-field-cheatsheet')).toContainText(/Probability|น้ำหนัก/);
+  await page.locator('[data-row-select]').first().check();
+  await page.locator('[data-prob-preset="rare"]').click();
+
+  await expect(page.locator('[data-entry-prob="0"]')).toHaveValue('0.05');
+});
+
 test('flat item rows can be reordered with drag and drop', async ({ page }) => {
   await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
 

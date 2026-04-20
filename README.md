@@ -14,25 +14,25 @@
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.3/P2.4` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบและช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.5` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
 - Dashboard สำหรับดูภาพรวมและกด Preflight เช็คความพร้อม
 - App Settings สำหรับตั้ง path เช่น config folder, backup folder, Nodes folder, Spawners folder และ command reload/restart
-- Server Settings สำหรับแก้ `ServerSettings.ini` แบบแยกหมวด ไม่ต้องเห็นค่าทุกอย่างกองรวมกัน
+- Server Settings สำหรับแก้ `ServerSettings.ini` แบบแยกหมวด มี dropdown/filter, คำอธิบายใต้ field และ True/False เป็นตัวเลือก
 - Core Files สำหรับเปิดแก้ `GameUserSettings.ini` และ `EconomyOverride.json`
 - Loot Studio สำหรับแก้ `Nodes/*.json` และ `Spawners/*.json`
-- Loot Builder ช่วยเพิ่ม/ลบ/clone/reorder item, ปรับ probability, normalize และใช้ autocomplete
+- Loot Builder ช่วยเพิ่ม/ลบ/clone/reorder item, ปรับ probability, normalize, preset probability และใช้ autocomplete
 - Item Catalog พร้อม icon จาก `scum_items-main` เพื่อช่วยจำชื่อ item/class
-- Analyzer สำหรับดู missing refs, unused nodes, item ที่ใช้บ่อย, ภาพรวม balance และคำแนะนำว่าควรแก้อะไรก่อน
+- Analyzer สำหรับดู missing refs, unused nodes, item ที่ใช้บ่อย, ภาพรวม balance และคำแนะนำที่กดไปยังไฟล์ลูทที่ควรแก้ได้
 - Graph สำหรับดูความสัมพันธ์ `Spawner -> Node -> Item`
 - Search ทั้งระบบสำหรับหา item, node, spawner หรือข้อความในไฟล์
 - Auto-Fix preview สำหรับแก้โครง JSON พื้นฐานก่อน apply
 - Backup / Restore พร้อม note, tag, compare และ restore รายไฟล์
 - Profiles / Rotation สำหรับเก็บชุด config หลายแบบแล้วสลับใช้
 - Activity log สำหรับดูว่าเคย save, backup, restore หรือ apply อะไรไปบ้าง
-- Help ในแอปสำหรับอธิบายลำดับตั้งค่า, วิธีอ่าน Loot Studio, safe save flow และการใช้ filter ใน Server Settings
+- Help ในแอปสำหรับอธิบายลำดับตั้งค่า, วิธีอ่าน Loot Studio, flow การทำงานจริง, safe save flow และการใช้ filter ใน Server Settings
 - แต่ละหน้ามี route ของตัวเอง เช่น `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`
 - UI สลับไทย/อังกฤษได้
 

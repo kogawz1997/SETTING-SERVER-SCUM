@@ -104,6 +104,8 @@ assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เน
 assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge']);
 assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help']);
+assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path']);
 
 const pkg = JSON.parse(read('package.json'));
 if (pkg.author !== 'KOGA.EXE') {
