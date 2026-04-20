@@ -32,6 +32,7 @@
 - Backup / Restore พร้อม note, tag, compare และ restore รายไฟล์
 - Profiles / Rotation สำหรับเก็บชุด config หลายแบบแล้วสลับใช้
 - Activity log สำหรับดูว่าเคย save, backup, restore หรือ apply อะไรไปบ้าง
+- แต่ละหน้ามี route ของตัวเอง เช่น `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`
 - UI สลับไทย/อังกฤษได้
 
 ## เครดิต

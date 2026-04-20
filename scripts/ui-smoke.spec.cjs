@@ -81,6 +81,31 @@ test('dashboard readiness preflight renders actionable checks', async ({ page })
   await expect(page.locator('#readiness-panel')).toContainText(/Preflight|พร้อมใช้|PRODUCTION READY/);
 });
 
+test('top-level routes open the matching page and support browser history', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseUrl}/loot`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page).toHaveURL(/\/loot-studio$/);
+  await expect(page.locator('.nav[data-view="loot"]')).toHaveClass(/active/);
+
+  await page.locator('.nav[data-view="settings"]').click();
+  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page).toHaveURL(/\/settings$/);
+
+  await page.goBack();
+  await expect(page.locator('#view-loot')).toBeVisible();
+  await expect(page).toHaveURL(/\/loot-studio$/);
+
+  await page.goForward();
+  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page).toHaveURL(/\/settings$/);
+
+  await page.goto(`${baseUrl}/corefiles`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#view-corefiles')).toBeVisible();
+  await expect(page).toHaveURL(/\/core-files$/);
+});
+
 test('mobile views render without horizontal overflow', async ({ page }) => {
   await runViewportSweep(page, { width: 430, height: 932 }, 'mobile');
 });

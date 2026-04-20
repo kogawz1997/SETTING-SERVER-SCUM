@@ -57,6 +57,38 @@ const state = {
 
 
 const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', diff: 'diff' };
+const routeByView = {
+  dashboard: '/dashboard',
+  settings: '/settings',
+  server: '/server-settings',
+  corefiles: '/core-files',
+  loot: '/loot-studio',
+  analyzer: '/analyzer',
+  graph: '/graph',
+  profiles: '/profiles',
+  backups: '/backups',
+  activity: '/activity',
+  diff: '/diff-preview'
+};
+const routeAliases = {
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/settings': 'settings',
+  '/app-settings': 'settings',
+  '/server': 'server',
+  '/server-settings': 'server',
+  '/corefiles': 'corefiles',
+  '/core-files': 'corefiles',
+  '/loot': 'loot',
+  '/loot-studio': 'loot',
+  '/analyzer': 'analyzer',
+  '/graph': 'graph',
+  '/profiles': 'profiles',
+  '/backups': 'backups',
+  '/activity': 'activity',
+  '/diff': 'diff',
+  '/diff-preview': 'diff'
+};
 const i18n = {
   en: {
     dashboard:'Dashboard', settings:'App Settings', server:'Server Settings', corefiles:'Core Files', loot:'Loot Studio', analyzer:'Analyzer', graph:'Graph', profiles:'Profiles', backups:'Backups', activity:'Activity', diff:'Diff Preview',
@@ -234,7 +266,41 @@ function setLootEditorMode(mode){
   $('toggle-raw')?.classList.toggle('active', state.lootUi.editorMode === 'raw');
   refreshLootDirtyState();
 }
-function setView(view){ state.view=view; document.querySelectorAll('.nav').forEach((b)=>b.classList.toggle('active', b.dataset.view===view)); document.querySelectorAll('.view').forEach((v)=>v.classList.remove('active')); $(`view-${view}`).classList.add('active'); $('page-title').textContent = t(pageTitles[view] || 'dashboard'); }
+function normalizeRoutePath(pathname = window.location.pathname){
+  let path = String(pathname || '/').replace(/\/+$/, '');
+  if(!path) path = '/';
+  const view = routeAliases[path] || 'dashboard';
+  const canonicalPath = routeByView[view] || routeByView.dashboard;
+  return { view, canonicalPath, shouldNormalize: path !== canonicalPath };
+}
+function updateRoute(view, mode = 'push'){
+  const path = routeByView[view] || routeByView.dashboard;
+  if(window.location.pathname === path) return;
+  const method = mode === 'replace' ? 'replaceState' : 'pushState';
+  window.history[method]({ view }, '', path);
+}
+function setView(view, options = {}){
+  const nextView = pageTitles[view] ? view : 'dashboard';
+  const viewEl = $(`view-${nextView}`);
+  if(!viewEl) return;
+  state.view = nextView;
+  document.querySelectorAll('.nav').forEach((b)=>{
+    const active = b.dataset.view === nextView;
+    b.classList.toggle('active', active);
+    if(active) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+  document.querySelectorAll('.view').forEach((v)=>v.classList.remove('active'));
+  viewEl.classList.add('active');
+  $('page-title').textContent = t(pageTitles[nextView] || 'dashboard');
+  document.title = `${t(pageTitles[nextView] || 'dashboard')} Â· SETTING SERVER SCUM`;
+  if(options.updateRoute !== false) updateRoute(nextView, options.replaceRoute ? 'replace' : 'push');
+}
+function setViewFromRoute(){
+  const route = normalizeRoutePath();
+  setView(route.view, { updateRoute: false });
+  if(route.shouldNormalize) updateRoute(route.view, 'replace');
+}
 function setStatus(ok, text){ $('status-dot').classList.toggle('good', ok); $('status-text').textContent=text; }
 function writeConsole(text){ $('command-output').textContent = text || ''; }
 function healthLabel(key){
@@ -932,7 +998,7 @@ async function loadItemCatalog(){
 function renderItemCatalogSection(mode){
   const items = filteredItemCatalogItems();
   const categories = state.itemCatalog?.categories || [];
-  return `<div class="builder-section catalog-shell"><details class="catalog-panel" ${state.lootUi.itemCatalogOpen ? 'open' : ''}><summary class="section-head compact"><div><h4>${escapeHtml(mode === 'tree' ? uiText('Item catalog ?????? tree', 'Item catalog for tree nodes') : uiText('Item catalog', 'Item catalog'))}</h4><p class="muted">${escapeHtml(mode === 'tree' ? uiText('???????????????????? leaf ????????????????? ??????????????? leaf ????????????', 'Pick a real item for the focused leaf, or add it as a new leaf immediately.') : uiText('????????????????????????????? class name ???', 'Pick a real item instead of guessing the class name.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${items.length}/${state.itemCatalog?.total || 0}`)}</span><button type="button" class="ghost tiny" data-item-catalog-toggle>${escapeHtml(state.lootUi.itemCatalogOpen ? uiText('???? catalog', 'Hide catalog') : uiText('???? catalog', 'Show catalog'))}</button></div></summary><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('???????????', 'Search items'))}</span><input id="item-catalog-search" value="${escapeHtml(state.itemCatalogSearch || '')}" placeholder="${escapeHtml(uiText('???????????????', 'Type an item name'))}" /></label><label><span>${escapeHtml(uiText('????', 'Category'))}</span><select id="item-catalog-category"><option value="__all">${escapeHtml(uiText('???????', 'All categories'))}</option>${categories.map((entry)=>`<option value="${escapeHtml(entry.id)}"${entry.id === state.itemCatalogCategory ? ' selected' : ''}>${escapeHtml(`${entry.id} (${entry.count})`)}</option>`).join('')}</select></label></div><datalist id="loot-item-options">${(state.itemCatalog?.items || []).slice(0, 1200).map((item)=>`<option value="${escapeHtml(item.name)}"></option>`).join('')}</datalist><div class="catalog-result-grid">${items.slice(0, 80).map((item)=>`<button type="button" class="result-card catalog-pick-card" data-catalog-pick="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong><div class="muted">${escapeHtml(`${item.category} · ${item.appearances} ${uiText('?????', 'hits')}`)}</div></button>`).join('') || `<div class="muted builder-empty">${escapeHtml(uiText('?????????????????????????????', 'No items matched this search.'))}</div>`}</div></details></div>`;
+  return `<div class="builder-section catalog-shell"><details class="catalog-panel" ${state.lootUi.itemCatalogOpen ? 'open' : ''}><summary class="section-head compact"><div><h4>${escapeHtml(mode === 'tree' ? uiText('Item catalog ?????? tree', 'Item catalog for tree nodes') : uiText('Item catalog', 'Item catalog'))}</h4><p class="muted">${escapeHtml(mode === 'tree' ? uiText('???????????????????? leaf ????????????????? ??????????????? leaf ????????????', 'Pick a real item for the focused leaf, or add it as a new leaf immediately.') : uiText('????????????????????????????? class name ???', 'Pick a real item instead of guessing the class name.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${items.length}/${state.itemCatalog?.total || 0}`)}</span><button type="button" class="ghost tiny" data-item-catalog-toggle>${escapeHtml(state.lootUi.itemCatalogOpen ? uiText('???? catalog', 'Hide catalog') : uiText('???? catalog', 'Show catalog'))}</button></div></summary><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('???????????', 'Search items'))}</span><input id="item-catalog-search" value="${escapeHtml(state.itemCatalogSearch || '')}" placeholder="${escapeHtml(uiText('???????????????', 'Type an item name'))}" /></label><label><span>${escapeHtml(uiText('????', 'Category'))}</span><select id="item-catalog-category"><option value="__all">${escapeHtml(uiText('???????', 'All categories'))}</option>${categories.map((entry)=>`<option value="${escapeHtml(entry.id)}"${entry.id === state.itemCatalogCategory ? ' selected' : ''}>${escapeHtml(`${entry.id} (${entry.count})`)}</option>`).join('')}</select></label></div><datalist id="loot-item-options">${(state.itemCatalog?.items || []).slice(0, 1200).map((item)=>`<option value="${escapeHtml(item.name)}"></option>`).join('')}</datalist><div class="catalog-result-grid">${items.slice(0, 80).map((item)=>`<button type="button" class="result-card catalog-pick-card" data-catalog-pick="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong><div class="muted">${escapeHtml(`${item.category} Â· ${item.appearances} ${uiText('?????', 'hits')}`)}</div></button>`).join('') || `<div class="muted builder-empty">${escapeHtml(uiText('?????????????????????????????', 'No items matched this search.'))}</div>`}</div></details></div>`;
 }
 function bindItemCatalogControls(mode){
   const toggle = document.querySelector('[data-item-catalog-toggle]');
@@ -984,7 +1050,7 @@ async function loadNodeRefCatalog(){
 function renderNodeRefCatalogSection(){
   const refs = filteredNodeRefs();
   const nodes = state.nodeRefCatalog?.nodes || [];
-  return `<div class="builder-section catalog-shell"><details class="catalog-panel" ${state.lootUi.refCatalogOpen ? 'open' : ''}><summary class="section-head compact"><div><h4>${escapeHtml(uiText('Node ref catalog', 'Node ref catalog'))}</h4><p class="muted">${escapeHtml(uiText('???????? tree ref ???????????????????????????', 'Use real tree refs instead of typing each one manually.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${refs.length}/${state.nodeRefCatalog?.total || 0}`)}</span><button type="button" class="ghost tiny" data-ref-catalog-toggle>${escapeHtml(state.lootUi.refCatalogOpen ? uiText('???? catalog', 'Hide catalog') : uiText('???? catalog', 'Show catalog'))}</button></div></summary><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('????? ref', 'Search refs'))}</span><input id="node-ref-search" value="${escapeHtml(state.nodeRefSearch || '')}" placeholder="${escapeHtml(uiText('????????????????? ref', 'Type a branch name or ref'))}" /></label><label><span>${escapeHtml(uiText('Node file', 'Node file'))}</span><select id="node-ref-node-filter"><option value="__all">${escapeHtml(uiText('???????', 'All nodes'))}</option>${nodes.map((node)=>`<option value="${escapeHtml(node)}"${node === state.nodeRefNodeFilter ? ' selected' : ''}>${escapeHtml(node)}</option>`).join('')}</select></label></div><div class="catalog-result-grid">${refs.slice(0, 120).map((entry)=>`<button type="button" class="result-card catalog-pick-card" data-ref-pick="${escapeHtml(entry.ref)}"><strong>${escapeHtml(entry.label || entry.ref)}</strong><div class="muted">${escapeHtml(`${entry.node} · ${entry.kind}${entry.rarity ? ` · ${entry.rarity}` : ''}`)}</div><code>${escapeHtml(entry.ref)}</code></button>`).join('') || `<div class="muted builder-empty">${escapeHtml(uiText('?????? ref ?????????????????', 'No refs matched this search.'))}</div>`}</div></details></div>`;
+  return `<div class="builder-section catalog-shell"><details class="catalog-panel" ${state.lootUi.refCatalogOpen ? 'open' : ''}><summary class="section-head compact"><div><h4>${escapeHtml(uiText('Node ref catalog', 'Node ref catalog'))}</h4><p class="muted">${escapeHtml(uiText('???????? tree ref ???????????????????????????', 'Use real tree refs instead of typing each one manually.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${refs.length}/${state.nodeRefCatalog?.total || 0}`)}</span><button type="button" class="ghost tiny" data-ref-catalog-toggle>${escapeHtml(state.lootUi.refCatalogOpen ? uiText('???? catalog', 'Hide catalog') : uiText('???? catalog', 'Show catalog'))}</button></div></summary><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('????? ref', 'Search refs'))}</span><input id="node-ref-search" value="${escapeHtml(state.nodeRefSearch || '')}" placeholder="${escapeHtml(uiText('????????????????? ref', 'Type a branch name or ref'))}" /></label><label><span>${escapeHtml(uiText('Node file', 'Node file'))}</span><select id="node-ref-node-filter"><option value="__all">${escapeHtml(uiText('???????', 'All nodes'))}</option>${nodes.map((node)=>`<option value="${escapeHtml(node)}"${node === state.nodeRefNodeFilter ? ' selected' : ''}>${escapeHtml(node)}</option>`).join('')}</select></label></div><div class="catalog-result-grid">${refs.slice(0, 120).map((entry)=>`<button type="button" class="result-card catalog-pick-card" data-ref-pick="${escapeHtml(entry.ref)}"><strong>${escapeHtml(entry.label || entry.ref)}</strong><div class="muted">${escapeHtml(`${entry.node} Â· ${entry.kind}${entry.rarity ? ` Â· ${entry.rarity}` : ''}`)}</div><code>${escapeHtml(entry.ref)}</code></button>`).join('') || `<div class="muted builder-empty">${escapeHtml(uiText('?????? ref ?????????????????', 'No refs matched this search.'))}</div>`}</div></details></div>`;
 }
 function bindNodeRefCatalogControls(){
   const toggle = document.querySelector('[data-ref-catalog-toggle]');
@@ -1446,6 +1512,7 @@ function bindEvents(){
     event.preventDefault();
     event.returnValue = '';
   });
+  window.addEventListener('popstate', setViewFromRoute);
 }
 
 bindEvents();
@@ -1453,6 +1520,7 @@ $('lang-toggle').onclick=()=>setLanguage(state.lang==='en'?'th':'en');
 updateLootWorkspaceLayout();
 updateLootWorkspaceCopy();
 setLanguage(state.lang);
+setViewFromRoute();
 refreshAll().catch((error)=>{ setStatus(false, error.message); showToast(error.message, true); });
 
 

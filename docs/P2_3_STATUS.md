@@ -14,6 +14,7 @@ This project is now in a practical local-ready P2.3 state.
 - Graph with focus/filter, zoom/pan style controls in the UI layer, and dependency inspection.
 - Profiles, rotation, backups, restore selected file, backup notes/tags, backup compare, and backup cleanup.
 - Activity log.
+- Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, and `/backups`.
 - Release check script and Windows launchers.
 - Bulk case-sensitive loot ref repair script with backup-before-write.
 - Direct item spawner validation that supports SCUM weight-style `Probability` values above 1.
