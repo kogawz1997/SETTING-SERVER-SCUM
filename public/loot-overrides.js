@@ -20,6 +20,8 @@
   state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '', connectMode: false, connectFromId: '', editMode: false };
   state.graphUi.editMode = !!state.graphUi.editMode;
   state.graphUi.refEdit = state.graphUi.refEdit || { spawnerPath: '', groupIndex: 0, action: 'add', ref: '', oldRef: '' };
+  state.graphUi.relationshipSearch = state.graphUi.relationshipSearch || '';
+  state.graphUi.relationshipSpawner = state.graphUi.relationshipSpawner || '';
   state.backupUi = state.backupUi || { compareTarget: '', tagFilter: '__all', pathFilter: '' };
   state.packageUi = state.packageUi || { text: '', preview: null, lastExportName: '' };
   state.activityUi = state.activityUi || { type: '__all', term: '', path: '' };
@@ -3155,6 +3157,113 @@
       .filter(Boolean);
   }
 
+  function graphAllSpawnerNodes() {
+    return (state.graph?.nodes || [])
+      .filter((node) => node.kind === 'spawner')
+      .sort((a, b) => String(a.label || a.path).localeCompare(String(b.label || b.path)));
+  }
+
+  function graphNodeLookup() {
+    return new Map((state.graph?.nodes || []).map((node) => [node.id, node]));
+  }
+
+  function graphRelationshipRows() {
+    const lookup = graphNodeLookup();
+    return (state.graph?.edges || [])
+      .filter((edge) => String(edge.to || '').startsWith('ref:') && lookup.get(edge.from)?.kind === 'spawner')
+      .map((edge) => {
+        const spawner = lookup.get(edge.from) || {};
+        const target = lookup.get(edge.to) || {};
+        const ref = edge.ref || String(edge.to || '').replace(/^ref:/, '');
+        return {
+          spawnerPath: edge.from,
+          spawnerLabel: spawner.label || edge.from,
+          ref,
+          refLabel: target.label || ref,
+          groupIndex: Math.max(0, Number(edge.groupIndex || 0)),
+          kind: target.kind || (edge.missing ? 'missing_ref' : 'node'),
+          missing: Boolean(edge.missing || target.missing),
+        };
+      })
+      .sort((a, b) => `${a.spawnerLabel} ${a.groupIndex} ${a.ref}`.localeCompare(`${b.spawnerLabel} ${b.groupIndex} ${b.ref}`));
+  }
+
+  function filteredGraphRelationshipRows() {
+    const term = String(state.graphUi.relationshipSearch || '').trim().toLowerCase();
+    const rows = graphRelationshipRows();
+    if (!term) return rows;
+    return rows.filter((row) => [row.spawnerPath, row.spawnerLabel, row.ref, row.refLabel, row.kind]
+      .some((value) => String(value || '').toLowerCase().includes(term)));
+  }
+
+  function stageGraphRefEdit(update = {}) {
+    const next = {
+      ...state.graphUi.refEdit,
+      ...update,
+      groupIndex: Math.max(0, Number(update.groupIndex ?? state.graphUi.refEdit?.groupIndex ?? 0)),
+    };
+    state.graphUi.refEdit = next;
+    state.graphUi.editMode = true;
+    state.graphUi.connectMode = false;
+    state.graphUi.connectFromId = '';
+    if (next.spawnerPath) state.graphUi.selectedId = next.spawnerPath;
+    if (typeof renderGraph === 'function') renderGraph();
+    else renderGraphFocus();
+  }
+
+  function renderGraphRelationshipManager() {
+    const allRows = graphRelationshipRows();
+    const rows = filteredGraphRelationshipRows().slice(0, 80);
+    const spawners = graphAllSpawnerNodes();
+    if (!state.graphUi.relationshipSpawner && spawners[0]) state.graphUi.relationshipSpawner = spawners[0].path;
+    const spawnerOptions = spawners.map((node) => `<option value="${escapeHtml(node.path)}"${node.path === state.graphUi.relationshipSpawner ? ' selected' : ''}>${escapeHtml(node.label || node.path)}</option>`).join('');
+    const rowMarkup = rows.map((row) => `<div class="graph-relationship-row ${row.missing ? 'missing' : ''}"><div class="graph-relationship-copy"><strong>${escapeHtml(row.spawnerLabel)}</strong><small>${escapeHtml(`Group ${row.groupIndex} -> ${row.refLabel}`)}</small><code>${escapeHtml(row.ref)}</code></div><span class="tag ${row.missing ? 'danger' : 'node'}">${escapeHtml(row.missing ? uiText('ref หาย', 'missing ref') : graphKindLabel(row.kind))}</span><div class="graph-relationship-actions"><button class="ghost tiny" data-graph-stage-replace="1" data-spawner-path="${escapeHtml(row.spawnerPath)}" data-group-index="${escapeHtml(String(row.groupIndex))}" data-ref="${escapeHtml(row.ref)}">${escapeHtml(uiText('แทนที่', 'Replace'))}</button><button class="danger-outline tiny" data-graph-stage-remove="1" data-spawner-path="${escapeHtml(row.spawnerPath)}" data-group-index="${escapeHtml(String(row.groupIndex))}" data-ref="${escapeHtml(row.ref)}">${escapeHtml(uiText('ลบ ref', 'Remove ref'))}</button></div></div>`).join('');
+    return `<div class="graph-relationship-manager result-card"><div class="section-head compact"><div><h4>${escapeHtml(uiText('ตัวจัดการความสัมพันธ์', 'Relationship manager'))}</h4><p class="muted">${escapeHtml(uiText('รวมเส้น Spawner -> Node ref ไว้ตรงนี้ จะเพิ่ม ลบ หรือเตรียมแทนที่ได้โดยไม่ต้องไล่คลิกทั้งกราฟ', 'All Spawner -> Node ref links are listed here so you can add, remove, or stage replacements without hunting through the graph.'))}</p></div><span id="graph-relationship-count" class="tag">${escapeHtml(`${rows.length}/${allRows.length}`)}</span></div><div class="graph-relationship-tools"><label><span>${escapeHtml(uiText('ค้นหา ref หรือ spawner', 'Search refs or spawners'))}</span><input id="graph-relationship-search" value="${escapeHtml(state.graphUi.relationshipSearch || '')}" placeholder="${escapeHtml(uiText('เช่น bunker, weapon, medical', 'Example: bunker, weapon, medical'))}" /></label><div class="graph-mini-form"><select id="graph-relationship-spawner">${spawnerOptions}</select><input id="graph-relationship-group" type="number" min="0" value="${escapeHtml(String(state.graphUi.refEdit?.groupIndex || 0))}" /><input id="graph-relationship-new-ref" value="${escapeHtml(state.graphUi.refEdit?.action === 'add' ? state.graphUi.refEdit?.ref || '' : '')}" placeholder="ItemLootTreeNodes.SampleWeapons.Rifle" /><button id="graph-stage-add" class="tiny">${escapeHtml(uiText('เตรียมเพิ่ม ref', 'Stage add ref'))}</button></div></div><div class="graph-relationship-list">${rowMarkup || `<div class="builder-empty muted">${escapeHtml(allRows.length ? uiText('ไม่เจอความสัมพันธ์ที่ตรงกับคำค้นนี้', 'No relationships matched this search.') : uiText('ยังไม่มี spawner ref ในกราฟนี้', 'No spawner refs in this graph yet.'))}</div>`}</div></div>`;
+  }
+
+  function bindGraphRelationshipManager() {
+    const search = $('graph-relationship-search');
+    if (search) search.oninput = (event) => {
+      state.graphUi.relationshipSearch = event.target.value;
+      renderGraphFocus();
+      const nextSearch = $('graph-relationship-search');
+      if (nextSearch) {
+        nextSearch.focus();
+        nextSearch.selectionStart = nextSearch.selectionEnd = nextSearch.value.length;
+      }
+    };
+    const spawnerSelect = $('graph-relationship-spawner');
+    if (spawnerSelect) spawnerSelect.onchange = (event) => { state.graphUi.relationshipSpawner = event.target.value; };
+    const addButton = $('graph-stage-add');
+    if (addButton) addButton.onclick = () => {
+      stageGraphRefEdit({
+        spawnerPath: $('graph-relationship-spawner')?.value || state.graphUi.relationshipSpawner,
+        action: 'add',
+        groupIndex: $('graph-relationship-group')?.value || 0,
+        ref: $('graph-relationship-new-ref')?.value || '',
+        oldRef: '',
+      });
+    };
+    document.querySelectorAll('[data-graph-stage-remove]').forEach((button) => {
+      button.onclick = () => stageGraphRefEdit({
+        spawnerPath: button.dataset.spawnerPath,
+        action: 'remove',
+        groupIndex: button.dataset.groupIndex,
+        ref: button.dataset.ref,
+        oldRef: button.dataset.ref,
+      });
+    });
+    document.querySelectorAll('[data-graph-stage-replace]').forEach((button) => {
+      button.onclick = () => stageGraphRefEdit({
+        spawnerPath: button.dataset.spawnerPath,
+        action: 'replace',
+        groupIndex: button.dataset.groupIndex,
+        ref: '',
+        oldRef: button.dataset.ref,
+      });
+    });
+  }
+
   async function submitGraphRefEdit(apply = false) {
     const edit = state.graphUi.refEdit || {};
     const payload = {
@@ -3198,15 +3307,19 @@
     if (baseRenderGraphFocus) baseRenderGraphFocus();
     const host = $('graph-focus-summary');
     if (!host) return;
-    const neighborhood = state.graph?.neighborhood || [];
-    const spawners = neighborhood.filter((node) => node.kind === 'spawner');
+    if (state.graphUi.editMode) {
+      host.insertAdjacentHTML('beforeend', renderGraphRelationshipManager());
+      bindGraphRelationshipManager();
+    }
+    const spawners = graphAllSpawnerNodes();
     if (!spawners.length) return;
     const edit = state.graphUi.refEdit;
     if (!edit.spawnerPath || !spawners.some((node) => node.path === edit.spawnerPath)) edit.spawnerPath = spawners[0].path;
     const currentRefs = graphRefOptionsForSpawner(edit.spawnerPath);
     const spawnerOptions = spawners.map((node) => `<option value="${escapeHtml(node.path)}"${node.path === edit.spawnerPath ? ' selected' : ''}>${escapeHtml(node.label)}</option>`).join('');
-    const oldRefOptions = currentRefs.map((ref) => `<option value="${escapeHtml(ref)}"${ref === edit.oldRef ? ' selected' : ''}>${escapeHtml(ref)}</option>`).join('');
-    host.insertAdjacentHTML('beforeend', `<div class="graph-ref-editor result-card"><div class="section-head compact"><div><h4>${escapeHtml(uiText('แก้ ref จากกราฟ', 'Edit refs from graph'))}</h4><p class="muted">${escapeHtml(uiText('ใช้กับ spawner เท่านั้น และจะพาไปหน้า diff ก่อนบันทึกจริง', 'Spawner-only editor. Preview diff before writing.'))}</p></div></div><div class="loot-inline-grid"><label><span>${escapeHtml(uiText('Spawner', 'Spawner'))}</span><select id="graph-edit-spawner">${spawnerOptions}</select></label><label><span>${escapeHtml(uiText('Action', 'Action'))}</span><select id="graph-edit-action"><option value="add"${edit.action === 'add' ? ' selected' : ''}>Add</option><option value="remove"${edit.action === 'remove' ? ' selected' : ''}>Remove</option><option value="replace"${edit.action === 'replace' ? ' selected' : ''}>Replace</option></select></label><label><span>${escapeHtml(uiText('Group index', 'Group index'))}</span><input id="graph-edit-group" type="number" min="0" value="${escapeHtml(String(edit.groupIndex || 0))}" /></label><label><span>${escapeHtml(uiText('Old ref', 'Old ref'))}</span><select id="graph-edit-old-ref"><option value="">${escapeHtml(uiText('เลือกเมื่อ replace/remove', 'Choose for replace/remove'))}</option>${oldRefOptions}</select></label><label class="span-two"><span>${escapeHtml(uiText('New / target ref', 'New / target ref'))}</span><input id="graph-edit-ref" value="${escapeHtml(edit.ref || '')}" placeholder="ItemLootTreeNodes.SampleWeapons.Rifle" /></label></div><div class="actions tight wrap"><button id="graph-edit-preview" class="ghost tiny">${escapeHtml(uiText('Preview diff', 'Preview diff'))}</button><button id="graph-edit-apply" class="tiny">${escapeHtml(uiText('Apply with backup', 'Apply with backup'))}</button></div></div>`);
+    const oldRefs = edit.oldRef && !currentRefs.includes(edit.oldRef) ? [edit.oldRef, ...currentRefs] : currentRefs;
+    const oldRefOptions = oldRefs.map((ref) => `<option value="${escapeHtml(ref)}"${ref === edit.oldRef ? ' selected' : ''}>${escapeHtml(ref)}</option>`).join('');
+    host.insertAdjacentHTML('beforeend', `<div class="graph-ref-editor result-card"><div class="section-head compact"><div><h4>${escapeHtml(uiText('แก้ ref จากกราฟ', 'Edit refs from graph'))}</h4><p class="muted">${escapeHtml(uiText('เลือกจากรายการด้านบน แล้วกด Preview diff ก่อนบันทึกจริงทุกครั้ง', 'Pick from the manager above, then preview the diff before writing.'))}</p></div></div><div class="loot-inline-grid"><label><span>${escapeHtml(uiText('Spawner ที่จะแก้', 'Spawner to edit'))}</span><select id="graph-edit-spawner">${spawnerOptions}</select></label><label><span>${escapeHtml(uiText('สิ่งที่จะทำ', 'Action'))}</span><select id="graph-edit-action"><option value="add"${edit.action === 'add' ? ' selected' : ''}>${escapeHtml(uiText('เพิ่ม ref', 'Add ref'))}</option><option value="remove"${edit.action === 'remove' ? ' selected' : ''}>${escapeHtml(uiText('ลบ ref', 'Remove ref'))}</option><option value="replace"${edit.action === 'replace' ? ' selected' : ''}>${escapeHtml(uiText('แทนที่ ref', 'Replace ref'))}</option></select></label><label><span>${escapeHtml(uiText('กลุ่มที่เท่าไร', 'Group index'))}</span><input id="graph-edit-group" type="number" min="0" value="${escapeHtml(String(edit.groupIndex || 0))}" /></label><label><span>${escapeHtml(uiText('ref เดิม', 'Old ref'))}</span><select id="graph-edit-old-ref"><option value="">${escapeHtml(uiText('ใช้ตอนลบหรือแทนที่', 'Use for remove or replace'))}</option>${oldRefOptions}</select></label><label class="span-two"><span>${escapeHtml(uiText('ref ใหม่ / ref เป้าหมาย', 'New / target ref'))}</span><input id="graph-edit-ref" value="${escapeHtml(edit.ref || '')}" placeholder="ItemLootTreeNodes.SampleWeapons.Rifle" /></label></div><div class="actions tight wrap"><button id="graph-edit-preview" class="ghost tiny">${escapeHtml(uiText('Preview diff', 'Preview diff'))}</button><button id="graph-edit-apply" class="tiny">${escapeHtml(uiText('Apply with backup', 'Apply with backup'))}</button></div></div>`);
     bindGraphRefEditor();
   };
 

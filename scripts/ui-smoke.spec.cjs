@@ -205,6 +205,25 @@ test('graph view has interactive focus and zoom controls', async ({ page }) => {
   await expect(page.locator('.graph-toolbar .tag').filter({ hasText: /%/ })).toContainText(/1(0|1|2)/);
 });
 
+test('graph edit mode exposes a relationship manager for staged ref edits', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="graph"]').click();
+  await page.locator('#refresh-graph').click();
+  await page.locator('#graph-edit-mode').click();
+
+  await expect(page.locator('.graph-relationship-manager')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#graph-relationship-count')).toContainText(/\d+\/\d+/);
+  await expect(page.locator('[data-graph-stage-remove]').first()).toBeVisible();
+
+  await page.locator('[data-graph-stage-remove]').first().click();
+  await expect(page.locator('#graph-edit-action')).toHaveValue('remove');
+  await expect(page.locator('#graph-edit-preview')).toBeEnabled();
+  await page.locator('#graph-edit-preview').click();
+  await expect(page.locator('#view-diff')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#diff-summary')).toContainText(/file|ไฟล์|changes|เปลี่ยน/i);
+});
+
 test('analyzer shows deeper balance and coverage metrics', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
