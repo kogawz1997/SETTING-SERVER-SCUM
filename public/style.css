@@ -1990,11 +1990,46 @@ input[type="range"] {
     width: 100%;
   }
 
-  .loot-context-tabs {
+.loot-context-tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
     padding-bottom: 8px;
   }
+}
+
+.onboarding-wizard {
+  border-color: rgba(118,179,255,.28);
+}
+
+.onboarding-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,.035);
+}
+
+.onboarding-step.done {
+  border-color: rgba(87,220,151,.25);
+  background: rgba(87,220,151,.055);
+}
+
+.onboarding-index {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(118,179,255,.16);
+  color: #d9ecff;
+  font-weight: 800;
 }
 
 @media (max-width: 620px) {

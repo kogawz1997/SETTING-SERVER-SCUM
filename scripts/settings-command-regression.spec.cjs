@@ -23,6 +23,10 @@ test('settings setup wizard summarizes path and command readiness', async ({ pag
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await page.locator('.nav[data-view="settings"]').click();
 
+  await expect(page.locator('#onboarding-wizard')).toBeVisible();
+  await expect(page.locator('#onboarding-wizard')).toContainText(/First-run onboarding|ตัวช่วยตั้งค่าครั้งแรก|à¸•à¸±à¸§à¸Šà¹ˆà¸§à¸¢/);
+  await expect(page.locator('.onboarding-step')).toHaveCount(7);
+  await expect(page.locator('#onboarding-sample')).toBeVisible();
   await expect(page.locator('#setup-wizard-panel')).toBeVisible();
   await expect(page.locator('#setup-wizard-panel')).toContainText(/Setup Wizard/);
   await expect(page.locator('#setup-wizard-panel .wizard-check')).toHaveCount(8);

@@ -197,11 +197,29 @@ scum_items-main/        item catalog และ icon assets
 ## เอกสารเพิ่มเติม
 
 - `docs/INSTALL_TH.md`
+- `docs/QUICK_START.md`
+- `docs/DAILY_USE.md`
+- `docs/RECOVERY_GUIDE.md`
+- `docs/POWER_USER_GUIDE.md`
+- `docs/COMPATIBILITY.md`
+- `docs/LOCAL_DEFINITION_OF_DONE.md`
+- `docs/RELEASE_QUALITY.md`
 - `docs/USAGE_GUIDE.md`
 - `docs/PROJECT_STRUCTURE.md`
 - `docs/RELEASE_CHECKLIST.md`
 - `docs/P2_3_STATUS.md`
 - `docs/SAAS_TENANT_ARCHITECTURE.md`
+- `CHANGELOG.md`
+
+## Local release quality
+
+ก่อนปล่อย build ให้คนอื่นใช้ ให้รันคำสั่งนี้:
+
+```bash
+npm run release:quality
+```
+
+คำสั่งนี้รวม tests, release check, config roundtrip check, sample workspace smoke test, broken-link/docs check และ changelog/version check ไว้ในรอบเดียว
 
 ## English Summary
 

@@ -20,6 +20,18 @@ function registerSystemRoutes(app, ctx) {
     errorResponse,
   } = ctx;
 
+  function writeProbe(dirPath) {
+    try {
+      if (!dirPath || !fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) return { ok: false, reason: 'missing_directory' };
+      const probePath = path.join(dirPath, `.scum-control-write-test-${process.pid}.tmp`);
+      fs.writeFileSync(probePath, 'ok', 'utf8');
+      fs.unlinkSync(probePath);
+      return { ok: true, reason: 'writable' };
+    } catch (error) {
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
+
   app.get('/api/bootstrap', (req, res) => {
     try {
       const config = loadConfig();
@@ -45,6 +57,10 @@ function registerSystemRoutes(app, ctx) {
         health,
         fileHealth: inspection.fileHealth,
         configInspection: inspection,
+        permissions: {
+          configRoot: writeProbe(paths.scumConfigDir),
+          backupDir: writeProbe(paths.backupDir),
+        },
         commandHealth,
         presets: SERVER_PRESETS,
         activity: readActivity(20),

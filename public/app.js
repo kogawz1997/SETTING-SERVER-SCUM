@@ -232,7 +232,7 @@ function renderLootShortcuts(){
     button.onclick = () => openLootFile(button.dataset.lootShortcut).catch((error)=>showToast(error.message || String(error), true));
   });
 }
-function setLanguage(lang){ state.lang = state.view === 'server' ? 'th' : (lang === 'th' ? 'th' : 'en'); localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
+function setLanguage(lang){ state.lang = state.view === 'server' ? 'th' : (lang === 'th' ? 'th' : 'en'); localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof renderOnboardingWizard === 'function') renderOnboardingWizard(state.bootstrap); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
 function applyTranslations(){
   document.querySelectorAll('.nav').forEach((b)=>{ if(pageTitleKeys[b.dataset.view]) b.textContent=t(pageTitleKeys[b.dataset.view]); });
   const set=(sel,val)=>{ const el=document.querySelector(sel); if(el) el.textContent=val; };
@@ -647,6 +647,43 @@ function renderSetupNotice(data){
   $('notice-discover-config').onclick=()=>{ setView('settings'); discoverConfigFolders().catch((error)=>showToast(error.message, true)); };
 }
 
+function onboardingStep(index, title, done, body, action = ''){
+  return `<div class="onboarding-step ${done ? 'done' : ''}"><div class="onboarding-index">${index}</div><div><div class="info-pair"><strong>${escapeHtml(title)}</strong><span class="pill ${done ? 'good' : 'bad'}">${escapeHtml(done ? uiText('ผ่านแล้ว', 'Done') : uiText('ต้องทำ', 'Needs action'))}</span></div><p class="muted">${escapeHtml(body)}</p>${action ? `<div class="actions tight wrap">${action}</div>` : ''}</div></div>`;
+}
+
+function renderOnboardingWizard(data){
+  const el = $('onboarding-wizard');
+  if(!el) return;
+  const inspection = data?.configInspection || {};
+  const fileHealth = inspection.fileHealth || {};
+  const permissions = data?.permissions || {};
+  const hasFiles = ['ServerSettings.ini','GameUserSettings.ini','EconomyOverride.json','Nodes','Spawners'].every((key)=>Boolean(fileHealth[key]));
+  const pathReady = Boolean(inspection.rootExists);
+  const backupReady = Boolean(data?.health?.backupDirSet);
+  const permissionReady = Boolean(permissions.configRoot?.ok && permissions.backupDir?.ok);
+  const hasBackup = (data?.activity || []).some((entry)=>entry.type === 'backup');
+  const samplePath = 'samples\\scum-workspace\\WindowsServer';
+  const steps = [
+    onboardingStep(1, uiText('เลือกภาษา', 'Choose language'), Boolean(state.lang), uiText('เริ่มด้วยภาษาที่อ่านถนัดก่อน ทุกปุ่มหลักจะตามภาษานี้', 'Start with the language you can read comfortably.'), `<button id="onboarding-lang-th" class="ghost tiny">ไทย</button><button id="onboarding-lang-en" class="ghost tiny">English</button>`),
+    onboardingStep(2, uiText('หา config path', 'Find config path'), pathReady, uiText('ให้ระบบหาโฟลเดอร์ที่น่าจะใช่ หรือใช้ sample workspace เพื่อทดลองก่อน', 'Let the app find likely folders, or use the sample workspace first.'), `<button id="onboarding-discover" class="ghost tiny">${escapeHtml(uiText('หาอัตโนมัติ', 'Auto-detect'))}</button><button id="onboarding-sample" class="ghost tiny">${escapeHtml(uiText('ใช้ sample workspace', 'Use sample workspace'))}</button>`),
+    onboardingStep(3, uiText('ตรวจโครงไฟล์', 'Check file layout'), hasFiles, uiText('ต้องเจอไฟล์หลักและโฟลเดอร์ Nodes/Spawners ก่อนเริ่มแก้จริง', 'Core files plus Nodes/Spawners must be found before real editing.'), `<button id="onboarding-check" class="ghost tiny">${escapeHtml(uiText('ตรวจโฟลเดอร์', 'Check folder'))}</button>`),
+    onboardingStep(4, uiText('ตั้ง backup path', 'Set backup path'), backupReady, uiText('ทุกงานเสี่ยงต้องมีที่เก็บสำเนาก่อน save หรือ restore', 'Risky edits need a backup folder before save or restore.'), `<button id="onboarding-backup-path" class="ghost tiny">${escapeHtml(uiText('ใช้ค่าเริ่มต้น', 'Use default'))}</button>`),
+    onboardingStep(5, uiText('ทดสอบสิทธิ์อ่าน/เขียน', 'Test read/write permission'), permissionReady, uiText('ระบบจะลองเขียนไฟล์ชั่วคราวใน config root และ backup folder แล้วลบทิ้ง', 'The app probes temporary writes in config root and backup folder.'), `<button id="onboarding-refresh" class="ghost tiny">${escapeHtml(uiText('รีเฟรชสถานะ', 'Refresh status'))}</button>`),
+    onboardingStep(6, uiText('สร้าง backup แรก', 'Create first backup'), hasBackup, uiText('ก่อนแก้ไฟล์จริงควรมี backup อย่างน้อยหนึ่งชุด', 'Before editing real files, keep at least one backup.'), `<button id="onboarding-first-backup" class="ghost tiny">${escapeHtml(uiText('สร้าง backup', 'Create backup'))}</button>`),
+    onboardingStep(7, uiText('เปิด dashboard', 'Open dashboard'), Boolean(data?.health?.ready), uiText('กลับไปดู Preflight ถ้ามี critical ให้แก้ก่อน save ไฟล์จริง', 'Return to Preflight and fix critical issues before saving real files.'), `<button id="onboarding-dashboard" class="tiny">${escapeHtml(uiText('ไป Dashboard', 'Go to Dashboard'))}</button>`),
+  ];
+  el.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('ตัวช่วยตั้งค่าครั้งแรก', 'First-run onboarding'))}</h3><p class="muted">${escapeHtml(uiText('ทำตาม 7 ขั้นนี้เพื่อให้คนที่ไม่รู้ path ก็เริ่มใช้ได้โดยไม่เอาไฟล์จริงไปเสี่ยงก่อน', 'Follow these 7 steps so a new user can start without risking real files first.'))}</p></div><span class="tag">${escapeHtml(`${steps.filter((step)=>step.includes('class="onboarding-step done"')).length}/7`)}</span></div><div class="onboarding-steps">${steps.join('')}</div><div class="muted small">${escapeHtml(uiText(`Sample path: ${samplePath}`, `Sample path: ${samplePath}`))}</div>`;
+  if($('onboarding-lang-th')) $('onboarding-lang-th').onclick=()=>{ setLanguage('th'); renderOnboardingWizard(state.bootstrap); };
+  if($('onboarding-lang-en')) $('onboarding-lang-en').onclick=()=>{ setLanguage('en'); renderOnboardingWizard(state.bootstrap); };
+  if($('onboarding-discover')) $('onboarding-discover').onclick=()=>discoverConfigFolders().catch((error)=>showToast(error.message, true));
+  if($('onboarding-sample')) $('onboarding-sample').onclick=async()=>{ $('cfg-scum-dir').value = samplePath; $('cfg-nodes-dir').value = ''; $('cfg-spawners-dir').value = ''; if(!$('cfg-backup-dir').value.trim()) $('cfg-backup-dir').value = '.control-plane-backups'; await saveConfig(); };
+  if($('onboarding-check')) $('onboarding-check').onclick=()=>checkConfigFolder();
+  if($('onboarding-backup-path')) $('onboarding-backup-path').onclick=()=>{ $('cfg-backup-dir').value = '.control-plane-backups'; showToast(uiText('ตั้ง backup path เป็นค่าเริ่มต้นแล้ว กด Save App Config เพื่อบันทึก', 'Default backup path filled. Save App Config to persist it.')); };
+  if($('onboarding-refresh')) $('onboarding-refresh').onclick=()=>refreshAll().catch((error)=>showToast(error.message, true));
+  if($('onboarding-first-backup')) $('onboarding-first-backup').onclick=()=>backupCore().catch((error)=>showToast(error.message, true));
+  if($('onboarding-dashboard')) $('onboarding-dashboard').onclick=()=>setView('dashboard');
+}
+
 function renderConfigInspection(inspection){
   state.configInspection = inspection || null;
   const el = $('settings-check-result');
@@ -973,7 +1010,7 @@ async function loadBootstrap(){
   state.bootstrap=data; state.config=data.config; state.presets=data.presets||{}; state.rotation=data.rotation||state.rotation; state.configInspection=data.configInspection||null; state.commandHealth=data.commandHealth||state.commandHealth; state.commandDraftHealth={ reload:null, restart:null };
   $('cfg-scum-dir').value=data.config.scumConfigDir||''; $('cfg-backup-dir').value=data.config.backupDir||''; $('cfg-nodes-dir').value=data.config.nodesDir||''; $('cfg-spawners-dir').value=data.config.spawnersDir||''; $('cfg-reload-cmd').value=data.config.reloadLootCommand||''; $('cfg-restart-cmd').value=data.config.restartServerCommand||''; $('cfg-autobackup').checked=!!data.config.autoBackupCoreOnStart;
   $('stat-config').textContent=data.config.scumConfigDir||'Not set'; $('stat-backups').textContent=data.config.backupDir||'-';
-  renderHealth(data); renderSetupNotice(data); renderSettingsStatusSummary(data); renderConfigInspection(data.configInspection || null); renderConfigDiscovery(state.configDiscovery); if(!data.health?.ready && !state.configDiscovery) discoverConfigFolders(true).catch(()=>{}); if($('rotation-status') && data.rotation){ $('rotation-status').textContent = `${t('nextRun')}: ${data.rotation.nextRunAt ? fmtDate(data.rotation.nextRunAt) : t('notScheduled')}`; } setStatus(!!data.health?.ready, data.health?.ready ? t('ready') : (data.health?.configPathExists ? uiText('ตั้งค่าไม่ครบ', 'Setup incomplete') : t('configPathNotSet'))); applyTranslations(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy();
+  renderHealth(data); renderSetupNotice(data); renderOnboardingWizard(data); renderSettingsStatusSummary(data); renderConfigInspection(data.configInspection || null); renderConfigDiscovery(state.configDiscovery); if(!data.health?.ready && !state.configDiscovery) discoverConfigFolders(true).catch(()=>{}); if($('rotation-status') && data.rotation){ $('rotation-status').textContent = `${t('nextRun')}: ${data.rotation.nextRunAt ? fmtDate(data.rotation.nextRunAt) : t('notScheduled')}`; } setStatus(!!data.health?.ready, data.health?.ready ? t('ready') : (data.health?.configPathExists ? uiText('ตั้งค่าไม่ครบ', 'Setup incomplete') : t('configPathNotSet'))); applyTranslations(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy();
 }
 async function saveConfig(){
   const payload={ scumConfigDir:$('cfg-scum-dir').value.trim(), nodesDir:$('cfg-nodes-dir').value.trim(), spawnersDir:$('cfg-spawners-dir').value.trim(), backupDir:$('cfg-backup-dir').value.trim(), reloadLootCommand:$('cfg-reload-cmd').value, restartServerCommand:$('cfg-restart-cmd').value, autoBackupCoreOnStart:$('cfg-autobackup').checked };

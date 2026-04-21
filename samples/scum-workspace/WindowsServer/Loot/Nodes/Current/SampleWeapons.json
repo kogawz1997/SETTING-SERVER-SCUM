@@ -1,0 +1,30 @@
+{
+  "Name": "SampleWeapons",
+  "Rarity": "Uncommon",
+  "Children": [
+    {
+      "Name": "Rifle",
+      "Rarity": "Rare",
+      "Children": [
+        {
+          "Name": "Weapon_AK47",
+          "Rarity": "Rare"
+        },
+        {
+          "Name": "AK47_Magazine",
+          "Rarity": "Uncommon"
+        }
+      ]
+    },
+    {
+      "Name": "Ammo",
+      "Rarity": "Common",
+      "Children": [
+        {
+          "Name": "Ammo_762x39",
+          "Rarity": "Common"
+        }
+      ]
+    }
+  ]
+}

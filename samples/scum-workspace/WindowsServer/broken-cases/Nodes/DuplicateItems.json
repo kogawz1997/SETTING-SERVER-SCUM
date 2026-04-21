@@ -1,0 +1,17 @@
+{
+  "Name": "DuplicateItems",
+  "Items": [
+    {
+      "ClassName": "Weapon_AK47",
+      "Probability": 0.25
+    },
+    {
+      "ClassName": "Weapon_AK47",
+      "Probability": 0.25
+    },
+    {
+      "ClassName": "",
+      "Probability": 2
+    }
+  ]
+}

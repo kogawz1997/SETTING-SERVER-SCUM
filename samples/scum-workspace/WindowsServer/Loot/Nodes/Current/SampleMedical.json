@@ -1,0 +1,13 @@
+{
+  "Name": "SampleMedical",
+  "Items": [
+    {
+      "ClassName": "Emergency_Bandage",
+      "Probability": 0.6
+    },
+    {
+      "ClassName": "Painkillers",
+      "Probability": 0.4
+    }
+  ]
+}

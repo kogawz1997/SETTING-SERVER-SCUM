@@ -1,0 +1,16 @@
+{
+  "Name": "SampleBunker",
+  "Probability": 0.75,
+  "QuantityMin": 1,
+  "QuantityMax": 3,
+  "AllowDuplicates": false,
+  "Nodes": [
+    {
+      "Rarity": "Rare",
+      "Ids": [
+        "ItemLootTreeNodes.SampleWeapons.Rifle",
+        "ItemLootTreeNodes.SampleWeapons.Ammo"
+      ]
+    }
+  ]
+}

@@ -121,3 +121,40 @@ test('workspace package export/import round-trips config and selected files', ()
   assert.equal(parsed.files[1].path, 'Nodes/Test.json');
   assert.equal(parsed.config.scumConfigDir, 'ConfigRoot');
 });
+
+test('portable package config sanitizes machine paths and remaps on import', () => {
+  const { createWorkspacePackage, parseWorkspacePackage, remapPortableConfig } = require('../src/server/package-manager.cjs');
+  const pkg = createWorkspacePackage({
+    config: {
+      scumConfigDir: 'C:\\Servers\\SCUM\\Saved\\Config\\WindowsServer',
+      nodesDir: 'C:\\Servers\\SCUM\\Saved\\Config\\WindowsServer\\Loot\\Nodes\\Current',
+      spawnersDir: 'C:\\Servers\\SCUM\\Saved\\Config\\WindowsServer\\Loot\\Spawners\\Presets\\Override',
+      backupDir: 'D:\\SCUMBackups',
+      reloadLootCommand: 'cmd /c "C:\\server\\reload.cmd"',
+      restartServerCommand: 'powershell -File C:\\server\\restart.ps1',
+      autoBackupCoreOnStart: true,
+    },
+    files: [{ path: 'ServerSettings.ini', content: '[General]\nscum.MaxPlayers=32\n' }],
+    portable: true,
+  });
+  const parsed = parseWorkspacePackage(JSON.stringify(pkg));
+
+  assert.equal(parsed.config.scumConfigDir, '');
+  assert.equal(parsed.config.nodesDir, '');
+  assert.equal(parsed.config.spawnersDir, '');
+  assert.equal(parsed.config.reloadLootCommand, '');
+  assert.equal(parsed.config.restartServerCommand, '');
+  assert.equal(parsed.config.autoBackupCoreOnStart, true);
+  assert.equal(parsed.meta.pathSanitized, true);
+
+  const remapped = remapPortableConfig(parsed.config, {
+    scumConfigDir: 'E:\\NewServer\\WindowsServer',
+    backupDir: 'E:\\SCUMBackups',
+    nodesDir: 'E:\\NewServer\\WindowsServer\\Loot\\Nodes\\Current',
+    spawnersDir: 'E:\\NewServer\\WindowsServer\\Loot\\Spawners\\Presets\\Override',
+  });
+
+  assert.equal(remapped.scumConfigDir, 'E:\\NewServer\\WindowsServer');
+  assert.equal(remapped.backupDir, 'E:\\SCUMBackups');
+  assert.equal(remapped.reloadLootCommand, '');
+});

@@ -1,0 +1,15 @@
+{
+  "Name": "MissingRef",
+  "Probability": 1,
+  "QuantityMin": 3,
+  "QuantityMax": 1,
+  "Nodes": [
+    {
+      "Rarity": "Rare",
+      "Ids": [
+        "ItemLootTreeNodes.SampleWeapons.Rifle",
+        "ItemLootTreeNodes.DoesNotExist.Branch"
+      ]
+    }
+  ]
+}

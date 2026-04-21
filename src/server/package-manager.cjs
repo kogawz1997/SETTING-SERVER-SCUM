@@ -3,6 +3,8 @@ const { sanitizeLogicalPath } = require('./safe-apply.cjs');
 
 const PACKAGE_KIND = 'scum-local-control-package';
 const PACKAGE_VERSION = 1;
+const PATH_FIELDS = ['scumConfigDir', 'nodesDir', 'spawnersDir', 'backupDir'];
+const COMMAND_FIELDS = ['reloadLootCommand', 'restartServerCommand'];
 
 function normalizePackageFile(file = {}) {
   const logicalPath = sanitizeLogicalPath(file.path || file.logicalPath || file.relPath);
@@ -12,8 +14,36 @@ function normalizePackageFile(file = {}) {
   };
 }
 
+function sanitizePortableConfig(config = {}) {
+  const source = config && typeof config === 'object' ? config : {};
+  const next = { ...source };
+  PATH_FIELDS.forEach((field) => {
+    next[field] = '';
+  });
+  COMMAND_FIELDS.forEach((field) => {
+    next[field] = '';
+  });
+  next.autoBackupCoreOnStart = Boolean(source.autoBackupCoreOnStart);
+  return next;
+}
+
+function remapPortableConfig(config = {}, remap = {}) {
+  const source = config && typeof config === 'object' ? config : {};
+  const next = { ...source };
+  PATH_FIELDS.forEach((field) => {
+    if (remap[field] != null) next[field] = String(remap[field] || '');
+  });
+  COMMAND_FIELDS.forEach((field) => {
+    next[field] = '';
+  });
+  next.autoBackupCoreOnStart = Boolean(source.autoBackupCoreOnStart);
+  return next;
+}
+
 function createWorkspacePackage(options = {}) {
   const files = Array.isArray(options.files) ? options.files.map(normalizePackageFile) : [];
+  const portable = Boolean(options.portable);
+  const config = options.config && typeof options.config === 'object' ? options.config : {};
   return {
     kind: PACKAGE_KIND,
     version: PACKAGE_VERSION,
@@ -21,8 +51,9 @@ function createWorkspacePackage(options = {}) {
     meta: {
       note: String(options.meta?.note || ''),
       source: 'SETTING SERVER SCUM',
+      pathSanitized: portable,
     },
-    config: options.config && typeof options.config === 'object' ? options.config : {},
+    config: portable ? sanitizePortableConfig(config) : config,
     files,
   };
 }
@@ -60,6 +91,8 @@ function parseWorkspacePackage(input) {
 module.exports = {
   PACKAGE_KIND,
   PACKAGE_VERSION,
+  sanitizePortableConfig,
+  remapPortableConfig,
   createWorkspacePackage,
   parseWorkspacePackage,
 };

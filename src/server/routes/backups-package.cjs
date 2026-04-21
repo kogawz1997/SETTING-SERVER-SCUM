@@ -106,12 +106,14 @@ function registerBackupsPackageRoutes(app, ctx) {
     try {
       const config = loadConfig();
       const paths = resolvedPaths(config);
+      const portable = req.query.portable !== '0';
       const packageData = createWorkspacePackage({
         config,
         files: workspacePackageFiles(paths),
-        meta: { note: String(req.query.note || 'full-workspace-export') },
+        meta: { note: String(req.query.note || (portable ? 'portable-workspace-export' : 'full-workspace-export')) },
+        portable,
       });
-      appendActivity('package_export', { fileCount: packageData.files.length });
+      appendActivity('package_export', { fileCount: packageData.files.length, portable });
       res.json({ ok: true, package: packageData });
     } catch (error) {
       errorResponse(res, 500, error);
@@ -122,12 +124,14 @@ function registerBackupsPackageRoutes(app, ctx) {
     try {
       const config = loadConfig();
       const paths = resolvedPaths(config);
+      const portable = req.body?.portable !== false;
       const packageData = createWorkspacePackage({
         config,
         files: workspacePackageFiles(paths, Array.isArray(req.body?.paths) ? req.body.paths : []),
-        meta: { note: String(req.body?.note || 'selected-workspace-export') },
+        meta: { note: String(req.body?.note || (portable ? 'portable-selected-workspace-export' : 'selected-workspace-export')) },
+        portable,
       });
-      appendActivity('package_export', { fileCount: packageData.files.length, selected: Boolean(req.body?.paths?.length) });
+      appendActivity('package_export', { fileCount: packageData.files.length, selected: Boolean(req.body?.paths?.length), portable });
       res.json({ ok: true, package: packageData });
     } catch (error) {
       errorResponse(res, 400, error);
