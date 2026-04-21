@@ -71,6 +71,91 @@ test('item catalog service builds icon-backed catalog entries and saves override
   assert.equal(activity[0].event, 'item_catalog_override');
 });
 
+test('loot simulator service produces deterministic flat-node results and compares rates', () => {
+  const { createLootSimulatorService } = require('../src/server/services/loot-simulator-service.cjs');
+  const service = createLootSimulatorService({
+    scanLootWorkspace: () => ({ refIndex: new Map(), nodes: [] }),
+    readJsonObject: () => ({}),
+    resolveLogicalPath: (relPath) => relPath,
+    detectLootKind: (object) => (Array.isArray(object.Items) ? 'node' : 'unknown'),
+    itemEntryName: (entry) => (typeof entry === 'string' ? entry : entry.Name),
+    categoryForItem: (name) => (/bandage/i.test(name) ? 'medical' : 'weapon'),
+    collectSpawnerRefs: () => [],
+    collectTreeRefs: () => [],
+    resolveRefNode: () => null,
+    rarityWeight: () => 1,
+  });
+  const object = {
+    Items: [
+      { Name: 'AK47', Probability: 1 },
+      { Name: 'Bandage', Probability: 0 },
+    ],
+  };
+
+  const first = service.simulateLootObject(object, 'Nodes/Test.json', 10, undefined, { seed: 'fixed' });
+  const second = service.simulateLootObject(object, 'Nodes/Test.json', 10, undefined, { seed: 'fixed' });
+  const compare = service.compareSimulationResults(
+    { count: 10, distinctItems: [{ name: 'AK47', hits: 10 }] },
+    { count: 10, distinctItems: [{ name: 'AK47', hits: 5 }, { name: 'Bandage', hits: 5 }] },
+  );
+
+  assert.deepEqual(second, first);
+  assert.equal(first.averageItemsPerRun, 1);
+  assert.equal(first.distinctItems[0].name, 'AK47');
+  assert.equal(first.distinctItems[0].hits, 10);
+  assert.equal(first.expectedRates[0].expectedRate, 1);
+  assert.equal(first.categorySummary[0].category, 'weapon');
+  assert.equal(compare[0].name, 'AK47');
+  assert.equal(compare[0].deltaRate, -0.5);
+});
+
+test('loot graph service builds graph refs and previews spawner ref edits', () => {
+  const { createLootGraphService } = require('../src/server/services/loot-graph-service.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-graph-service-'));
+  const spawnerPath = path.join(root, 'Military.json');
+  fs.writeFileSync(spawnerPath, JSON.stringify({ Nodes: [{ Ids: ['ItemLootTreeNodes.Bunker.Old'] }] }, null, 2), 'utf8');
+  const writes = [];
+  const service = createLootGraphService({
+    clone: (value) => JSON.parse(JSON.stringify(value)),
+    posixify: (value) => String(value || '').replace(/\\/g, '/'),
+    scanLootWorkspace: () => ({ nodes: [], spawners: [], refIndex: new Map() }),
+    detectLootKind: (object) => (Array.isArray(object.Children) ? 'node_tree' : 'unknown'),
+    collectTreeRefs: () => [{ ref: 'ItemLootTreeNodes.Bunker.AK47', kind: 'leaf', rarity: '' }],
+    normalizeSpawnerRef: (value) => String(value || '').startsWith('ItemLootTreeNodes')
+      ? String(value || '')
+      : `ItemLootTreeNodes.${String(value || '').replace(/^ItemLootTreeNodes\.?/, '')}`,
+    collectSpawnerRefEntries: (object) => (object.Nodes || []).flatMap((group, groupIndex) => (group.Ids || []).map((ref, refIndex) => ({ ref, groupIndex, refIndex }))),
+    loadConfig: () => ({}),
+    resolvedPaths: () => ({}),
+    resolveLogicalPath: () => spawnerPath,
+    readText: (target) => fs.readFileSync(target, 'utf8'),
+    writeText: (target, content) => writes.push({ target, content }),
+    safeParseJson: (text) => JSON.parse(text),
+    createDiff: (_logicalPath, before, after) => `${before}\n---\n${after}`,
+    validateContent: () => ({ entries: [], counts: { critical: 0, warning: 0, info: 0 } }),
+    createBackup: () => ({ backupName: 'test' }),
+    appendActivity: () => {},
+  });
+  const graph = service.buildGraph({
+    nodes: [{ relPath: 'Nodes/Bunker.json', logicalName: 'Bunker', object: { Children: [] } }],
+    spawners: [{ relPath: 'Spawners/Military.json', logicalName: 'Military', object: { Nodes: [{ Ids: ['ItemLootTreeNodes.Bunker.AK47'] }] } }],
+    refIndex: new Map([['ItemLootTreeNodes.Bunker.AK47', { kind: 'leaf', path: 'Nodes/Bunker.json', rarity: '' }]]),
+  });
+  const result = service.buildGraphRefEditPlan({
+    logicalPath: 'Spawners/Military.json',
+    action: 'replace',
+    oldRef: 'ItemLootTreeNodes.Bunker.Old',
+    ref: 'Bunker.AK47',
+    apply: false,
+  });
+
+  assert.equal(graph.edges.some((edge) => edge.kind === 'uses_ref'), true);
+  assert.equal(result.plan.dryRun, true);
+  assert.equal(result.plan.changed, true);
+  assert.match(result.content, /ItemLootTreeNodes\.Bunker\.AK47/);
+  assert.equal(writes.length, 0);
+});
+
 test('AppError serializes safe Thai-friendly API errors', () => {
   const { AppError, toHttpError } = require('../src/server/errors.cjs');
   const error = new AppError('เลือกไฟล์ไม่ถูกต้อง', {

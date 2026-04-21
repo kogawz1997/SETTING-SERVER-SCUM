@@ -4,6 +4,8 @@
 
 const { normalizeKey, posixify, sortByName, walkFiles } = require('./workspace-utils.cjs');
 const { createItemCatalogService } = require('./item-catalog-service.cjs');
+const { createLootGraphService } = require('./loot-graph-service.cjs');
+const { createLootSimulatorService } = require('./loot-simulator-service.cjs');
 
 function createWorkspaceDomain(deps) {
   const {
@@ -576,172 +578,24 @@ function createDiff(logicalPath, beforeText, afterText) {
     ];
   }
 
-function createSeededRandom(seed) {
-  const value = String(seed || '');
-  if (!value) return Math.random;
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return () => {
-    hash += 0x6d2b79f5;
-    let t = hash;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function randomChoiceWeighted(list, weightOf, random = Math.random) {
-  const total = list.reduce((sum, entry) => sum + Math.max(0, Number(weightOf(entry) || 0)), 0);
-  if (!total) return list[0] || null;
-  let pick = random() * total;
-  for (const entry of list) {
-    pick -= Math.max(0, Number(weightOf(entry) || 0));
-    if (pick <= 0) return entry;
-  }
-  return list[list.length - 1] || null;
-}
-
-function weightedEntries(list, weightOf) {
-  const rows = (Array.isArray(list) ? list : []).map((entry) => ({ entry, weight: Math.max(0, Number(weightOf(entry) || 0)) }));
-  const total = rows.reduce((sum, row) => sum + row.weight, 0);
-  if (!total) return rows.map((row, index) => ({ entry: row.entry, rate: index === 0 ? 1 : 0 }));
-  return rows.map((row) => ({ entry: row.entry, rate: row.weight / total }));
-}
-
-function chooseLeafFromTree(node, random = Math.random) {
-  const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
-  if (!children.length) return node?.Name || null;
-  const picked = randomChoiceWeighted(children, (entry) => rarityWeight(entry?.Rarity), random);
-  return chooseLeafFromTree(picked, random);
-}
-
-function expectedTreeLeafRates(node, multiplier = 1) {
-  const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
-  if (!children.length) return [{ name: node?.Name || '', expectedRate: multiplier, rarity: node?.Rarity || '' }].filter((entry) => entry.name);
-  return weightedEntries(children, (entry) => rarityWeight(entry?.Rarity))
-    .flatMap(({ entry, rate }) => expectedTreeLeafRates(entry, multiplier * rate));
-}
-
-function expectedLootRates(object, relPath, scan = scanLootWorkspace()) {
-  const kind = detectLootKind(object);
-  if (kind === 'node') {
-    const items = Array.isArray(object.Items) ? object.Items.filter(Boolean) : [];
-    return weightedEntries(items, (entry) => Number(entry.Probability ?? entry.Chance ?? 0) || 0)
-      .map(({ entry, rate }) => ({ name: itemEntryName(entry), expectedRate: Number(rate.toFixed(6)), category: categoryForItem(itemEntryName(entry)) }))
-      .filter((entry) => entry.name);
-  }
-  if (kind === 'node_tree') {
-    return expectedTreeLeafRates(object).map((entry) => ({ ...entry, expectedRate: Number(entry.expectedRate.toFixed(6)), category: categoryForItem(entry.name) }));
-  }
-  if (kind === 'spawner') {
-    const refs = collectSpawnerRefs(object).map((ref) => scan.refIndex.get(ref)).filter(Boolean);
-    const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
-    const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
-    const averageQuantity = (quantityMin + quantityMax) / 2;
-    const rates = new Map();
-    weightedEntries(refs, (entry) => rarityWeight(entry.rarity)).forEach(({ entry, rate }) => {
-      const treeFile = scan.nodes.find((file) => file.logicalName === entry.node);
-      const refNode = treeFile ? resolveRefNode(treeFile.object, entry.ref) : null;
-      expectedTreeLeafRates(refNode).forEach((leaf) => {
-        rates.set(leaf.name, (rates.get(leaf.name) || 0) + averageQuantity * rate * leaf.expectedRate);
-      });
-    });
-    return [...rates.entries()].map(([name, expectedRate]) => ({ name, expectedRate: Number(expectedRate.toFixed(6)), category: categoryForItem(name) }));
-  }
-  return [];
-}
-
-function summarizeCategoriesFromHits(distinctItems) {
-  const totals = new Map();
-  for (const item of distinctItems) {
-    const category = categoryForItem(item.name);
-    totals.set(category, (totals.get(category) || 0) + Number(item.hits || 0));
-  }
-  return [...totals.entries()]
-    .map(([category, hits]) => ({ category, hits }))
-    .sort((a, b) => b.hits - a.hits || a.category.localeCompare(b.category));
-}
-
-function simulateLootObject(object, relPath, count, scan = scanLootWorkspace(), options = {}) {
-  const kind = detectLootKind(object);
-  const sampleRuns = [];
-  const hitMap = new Map();
-  const refLookup = scan.refIndex;
-  const seed = options && typeof options === 'object' ? String(options.seed || '') : '';
-  const random = createSeededRandom(seed);
-  let totalItems = 0;
-  for (let index = 0; index < count; index += 1) {
-    let run = [];
-    if (kind === 'node') {
-      const items = Array.isArray(object.Items) ? object.Items.filter(Boolean) : [];
-      const picked = randomChoiceWeighted(items, (entry) => Number(entry.Probability ?? entry.Chance ?? 0) || 0, random);
-      if (picked) run = [itemEntryName(picked)].filter(Boolean);
-    } else if (kind === 'node_tree') {
-      const picked = chooseLeafFromTree(object, random);
-      if (picked) run = [picked];
-    } else if (kind === 'spawner') {
-      const refs = collectSpawnerRefs(object).map((ref) => refLookup.get(ref)).filter(Boolean);
-      const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
-      const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
-      const quantity = Math.round(quantityMin + random() * Math.max(0, quantityMax - quantityMin));
-      run = Array.from({ length: quantity }, () => {
-        const ref = randomChoiceWeighted(refs, (entry) => rarityWeight(entry.rarity), random);
-        if (!ref) return null;
-        const treeFile = scan.nodes.find((entry) => entry.logicalName === ref.node);
-        if (!treeFile) return null;
-        const targetNode = collectTreeRefs(treeFile.object, treeFile.relPath).find((entry) => entry.ref === ref.ref);
-        if (!targetNode) return null;
-        const resolvedName = targetNode.kind === 'leaf' ? targetNode.ref.split('.').slice(-1)[0] : chooseLeafFromTree(resolveRefNode(treeFile.object, ref.ref), random);
-        return resolvedName || null;
-      }).filter(Boolean);
-    }
-    totalItems += run.length;
-    run.forEach((name) => hitMap.set(name, (hitMap.get(name) || 0) + 1));
-    if (sampleRuns.length < 8) sampleRuns.push(run);
-  }
-  const distinctItems = [...hitMap.entries()]
-    .map(([name, hits]) => ({ name, hits, dropRate: Number((hits / Math.max(1, count)).toFixed(6)), category: categoryForItem(name) }))
-    .sort((a, b) => b.hits - a.hits || a.name.localeCompare(b.name));
-  const expectedRates = expectedLootRates(object, relPath, scan).sort((a, b) => b.expectedRate - a.expectedRate || a.name.localeCompare(b.name));
-  return {
-    count,
-    seed,
-    averageItemsPerRun: Number((totalItems / Math.max(1, count)).toFixed(2)),
-    distinctItems,
-    expectedRates,
-    categorySummary: summarizeCategoriesFromHits(distinctItems),
-    sampleRuns,
-  };
-}
-
-function simulateLootFile(relPath, count, scan = scanLootWorkspace(), options = {}) {
-  const object = readJsonObject(resolveLogicalPath(relPath));
-  return simulateLootObject(object, relPath, count, scan, options);
-}
-
-function compareSimulationResults(saved, draft) {
-  const savedHits = new Map((saved?.distinctItems || []).map((entry) => [entry.name, entry.hits]));
-  const draftHits = new Map((draft?.distinctItems || []).map((entry) => [entry.name, entry.hits]));
-  const names = [...new Set([...savedHits.keys(), ...draftHits.keys()])];
-  return names.map((name) => {
-    const beforeHits = savedHits.get(name) || 0;
-    const afterHits = draftHits.get(name) || 0;
-    const beforeRate = beforeHits / Math.max(1, saved?.count || 1);
-    const afterRate = afterHits / Math.max(1, draft?.count || 1);
-    return {
-      name,
-      savedHits: beforeHits,
-      draftHits: afterHits,
-      savedRate: Number(beforeRate.toFixed(4)),
-      draftRate: Number(afterRate.toFixed(4)),
-      deltaHits: afterHits - beforeHits,
-      deltaRate: Number((afterRate - beforeRate).toFixed(4)),
-    };
-  }).sort((a, b) => Math.abs(b.deltaRate) - Math.abs(a.deltaRate) || Math.abs(b.deltaHits) - Math.abs(a.deltaHits) || a.name.localeCompare(b.name));
-}
+const lootSimulatorService = createLootSimulatorService({
+  scanLootWorkspace: () => scanLootWorkspace(),
+  readJsonObject,
+  resolveLogicalPath,
+  detectLootKind,
+  itemEntryName,
+  categoryForItem,
+  collectSpawnerRefs,
+  collectTreeRefs,
+  resolveRefNode,
+  rarityWeight,
+});
+const {
+  createSeededRandom,
+  simulateLootObject,
+  simulateLootFile,
+  compareSimulationResults,
+} = lootSimulatorService;
 
 function resolveRefNode(root, ref) {
   const cleanRef = String(ref || '').replace(/^ItemLootTreeNodes\.?/, '');
@@ -1441,124 +1295,29 @@ function buildDiagnosticsReport(options = {}) {
   };
 }
 
-function buildGraph(scan = scanLootWorkspace(), focus = '') {
-  const nodes = [];
-  const edges = [];
-  const seen = new Set();
-  const pushNode = (node) => {
-    if (seen.has(node.id)) return;
-    seen.add(node.id);
-    nodes.push(node);
-  };
-  scan.nodes.forEach((nodeFile) => {
-    pushNode({ id: nodeFile.relPath, label: nodeFile.logicalName, kind: 'node', path: nodeFile.relPath });
-    if (detectLootKind(nodeFile.object) === 'node_tree') {
-      collectTreeRefs(nodeFile.object, nodeFile.relPath).forEach((refEntry) => {
-        const refId = normalizeSpawnerRef(refEntry.ref);
-        pushNode({ id: `ref:${refId}`, label: refId, kind: refEntry.kind === 'leaf' ? 'item' : 'node', path: nodeFile.relPath, rarity: refEntry.rarity || '' });
-        edges.push({ from: nodeFile.relPath, to: `ref:${refId}`, kind: refEntry.kind === 'leaf' ? 'contains_item' : 'contains_branch' });
-      });
-    }
-  });
-  scan.spawners.forEach((spawnerFile) => {
-    pushNode({ id: spawnerFile.relPath, label: spawnerFile.logicalName, kind: 'spawner', path: spawnerFile.relPath });
-    collectSpawnerRefEntries(spawnerFile.object).forEach((entry) => {
-      const refMeta = scan.refIndex.get(entry.ref);
-      const refId = normalizeSpawnerRef(entry.ref);
-      pushNode({ id: `ref:${refId}`, label: refId, kind: refMeta ? (refMeta.kind === 'leaf' ? 'item' : 'node') : 'missing_ref', path: refMeta?.path || spawnerFile.relPath, rarity: refMeta?.rarity || '', missing: !refMeta });
-      edges.push({ from: spawnerFile.relPath, to: `ref:${refId}`, kind: refMeta ? 'uses_ref' : 'missing_ref', missing: !refMeta, groupIndex: entry.groupIndex, refIndex: entry.refIndex, ref: refId });
-    });
-  });
-  const normalizedFocus = String(focus || '').trim().toLowerCase();
-  const focusIds = normalizedFocus
-    ? nodes.filter((node) => node.label.toLowerCase().includes(normalizedFocus) || node.path.toLowerCase().includes(normalizedFocus)).map((node) => node.id)
-    : [];
-  const focusSet = new Set(focusIds);
-  const neighborhoodIds = new Set(focusIds);
-  edges.forEach((edge) => {
-    if (focusSet.has(edge.from) || focusSet.has(edge.to)) {
-      neighborhoodIds.add(edge.from);
-      neighborhoodIds.add(edge.to);
-    }
-  });
-  const neighborhood = nodes.filter((node) => neighborhoodIds.has(node.id));
-  return { nodes, edges, neighborhood, focus, focusIds };
-}
-
-function editSpawnerRefObject(object, options = {}) {
-  const next = clone(object);
-  next.Nodes = Array.isArray(next.Nodes) ? next.Nodes : [];
-  const groupIndex = Math.max(0, Number(options.groupIndex || 0));
-  if (!next.Nodes[groupIndex]) next.Nodes[groupIndex] = { Rarity: 'Uncommon', Ids: [] };
-  const group = next.Nodes[groupIndex];
-  const refs = Array.isArray(group.Ids)
-    ? group.Ids.map((value) => String(value || '').trim()).filter(Boolean)
-    : [group.Node || group.Name || group.Ref].filter(Boolean).map((value) => String(value || '').trim());
-  const action = String(options.action || 'add').trim().toLowerCase();
-  const ref = normalizeSpawnerRef(options.ref || options.newRef || '');
-  const oldRef = normalizeSpawnerRef(options.oldRef || options.fromRef || '');
-  if ((action === 'add' || action === 'remove') && !ref) throw new Error('Node ref is required');
-  if (action === 'replace' && (!oldRef || !ref)) throw new Error('Both oldRef and ref are required for replace');
-
-  let nextRefs = refs;
-  if (action === 'add') {
-    if (!nextRefs.includes(ref)) nextRefs = [...nextRefs, ref];
-  } else if (action === 'remove') {
-    nextRefs = nextRefs.filter((value) => value !== ref);
-  } else if (action === 'replace') {
-    nextRefs = nextRefs.map((value) => (value === oldRef ? ref : value));
-    if (!nextRefs.includes(ref)) nextRefs.push(ref);
-  } else {
-    throw new Error('Unsupported graph ref edit action');
-  }
-
-  group.Ids = [...new Set(nextRefs)];
-  delete group.Node;
-  delete group.Name;
-  delete group.Ref;
-  return next;
-}
-
-function buildGraphRefEditPlan(options = {}) {
-  const logicalPath = posixify(options.path || options.logicalPath || '');
-  if (!logicalPath.startsWith('Spawners/')) throw new Error('Graph ref editor can only edit Spawners files');
-  const apply = Boolean(options.apply);
-  const paths = resolvedPaths(loadConfig());
-  const fullPath = resolveLogicalPath(logicalPath, paths);
-  const before = readText(fullPath);
-  const object = safeParseJson(before);
-  const nextObject = editSpawnerRefObject(object, options);
-  const content = `${JSON.stringify(nextObject, null, 2)}\n`;
-  const patch = createDiff(logicalPath, before, content);
-  const changed = before !== content;
-  const validation = validateContent(logicalPath, content);
-  const plan = {
-    ok: true,
-    dryRun: !apply,
-    logicalPath,
-    groupIndex: Math.max(0, Number(options.groupIndex || 0)),
-    action: String(options.action || 'add'),
-    ref: normalizeSpawnerRef(options.ref || options.newRef || ''),
-    oldRef: normalizeSpawnerRef(options.oldRef || options.fromRef || ''),
-    changed,
-    willWrite: apply && changed,
-    patch,
-    validation,
-  };
-  if (apply && changed) {
-    createBackup(paths, [logicalPath], `graph-ref-edit:${logicalPath}`);
-    writeText(fullPath, content);
-    appendActivity('graph_ref_edit', {
-      path: logicalPath,
-      action: plan.action,
-      ref: plan.ref,
-      oldRef: plan.oldRef,
-      groupIndex: plan.groupIndex,
-    });
-    plan.dryRun = false;
-  }
-  return { plan, content, object: nextObject };
-}
+const lootGraphService = createLootGraphService({
+  clone,
+  posixify,
+  scanLootWorkspace: () => scanLootWorkspace(),
+  detectLootKind,
+  collectTreeRefs,
+  normalizeSpawnerRef,
+  collectSpawnerRefEntries,
+  loadConfig,
+  resolvedPaths,
+  resolveLogicalPath,
+  readText,
+  writeText,
+  safeParseJson,
+  createDiff,
+  validateContent,
+  createBackup,
+  appendActivity,
+});
+const {
+  buildGraph,
+  buildGraphRefEditPlan,
+} = lootGraphService;
 
 function exactLineMatch(line, term) {
   const escaped = String(term || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
