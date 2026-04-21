@@ -10,6 +10,8 @@ const state = {
   currentCoreContent: '',
   selectedLootPath: '',
   pendingRouteLootPath: '',
+  recentLootPaths: [],
+  pinnedLootPaths: [],
   currentLootObject: null,
   currentLootContent: '',
   currentLootAnalysis: null,
@@ -56,6 +58,8 @@ const state = {
   },
 };
 
+const lootRecentStorageKey = 'scum_loot_recent';
+const lootPinnedStorageKey = 'scum_loot_pinned';
 
 const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', help: 'help', diff: 'diff' };
 const routeByView = {
@@ -130,10 +134,100 @@ const i18n = {
   }
 };
 state.lang = localStorage.getItem('scum_lang') || 'en';
+state.recentLootPaths = readStoredPathList(lootRecentStorageKey);
+state.pinnedLootPaths = readStoredPathList(lootPinnedStorageKey);
 i18n.en.help = 'Help';
 i18n.th.help = 'คู่มือ';
 function t(key){ return (i18n[state.lang] && i18n[state.lang][key]) || i18n.en[key] || key; }
 function uiText(th, en){ return state.lang === 'th' ? th : en; }
+function isLootFilePath(path){
+  return typeof path === 'string' && (path.startsWith('Nodes/') || path.startsWith('Spawners/')) && path.endsWith('.json');
+}
+function readStoredPathList(key){
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value.filter(isLootFilePath).slice(0, 12) : [];
+  } catch {
+    return [];
+  }
+}
+function writeStoredPathList(key, paths){
+  localStorage.setItem(key, JSON.stringify((paths || []).filter(isLootFilePath).slice(0, 12)));
+}
+function persistLootShortcuts(){
+  writeStoredPathList(lootRecentStorageKey, state.recentLootPaths);
+  writeStoredPathList(lootPinnedStorageKey, state.pinnedLootPaths);
+}
+function allLootFilePaths(){
+  return [...(state.lootFiles.nodes || []), ...(state.lootFiles.spawners || [])].map((file)=>file.relPath);
+}
+function lootFileByPath(path){
+  return [...(state.lootFiles.nodes || []), ...(state.lootFiles.spawners || [])].find((file)=>file.relPath === path);
+}
+function availableLootShortcutPaths(paths){
+  const available = new Set(allLootFilePaths());
+  if(!available.size) return (paths || []).filter(isLootFilePath);
+  return (paths || []).filter((path)=>isLootFilePath(path) && available.has(path));
+}
+function rememberLootPath(path){
+  if(!isLootFilePath(path)) return;
+  state.recentLootPaths = [path, ...state.recentLootPaths.filter((item)=>item !== path)].slice(0, 10);
+  persistLootShortcuts();
+}
+function togglePinnedLootPath(path = state.selectedLootPath){
+  if(!isLootFilePath(path)) return;
+  const pinned = new Set(state.pinnedLootPaths);
+  if(pinned.has(path)) pinned.delete(path);
+  else pinned.add(path);
+  state.pinnedLootPaths = Array.from(pinned).slice(0, 10);
+  persistLootShortcuts();
+  renderLootShortcuts();
+}
+function clearRecentLootPaths(){
+  state.recentLootPaths = [];
+  persistLootShortcuts();
+  renderLootShortcuts();
+}
+function renderLootShortcutButton(path){
+  const file = lootFileByPath(path);
+  const label = file?.logicalName || file?.name || path.split('/').pop();
+  const active = path === state.selectedLootPath ? 'active' : '';
+  return `<button type="button" class="file-item loot-shortcut-item ${active}" data-loot-shortcut="${escapeHtml(path)}"><strong>${escapeHtml(label)}</strong><span class="item-sub">${escapeHtml(path)}</span></button>`;
+}
+function renderLootShortcutList(paths, emptyText){
+  return paths.length ? paths.map(renderLootShortcutButton).join('') : `<div class="muted loot-shortcut-empty">${escapeHtml(emptyText)}</div>`;
+}
+function renderLootShortcuts(){
+  const panel = $('loot-shortcuts-panel');
+  if(!panel) return;
+  const pinned = availableLootShortcutPaths(state.pinnedLootPaths);
+  const recent = availableLootShortcutPaths(state.recentLootPaths).filter((path)=>!pinned.includes(path)).slice(0, 6);
+  if(pinned.length !== state.pinnedLootPaths.length || recent.length !== state.recentLootPaths.filter(isLootFilePath).length) {
+    state.pinnedLootPaths = pinned;
+    state.recentLootPaths = availableLootShortcutPaths(state.recentLootPaths).slice(0, 10);
+    persistLootShortcuts();
+  }
+  const pinButton = $('loot-pin-current');
+  if(pinButton) {
+    const isPinned = state.pinnedLootPaths.includes(state.selectedLootPath);
+    pinButton.textContent = isPinned ? uiText('เลิกปักไฟล์นี้', 'Unpin current') : uiText('ปักไฟล์นี้', 'Pin current');
+    pinButton.disabled = !isLootFilePath(state.selectedLootPath);
+    pinButton.onclick = () => togglePinnedLootPath();
+  }
+  const clearButton = $('loot-clear-recents');
+  if(clearButton) {
+    clearButton.textContent = uiText('ล้างล่าสุด', 'Clear recent');
+    clearButton.disabled = !state.recentLootPaths.length;
+    clearButton.onclick = clearRecentLootPaths;
+  }
+  const pinnedList = $('loot-pinned-list');
+  const recentList = $('loot-recent-list');
+  if(pinnedList) pinnedList.innerHTML = renderLootShortcutList(pinned, uiText('ยังไม่มีไฟล์ที่ปักไว้', 'No pinned files yet.'));
+  if(recentList) recentList.innerHTML = renderLootShortcutList(recent, uiText('ยังไม่มีไฟล์ล่าสุด', 'No recent files yet.'));
+  document.querySelectorAll('[data-loot-shortcut]').forEach((button)=>{
+    button.onclick = () => openLootFile(button.dataset.lootShortcut).catch((error)=>showToast(error.message || String(error), true));
+  });
+}
 function setLanguage(lang){ state.lang = lang === 'th' ? 'th' : 'en'; localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
 function applyTranslations(){
   document.querySelectorAll('.nav').forEach((b)=>{ if(pageTitleKeys[b.dataset.view]) b.textContent=t(pageTitleKeys[b.dataset.view]); });
@@ -150,6 +244,7 @@ function applyTranslations(){
   set('#server-title', t('parsedServerSettings')); set('#server-hint', t('parsedHint')); setp('#server-field-filter', t('filterKeys')); set('#reload-server-parsed', t('reload')); set('#save-server-parsed', t('save')); set('#save-server-parsed-reload', t('saveReload')); const sectionFilter=$('server-section-filter'); if(sectionFilter){ const allOption=sectionFilter.querySelector('option[value="__all"]'); if(allOption) allOption.textContent=uiText('ทุกหมวด', 'All sections'); } const groupFilter=$('server-group-filter'); if(groupFilter){ const allOption=groupFilter.querySelector('option[value="__all"]'); if(allOption) allOption.textContent=uiText('ทุกกลุ่ม', 'All groups'); }
   const cH4=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) h4'); if(cH4) cH4.textContent=t('files'); const cP1=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) p.muted'); if(cP1) cP1.textContent=t('rawCoreHint'); const cH42=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) h4'); if(cH42) cH42.textContent=t('meta'); const cP2=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) p.muted'); if(cP2) cP2.textContent=t('metaHint'); const cEditP=document.querySelector('#view-corefiles .grid.three .card:nth-child(3) p.muted'); if(cEditP) cEditP.textContent=t('previewBeforeSaving'); if(state.selectedCorePath==='') set('#core-file-title', t('noFileSelected')); set('#core-preview-diff', t('previewDiff')); set('#core-save', t('save'));
   const lH4=document.querySelector('#view-loot .grid.three .card:nth-child(1) h4'); if(lH4) lH4.textContent=t('lootFiles'); const lP=document.querySelector('#view-loot .grid.three .card:nth-child(1) p.muted'); if(lP) lP.textContent=t('lootHint'); const listHeads=document.querySelectorAll('#view-loot .list-head h5'); if(listHeads[0]) listHeads[0].textContent=t('nodes'); if(listHeads[1]) listHeads[1].textContent=t('spawners'); set('#new-node-btn', t('new')); set('#new-spawner-btn', t('new')); set('#loot-inspector-title', t('inspector')); set('#loot-inspector-hint', t('inspectorHint')); set('#loot-validation-title', t('validation')); set('#loot-autofix-preview', t('autoFixPreview')); set('#loot-autofix-apply', t('autoFixSave')); set('#loot-usedby-title', t('usedBy')); set('#loot-simulator-title', t('simulator')); set('#loot-kit-title', t('kitTemplates')); set('#simulate-btn', t('run')); document.querySelectorAll('[data-kit="ak"]').forEach(el=>el.textContent=t('akKit')); document.querySelectorAll('[data-kit="sniper"]').forEach(el=>el.textContent=t('sniperKit')); document.querySelectorAll('[data-kit="medical"]').forEach(el=>el.textContent=t('medicalKit')); if(!state.selectedLootPath) set('#loot-editor-title', t('noLootFileSelected')); const lootP=document.querySelector('#view-loot .grid.three .card:nth-child(3) p.muted'); if(lootP) lootP.textContent=t('visualSyncHint'); set('#loot-preview-diff', t('previewDiff')); set('#loot-save', t('save')); set('#loot-save-reload', t('saveReload')); set('#toggle-visual', t('visualBuilder')); set('#toggle-raw', t('rawJson')); set('#clone-loot', t('clone')); set('#delete-loot', t('delete')); document.querySelectorAll('[data-t-normalize]').forEach(el=>el.textContent=t('normalize')); document.querySelectorAll('[data-t-duplicate]').forEach(el=>el.textContent=t('duplicate')); document.querySelectorAll('[data-t-up]').forEach(el=>el.textContent=t('moveUp')); document.querySelectorAll('[data-t-down]').forEach(el=>el.textContent=t('moveDown')); document.querySelectorAll('[data-t-apply-draft]').forEach(el=>el.textContent=t('applyAutoFixDraft')); document.querySelectorAll('[data-t-quickadd]').forEach(el=>el.textContent=t('quickAdd'));
+  set('#loot-shortcuts-title', uiText('เปิดเร็ว', 'Quick access')); set('#loot-shortcuts-hint', uiText('ปักไฟล์สำคัญและกลับไปไฟล์ล่าสุดได้เร็ว', 'Pin important files and reopen recent work fast.')); set('#loot-pinned-title', uiText('ปักไว้', 'Pinned')); set('#loot-recent-title', uiText('ล่าสุด', 'Recent')); renderLootShortcuts();
   set('#view-analyzer .grid.two .card:nth-child(1) h3', t('analyzerOverview')); set('#view-analyzer .grid.two .card:nth-child(1) p.muted', t('analyzerHint')); set('#refresh-analyzer', t('refresh')); set('#view-analyzer .grid.two .card:nth-child(2) h3', t('warnings')); set('#view-analyzer .grid.two .card:nth-child(2) p.muted', t('warningHint')); const warnHeads=document.querySelectorAll('#view-analyzer .grid.two .card:nth-child(2) h4'); if(warnHeads[0]) warnHeads[0].textContent=t('missingNodeReferences'); if(warnHeads[1]) warnHeads[1].textContent=t('unusedNodes'); const topCard=document.querySelector('#view-analyzer > .card:last-child h3'); if(topCard) topCard.textContent=t('topItems'); const topCardP=document.querySelector('#view-analyzer > .card:last-child p.muted'); if(topCardP) topCardP.textContent=t('topItemsHint');
   set('#view-graph h3', t('dependencyGraph')); set('#view-graph .section-head p.muted', t('graphHint')); setp('#graph-filter', t('graphFilter')); set('#refresh-graph', t('refresh')); const focusH=document.querySelector('#view-graph .graph-side h4'); if(focusH) focusH.textContent=t('focusInspector'); const focusP=document.querySelector('#view-graph .graph-side p.muted'); if(focusP) focusP.textContent=t('focusHint'); const focusEmpty=document.querySelector('#graph-focus-summary .muted'); if(focusEmpty) focusEmpty.textContent=t('noFocusSelected');
   set('#view-profiles .grid.two .card:nth-child(1) h3', t('profilesTitle')); set('#view-profiles .grid.two .card:nth-child(1) p.muted', t('profilesHint')); set('#profile-create', t('createSnapshot')); set('#refresh-profiles', t('refresh')); const rotationHead=document.querySelector('#view-profiles .card.stack-spaced h4'); if(rotationHead) rotationHead.textContent=t('rotation'); const rotationP=document.querySelector('#view-profiles .card.stack-spaced p.muted'); if(rotationP) rotationP.textContent=t('rotationHint'); const rotSpan=document.querySelector('#rotation-enabled + span'); if(rotSpan) rotSpan.textContent=t('enableRotation'); const rotLabel=document.querySelector('#rotation-minutes')?.parentElement?.querySelector('span'); if(rotLabel) rotLabel.textContent=t('everyMinutes'); set('#rotation-save', t('saveRotation')); set('#rotation-run', t('runNow')); const selectedP=document.querySelector('#view-profiles .card.stack-spaced > div:last-child h4'); if(selectedP) selectedP.textContent=t('selectedProfile'); const pd=document.querySelector('#profile-detail'); if(pd && pd.textContent.includes('Select a profile')) pd.textContent=t('selectProfileHint'); set('#profile-apply', t('applyReload')); set('#profile-delete', t('delete'));
@@ -1055,6 +1150,7 @@ function renderLootLists(){
   document.querySelectorAll('[data-loot-path]').forEach((button) => {
     button.onclick = () => openLootFile(button.dataset.lootPath).catch((error)=>showToast(error.message || String(error), true));
   });
+  renderLootShortcuts();
 }
 async function simulateLoot(){ const count=Number($('simulate-count').value||100); const data=await api('/api/loot/simulate',{method:'POST',body:JSON.stringify({path:state.selectedLootPath,count})}); const r=data.result; $('simulate-output').textContent=`Runs: ${r.count}\nAverage items/run: ${r.averageItemsPerRun}\n\nTop results:\n${r.distinctItems.slice(0,20).map(x=>`${x.name}: ${x.hits}`).join('\n')}\n\nSample runs:\n${r.sampleRuns.map((run,i)=>`${i+1}. ${run.join(', ')||'(empty)'}`).join('\n')}`; }
 async function createLootFile(kind){ const fileName=prompt(`New ${kind} file name`); if(!fileName) return; await api('/api/loot/file',{method:'POST',body:JSON.stringify({kind,fileName})}); showToast(`Created ${kind} file`); await loadLootFiles(); }
@@ -1064,7 +1160,7 @@ function makeKit(type){ if(type==='sniper') return { Name:'Sniper_KIT', Notes:'G
 function applyKit(type){ state.currentLootObject = makeKit(type); $('loot-editor').value = fmtJson(state.currentLootObject); renderVisualBuilder(); showToast(`${type.toUpperCase()} kit loaded into editor`); }
 
 function fileButton(file, active){ return `<button class="file-item ${active?'active':''}" data-loot-path="${file.relPath}"><strong>${escapeHtml(file.logicalName||file.name)}</strong><span class="item-sub">${escapeHtml(file.relPath)}</span><span class="item-sub">${escapeHtml(lootFileBlurb(file.summary))}</span></button>`; }
-async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; $('loot-editor-title').textContent=path; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); renderVisualBuilder(); setLootEditorMode('visual'); renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
+async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; $('loot-editor-title').textContent=path; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); rememberLootPath(path); renderVisualBuilder(); setLootEditorMode('visual'); renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
 function syncVisualBuilderToRaw(){ $('loot-editor').value=fmtJson(state.currentLootObject || {}); state.currentLootContent=$('loot-editor').value; showToast(uiText('อัปเดต JSON ดิบแล้ว','Raw JSON updated')); }
 
 function refreshLootItemDatalist(){

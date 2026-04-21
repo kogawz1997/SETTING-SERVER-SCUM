@@ -99,6 +99,54 @@
   line-height: 1.45;
 }
 
+.loot-shortcuts-panel {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(136, 194, 255, 0.16);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(136, 194, 255, 0.11), transparent 44%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.loot-shortcuts-panel .section-head,
+.loot-shortcuts-panel .list-head {
+  margin-bottom: 0;
+}
+
+.loot-shortcuts-panel .list-head.mini h5 {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.loot-shortcut-group,
+.loot-shortcut-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.loot-shortcut-list {
+  max-height: 190px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.loot-shortcut-item {
+  padding: 9px 10px;
+  border-radius: 14px;
+}
+
+.loot-shortcut-empty {
+  padding: 9px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+
 .probability-preset-grid {
   display: flex;
   flex-wrap: wrap;

@@ -129,6 +129,33 @@ test('flat item simple mode offers probability presets for selected rows', async
   await expect(page.locator('[data-entry-prob="0"]')).toHaveValue('0.05');
 });
 
+test('loot studio keeps recent and pinned files in quick access', async ({ page }) => {
+  const firstPath = 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json';
+  const secondPath = 'Nodes/Airfield.json';
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.evaluate(() => {
+    localStorage.removeItem('scum_loot_recent');
+    localStorage.removeItem('scum_loot_pinned');
+  });
+
+  await openLootFileFromRail(page, firstPath);
+  await expect(page.locator('#loot-shortcuts-panel')).toBeVisible();
+  await expect(page.locator('#loot-recent-list')).toContainText(firstPath);
+  await page.locator('#loot-pin-current').click();
+  await expect(page.locator('#loot-pinned-list')).toContainText(firstPath);
+
+  await page.locator(`[data-loot-path="${secondPath}"]`).click();
+  await expect(page.locator('#loot-editor-title')).toContainText(secondPath);
+  await expect(page.locator('#loot-recent-list')).toContainText(secondPath);
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="loot"]').click();
+  await expect(page.locator('#loot-pinned-list')).toContainText(firstPath);
+  await page.locator(`[data-loot-shortcut="${firstPath}"]`).first().click();
+  await expect(page.locator('#loot-editor-title')).toContainText(firstPath);
+  await expect(page).toHaveURL(/\/loot-studio\?file=/);
+});
+
 test('flat item rows can be reordered with drag and drop', async ({ page }) => {
   await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
 

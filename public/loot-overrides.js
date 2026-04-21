@@ -908,6 +908,11 @@
     setText('loot-files-title', t('lootFiles'));
     setText('loot-files-hint', t('lootHint'));
     setPlaceholder('loot-search', uiText('ค้นหาไฟล์ลูท...', 'Search loot files...'));
+    setText('loot-shortcuts-title', uiText('เปิดเร็ว', 'Quick access'));
+    setText('loot-shortcuts-hint', uiText('ปักไฟล์สำคัญและกลับไปไฟล์ล่าสุดได้เร็ว', 'Pin important files and reopen recent work fast.'));
+    setText('loot-pinned-title', uiText('ปักไว้', 'Pinned'));
+    setText('loot-recent-title', uiText('ล่าสุด', 'Recent'));
+    if (typeof renderLootShortcuts === 'function') renderLootShortcuts();
     setText('loot-inspector-title', uiText('ภาพรวมไฟล์', 'File overview'));
     setText('loot-inspector-hint', uiText('สรุปว่าไฟล์นี้เป็น schema แบบไหนและมีขนาดประมาณไหน', 'Quick summary of the file schema and how large it is.'));
     setText('loot-kit-title', t('kitTemplates'));
@@ -2324,6 +2329,7 @@
     $('loot-summary').innerHTML = renderLootSummaryPanel(analysis.summary);
     $('loot-validation').innerHTML = renderValidation(analysis.validation);
     $('loot-deps').innerHTML = renderLootDependencyPanel(analysis);
+    rememberLootPath(path);
     renderVisualBuilder();
     setLootEditorMode('visual');
     renderLootLists();

@@ -211,6 +211,26 @@
           <div class="card loot-files-card">
             <div class="section-head compact"><div><h4 id="loot-files-title">Loot Files</h4><p id="loot-files-hint" class="muted">Nodes and spawners with create/clone/delete.</p></div></div>
             <input id="loot-search" placeholder="Search loot files..." />
+            <div id="loot-shortcuts-panel" class="loot-shortcuts-panel">
+              <div class="section-head compact">
+                <div>
+                  <h5 id="loot-shortcuts-title">Quick access</h5>
+                  <p id="loot-shortcuts-hint" class="muted">Pin important files and reopen recent work fast.</p>
+                </div>
+              </div>
+              <div class="actions tight wrap">
+                <button id="loot-pin-current" class="ghost tiny" type="button">Pin current</button>
+                <button id="loot-clear-recents" class="ghost tiny" type="button">Clear recent</button>
+              </div>
+              <div class="loot-shortcut-group">
+                <div class="list-head mini"><h5 id="loot-pinned-title">Pinned</h5></div>
+                <div id="loot-pinned-list" class="loot-shortcut-list"></div>
+              </div>
+              <div class="loot-shortcut-group">
+                <div class="list-head mini"><h5 id="loot-recent-title">Recent</h5></div>
+                <div id="loot-recent-list" class="loot-shortcut-list"></div>
+              </div>
+            </div>
             <div class="list-head"><h5>Nodes</h5><button id="new-node-btn" class="ghost tiny">New</button></div>
             <div id="nodes-list" class="file-list"></div>
             <div class="list-head"><h5>Spawners</h5><button id="new-spawner-btn" class="ghost tiny">New</button></div>
