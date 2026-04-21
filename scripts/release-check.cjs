@@ -132,6 +132,7 @@ function assertPackageScript(name) {
   'src/server/services/profile-service.cjs',
   'src/server/services/startup-doctor.cjs',
   'src/server/services/workspace-domain.cjs',
+  'src/server/services/workspace-health-service.cjs',
   'src/server/services/workspace-search-service.cjs',
   'src/server/services/workspace-utils.cjs',
   'src/server/safe-apply.cjs',
@@ -219,8 +220,9 @@ assertIncludes('src/server/services/loot-simulator-service.cjs', ['createLootSim
 assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
 assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'workspace-utils.cjs', 'buildGraphRefEditPlan', 'buildReadinessReport']);
-assertLineCountAtMost('src/server/services/workspace-domain.cjs', 1085);
-assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(', 'function searchWorkspace(', 'function autoFixLootObject(', 'function analyzeOverview(', 'function buildLootSchemaReport(']);
+assertLineCountAtMost('src/server/services/workspace-domain.cjs', 800);
+assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(', 'function searchWorkspace(', 'function autoFixLootObject(', 'function analyzeOverview(', 'function buildLootSchemaReport(', 'function buildReadinessReport(', 'function buildDiagnosticsReport(']);
+assertIncludes('src/server/services/workspace-health-service.cjs', ['createWorkspaceHealthService', 'buildReadinessReport', 'buildDiagnosticsReport']);
 assertIncludes('src/server/services/workspace-search-service.cjs', ['createWorkspaceSearchService', 'searchWorkspace', 'matchesSearchScope']);
 assertIncludes('src/server/services/workspace-utils.cjs', ['normalizeKey', 'posixify', 'sortByName', 'walkFiles']);
 assertIncludes('src/server/routes/loot.cjs', [

@@ -284,6 +284,70 @@ test('loot analyzer service summarizes balance, schema kinds, and validation fil
   assert.equal(kinds.node_tree, 1);
 });
 
+test('workspace health service builds readiness and sanitized diagnostics reports', () => {
+  const { createWorkspaceHealthService } = require('../src/server/services/workspace-health-service.cjs');
+  const paths = {
+    scumConfigDir: 'C:\\SCUM\\Config',
+    nodesDir: 'C:\\SCUM\\Config\\Nodes',
+    spawnersDir: 'C:\\SCUM\\Config\\Spawners',
+    backupDir: 'C:\\SCUM\\Backups',
+  };
+  const scan = {
+    nodes: [{ relPath: 'Nodes/Bunker.json', object: {}, logicalName: 'Bunker' }],
+    spawners: [{ relPath: 'Spawners/Military.json', object: {}, logicalName: 'Military' }],
+    errors: [],
+  };
+  const service = createWorkspaceHealthService({
+    fs: { existsSync: (target) => target === 'icons-ready' },
+    ITEM_ICON_DIR: 'icons-ready',
+    CORE_FILES: ['ServerSettings.ini', 'GameUserSettings.ini'],
+    nowIso: () => '2026-04-21T00:00:00.000Z',
+    buildHealthNextActions: (report) => report.blockers.length ? ['Fix critical blockers first'] : ['Ready to use'],
+    loadConfig: () => ({ scumConfigDir: paths.scumConfigDir, reloadLootCommand: 'reload.cmd', restartServerCommand: '' }),
+    resolvedPaths: () => paths,
+    inspectConfigFolder: () => ({
+      rootExists: true,
+      rootPath: paths.scumConfigDir,
+      nodesExists: true,
+      nodesPath: paths.nodesDir,
+      spawnersExists: false,
+      spawnersPath: paths.spawnersDir,
+      fileHealth: { 'ServerSettings.ini': true, 'GameUserSettings.ini': false },
+    }),
+    inspectCommand: (command) => ({ configured: Boolean(command), runnable: command === 'reload.cmd', command, reason: command ? '' : 'empty' }),
+    listBackups: () => [{ name: 'backup-one', updatedAt: 'now', tag: 'manual', fileCount: 2 }],
+    safeScanLootWorkspace: () => scan,
+    analyzeLootObject: (_object, relPath) => ({
+      validation: {
+        counts: relPath.startsWith('Spawners') ? { critical: 1, warning: 0, info: 0 } : { critical: 0, warning: 1, info: 0 },
+        fixableCount: relPath.startsWith('Spawners') ? 1 : 0,
+      },
+    }),
+    analyzeOverview: () => ({ missingRefs: [{ nodeName: 'MissingNode', spawner: 'Military' }], unusedNodes: [], balance: { score: 70 }, warnings: [], totals: { nodes: 1 } }),
+    buildStartupDoctorReport: () => ({ ready: false, counts: { bad: 1 }, checks: [{ id: 'startup', label: 'Startup', status: 'bad', severity: 'critical', detail: paths.scumConfigDir, action: 'Fix path' }], nextStep: 'Fix path' }),
+    readActivity: () => [{ at: 'now', type: 'save', path: 'C:\\SCUM\\Config\\ServerSettings.ini', backup: 'backup-one', ok: true }],
+    buildItemCatalog: () => ({ total: 1, categories: [{ id: 'weapon', count: 1 }], overridesCount: 0 }),
+    detectLootSchemaKinds: () => ({ node: 1, node_tree: 0, spawner: 1, unknown: 0 }),
+    LOOT_SCHEMA_VERSION: 'health-test',
+    ITEM_CATEGORY_RULES: [{ id: 'weapon' }],
+    ROOT: 'C:\\scum-next-build',
+  });
+
+  const readiness = service.buildReadinessReport();
+  const diagnostics = service.buildDiagnosticsReport({ includePaths: 'false' });
+
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.counts.validationCritical, 1);
+  assert.equal(readiness.counts.missingRefs, 1);
+  assert.equal(readiness.commandHealth.reload.runnable, true);
+  assert.equal(readiness.checks.some((check) => check.id === 'spawners_folder' && check.status === 'bad'), true);
+  assert.equal(diagnostics.app.cwd, '');
+  assert.equal(diagnostics.config.scumConfigDir, '');
+  assert.equal(diagnostics.readiness.checks.some((check) => check.detail === ''), true);
+  assert.equal(diagnostics.activity.recent[0].path, '');
+  assert.equal(diagnostics.loot.schema.version, 'health-test');
+});
+
 test('AppError serializes safe Thai-friendly API errors', () => {
   const { AppError, toHttpError } = require('../src/server/errors.cjs');
   const error = new AppError('เลือกไฟล์ไม่ถูกต้อง', {
