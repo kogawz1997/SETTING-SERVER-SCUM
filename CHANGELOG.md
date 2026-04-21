@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6 - 2026-04-21
+
+- Local readiness polish: Startup Doctor, structured operation logs, isolated UI test server, and Loot Studio kit save regression fix.
+
 ## 1.0.5 - 2026-04-21
 
 - Add P2.13 local power-pack polish: EXE launcher fallback build, richer icon-backed item catalog metadata, more built-in loot presets, deterministic simulator rates, and graph reference editing with dry-run/apply support.
