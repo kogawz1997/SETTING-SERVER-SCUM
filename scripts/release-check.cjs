@@ -125,6 +125,7 @@ function assertPackageScript(name) {
   'src/server/services/command-runner.cjs',
   'src/server/services/item-catalog-service.cjs',
   'src/server/services/kit-template-service.cjs',
+  'src/server/services/loot-core-service.cjs',
   'src/server/services/loot-analyzer-service.cjs',
   'src/server/services/loot-autofix-service.cjs',
   'src/server/services/loot-graph-service.cjs',
@@ -213,6 +214,7 @@ assertIncludes('src/server/services/command-runner.cjs', ['createCommandRunner',
 assertIncludes('src/server/services/backup-service.cjs', ['createBackupService', 'restoreBackupFile', 'workspacePackageFiles']);
 assertIncludes('src/server/services/item-catalog-service.cjs', ['createItemCatalogService', 'buildItemCatalog', 'upsertItemCatalogOverride', 'categoryForItem']);
 assertIncludes('src/server/services/kit-template-service.cjs', ['createKitTemplateService', 'sanitizeKitItems']);
+assertIncludes('src/server/services/loot-core-service.cjs', ['createLootCoreService', 'detectLootKind', 'analyzeLootObject', 'buildRefIndex', 'normalizeSpawnerRef']);
 assertIncludes('src/server/services/loot-analyzer-service.cjs', ['createLootAnalyzerService', 'analyzeOverview', 'buildLootSchemaReport', 'detectLootSchemaKinds']);
 assertIncludes('src/server/services/loot-autofix-service.cjs', ['createLootAutofixService', 'autoFixLootObject', 'normalizeFlatProbabilities']);
 assertIncludes('src/server/services/loot-graph-service.cjs', ['createLootGraphService', 'buildGraph', 'buildGraphRefEditPlan']);
@@ -220,8 +222,8 @@ assertIncludes('src/server/services/loot-simulator-service.cjs', ['createLootSim
 assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
 assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'workspace-utils.cjs', 'buildGraphRefEditPlan', 'buildReadinessReport']);
-assertLineCountAtMost('src/server/services/workspace-domain.cjs', 800);
-assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(', 'function searchWorkspace(', 'function autoFixLootObject(', 'function analyzeOverview(', 'function buildLootSchemaReport(', 'function buildReadinessReport(', 'function buildDiagnosticsReport(']);
+assertLineCountAtMost('src/server/services/workspace-domain.cjs', 430);
+assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(', 'function searchWorkspace(', 'function autoFixLootObject(', 'function analyzeOverview(', 'function buildLootSchemaReport(', 'function buildReadinessReport(', 'function buildDiagnosticsReport(', 'function detectLootKind(', 'function buildValidation(', 'function analyzeLootObject(', 'function resolveRefNode(', 'function normalizeSpawnerRef(']);
 assertIncludes('src/server/services/workspace-health-service.cjs', ['createWorkspaceHealthService', 'buildReadinessReport', 'buildDiagnosticsReport']);
 assertIncludes('src/server/services/workspace-search-service.cjs', ['createWorkspaceSearchService', 'searchWorkspace', 'matchesSearchScope']);
 assertIncludes('src/server/services/workspace-utils.cjs', ['normalizeKey', 'posixify', 'sortByName', 'walkFiles']);

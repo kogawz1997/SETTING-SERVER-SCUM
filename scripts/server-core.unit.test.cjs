@@ -26,6 +26,61 @@ test('workspace utilities normalize file keys and walk nested JSON files', () =>
   assert.deepEqual(files, ['Nodes Folder/Military Zone/Bunker Loot.json']);
 });
 
+test('loot core service parses, indexes, and validates loot objects', () => {
+  const { createLootCoreService } = require('../src/server/services/loot-core-service.cjs');
+  const { normalizeKey, posixify } = require('../src/server/services/workspace-utils.cjs');
+  const service = createLootCoreService({
+    clone: (value) => JSON.parse(JSON.stringify(value)),
+    path,
+    stripBom: (text) => String(text || '').replace(/^\uFEFF/, ''),
+    readText: () => '\uFEFF{"Items":[]}',
+    normalizeKey,
+    posixify,
+    LOOT_RARITIES: ['Common', 'Uncommon', 'Rare'],
+    scanLootWorkspace: () => ({ nodes: [], spawners: [], refIndex: new Map() }),
+  });
+  const tree = {
+    Name: 'ItemLootTreeNodes',
+    Children: [
+      { Name: 'Bunker', Rarity: 'Rare', Children: [{ Name: 'AK47', Rarity: 'Rare' }] },
+    ],
+  };
+  const refs = service.collectTreeRefs(tree, 'Nodes/Bunker.json');
+  const refIndex = service.buildRefIndex(refs);
+  const spawner = {
+    QuantityMin: 5,
+    QuantityMax: 1,
+    AllowDuplicates: 'true',
+    Nodes: [{ Rarity: 'Bad', Ids: ['Bunker.AK47', 'Missing.Ref', 'Bunker.AK47'] }],
+  };
+
+  const parsed = service.safeParseJson('\uFEFF{"Items":[]}');
+  const flat = service.analyzeLootObject({
+    Items: [
+      { Name: 'AK47', Probability: 0 },
+      { Name: 'AK47', Probability: 0 },
+    ],
+  }, 'Nodes/Bunker.json', { nodes: [], spawners: [], refIndex });
+  const treeAnalysis = service.analyzeLootObject(tree, 'Nodes/Bunker.json', {
+    nodes: [],
+    spawners: [{ logicalName: 'Military', relPath: 'Spawners/Military.json', object: { Nodes: [{ Ids: ['ItemLootTreeNodes.Bunker.AK47'] }] } }],
+    refIndex,
+  });
+  const spawnerAnalysis = service.analyzeLootObject(spawner, 'Spawners/Military.json', { nodes: [], spawners: [], refIndex });
+
+  assert.equal(service.detectLootKind(parsed), 'node');
+  assert.equal(service.readJsonObject('ignored.json').Items.length, 0);
+  assert.equal(refIndex.has('Bunker.AK47'), true);
+  assert.equal(refIndex.has('ItemLootTreeNodes.Bunker.AK47'), true);
+  assert.equal(flat.validation.entries.some((entry) => entry.code === 'node.zero_probability_total'), true);
+  assert.equal(flat.validation.entries.some((entry) => entry.code === 'node.duplicate_item'), true);
+  assert.equal(treeAnalysis.dependencies.usedBy[0].spawner, 'Military');
+  assert.equal(spawnerAnalysis.validation.entries.some((entry) => entry.code === 'spawner.missing_ref'), true);
+  assert.equal(spawnerAnalysis.validation.entries.some((entry) => entry.code === 'spawner.quantity_range_reversed'), true);
+  assert.equal(service.normalizeSpawnerRef('Bunker.AK47'), 'ItemLootTreeNodes.Bunker.AK47');
+  assert.equal(service.resolveRefNode(tree, 'ItemLootTreeNodes.Bunker.AK47').Name, 'AK47');
+});
+
 test('item catalog service builds icon-backed catalog entries and saves overrides', () => {
   const { createItemCatalogService } = require('../src/server/services/item-catalog-service.cjs');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-item-catalog-'));
