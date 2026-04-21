@@ -4,6 +4,8 @@ Current local-ready level: `P2.12`. This is the final local polish pass: Loot St
 
 Portable launcher update: for a shared/local build, run `npm run package:portable`, open `dist/SETTING-SERVER-SCUM-local`, then double-click `Start SETTING SERVER SCUM.cmd`. The launcher checks Node.js, installs missing runtime dependencies, finds a free port, starts the local server, writes `logs/startup.log`, and opens the browser automatically.
 
+Latest packaged release notes: `docs/releases/v1.0.1-local.md`
+
 เครื่องมือเว็บสำหรับคนดูแลเซิร์ฟเวอร์ SCUM ที่ไม่อยากนั่งไล่แก้ `INI` / `JSON` ดิบๆ แล้วลุ้นว่าเซิร์ฟจะพังไหมตอนกด save
 
 โปรเจกต์นี้ทำมาเพื่อช่วยจัดการไฟล์ตั้งค่า, loot, Nodes, Spawners, backup, profile และ validation ในที่เดียว เปิดใช้งานแบบ local บนเครื่องของคุณเอง ไฟล์เซิร์ฟเวอร์ยังอยู่ในเครื่องคุณ ไม่ได้ส่งขึ้นเว็บนอก
