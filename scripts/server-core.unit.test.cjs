@@ -223,6 +223,67 @@ test('loot autofix service normalizes flat item probabilities and converts legac
   assert.equal(result.changes.some((entry) => entry.includes('Merged duplicate item row')), true);
 });
 
+test('loot analyzer service summarizes balance, schema kinds, and validation files', () => {
+  const { createLootAnalyzerService } = require('../src/server/services/loot-analyzer-service.cjs');
+  const scan = {
+    nodes: [
+      { logicalName: 'Bunker', relPath: 'Nodes/Bunker.json', object: { Name: 'Bunker', Children: [{ Name: 'AK47', Rarity: 'Rare' }] } },
+      { logicalName: 'Unused', relPath: 'Nodes/Unused.json', object: { Items: [{ Name: 'Bandage', Probability: 1 }] } },
+    ],
+    spawners: [
+      { logicalName: 'Military', relPath: 'Spawners/Military.json', object: { Nodes: [{ Rarity: 'Rare', Ids: ['ItemLootTreeNodes.Bunker.AK47', 'ItemLootTreeNodes.Missing.Ref'] }] } },
+    ],
+    refIndex: new Map([['ItemLootTreeNodes.Bunker.AK47', { node: 'Bunker', kind: 'leaf', rarity: 'Rare' }]]),
+    errors: [],
+  };
+  const service = createLootAnalyzerService({
+    buildItemCatalog: () => ({
+      total: 2,
+      items: [
+        { name: 'AK47', appearances: 2, category: 'weapon', iconUrl: '' },
+        { name: 'Bandage', appearances: 1, category: 'medical', iconUrl: '' },
+      ],
+      categories: [{ id: 'weapon', count: 1 }, { id: 'medical', count: 1 }],
+      overridesCount: 0,
+    }),
+    loadLootAdvisoryIgnore: () => ({ unusedNodes: ['Unused'], notes: { Unused: 'demo ignore' } }),
+    normalizeKey: (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
+    collectSpawnerRefs: (object) => (object.Nodes || []).flatMap((group) => group.Ids || []),
+    ITEM_CATEGORY_RULES: [{ id: 'weapon' }, { id: 'medical' }],
+    LOOT_RARITIES: ['Common', 'Uncommon', 'Rare'],
+    detectLootKind: (object) => (Array.isArray(object.Children) ? 'node_tree' : Array.isArray(object.Items) ? 'node' : Array.isArray(object.Nodes) ? 'spawner' : 'unknown'),
+    collectTreeLeaves: (object) => (object.Children || []).map((child) => ({ name: child.Name, rarity: child.Rarity })),
+    rarityWeight: (rarity) => (rarity === 'Rare' ? 6 : 1),
+    itemEntryName: (entry) => entry?.Name || '',
+    itemEntryProbability: (entry) => Number(entry?.Probability || 0),
+    categoryForItem: (name) => (/ak/i.test(name) ? 'weapon' : 'medical'),
+    analyzeLootObject: (_object, relPath) => ({
+      summary: { kind: relPath.includes('Spawners') ? 'spawner' : relPath.includes('Unused') ? 'node' : 'node_tree' },
+      validation: {
+        counts: relPath.includes('Spawners') ? { critical: 1, warning: 0, info: 0 } : { critical: 0, warning: 0, info: 0 },
+        fixableCount: relPath.includes('Spawners') ? 1 : 0,
+      },
+    }),
+    safeScanLootWorkspace: () => scan,
+    LOOT_SCHEMA_VERSION: 'test-schema',
+    nowIso: () => '2026-04-21T00:00:00.000Z',
+    LOOT_SCHEMA_HINTS: { node: ['Items'] },
+  });
+
+  const overview = service.analyzeOverview(scan);
+  const schema = service.buildLootSchemaReport(scan);
+  const kinds = service.detectLootSchemaKinds(scan);
+
+  assert.equal(overview.totals.nodes, 2);
+  assert.equal(overview.missingRefs[0].nodeName, 'ItemLootTreeNodes.Missing.Ref');
+  assert.equal(overview.ignoredUnusedNodes[0].nodeName, 'Unused');
+  assert.equal(overview.unusedNodes.length, 0);
+  assert.equal(schema.version, 'test-schema');
+  assert.equal(schema.workspace.validationCounts.critical, 1);
+  assert.equal(schema.workspace.detectedKinds.spawner, 1);
+  assert.equal(kinds.node_tree, 1);
+});
+
 test('AppError serializes safe Thai-friendly API errors', () => {
   const { AppError, toHttpError } = require('../src/server/errors.cjs');
   const error = new AppError('เลือกไฟล์ไม่ถูกต้อง', {
