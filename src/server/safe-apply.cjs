@@ -53,6 +53,15 @@ function buildSafeApplyPlan(options = {}) {
   };
 }
 
+function restoreFromBackup(backup, logicalPath, targetPath) {
+  if (!backup?.backupDir) return false;
+  const sourcePath = path.join(backup.backupDir, posixify(logicalPath));
+  if (!fs.existsSync(sourcePath)) return false;
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(sourcePath, targetPath);
+  return true;
+}
+
 function applySafePlan(options = {}) {
   const plan = buildSafeApplyPlan(options);
   if (!plan.ok) {
@@ -66,7 +75,23 @@ function applySafePlan(options = {}) {
     return { ...plan, dryRun: false, written: false, backup: null };
   }
   const backup = options.createBackup(options.paths, [plan.logicalPath], options.backupNote || `safe-apply:${plan.logicalPath}`);
-  options.writeText(plan.targetPath, String(options.content ?? ''));
+  try {
+    options.writeText(plan.targetPath, String(options.content ?? ''));
+  } catch (error) {
+    const rolledBack = restoreFromBackup(backup, plan.logicalPath, plan.targetPath);
+    if (typeof options.appendActivity === 'function') {
+      options.appendActivity('safe_apply_rollback', {
+        path: plan.logicalPath,
+        backup: backup?.backupName || '',
+        rolledBack,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (error && typeof error === 'object') {
+      error.rollback = { rolledBack, backupName: backup?.backupName || '' };
+    }
+    throw error;
+  }
   if (typeof options.appendActivity === 'function') {
     options.appendActivity('safe_apply', { path: plan.logicalPath, backup: backup?.backupName || '' });
   }

@@ -69,10 +69,11 @@ const state = {
 const lootRecentStorageKey = 'scum_loot_recent';
 const lootPinnedStorageKey = 'scum_loot_pinned';
 
-const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', help: 'help', diff: 'diff' };
+const pageTitleKeys = { dashboard: 'dashboard', settings: 'settings', release: 'release', server: 'server', corefiles: 'corefiles', loot: 'loot', analyzer: 'analyzer', graph: 'graph', profiles: 'profiles', backups: 'backups', activity: 'activity', help: 'help', diff: 'diff' };
 const routeByView = {
   dashboard: '/dashboard',
   settings: '/settings',
+  release: '/customer-ready',
   server: '/server-settings',
   corefiles: '/core-files',
   loot: '/loot-studio',
@@ -89,6 +90,9 @@ const routeAliases = {
   '/dashboard': 'dashboard',
   '/settings': 'settings',
   '/app-settings': 'settings',
+  '/customer-ready': 'release',
+  '/release-check': 'release',
+  '/handoff-check': 'release',
   '/server': 'server',
   '/server-settings': 'server',
   '/corefiles': 'corefiles',
@@ -107,7 +111,7 @@ const routeAliases = {
 };
 const i18n = {
   en: {
-    dashboard:'Dashboard', settings:'App Settings', server:'Server Settings', corefiles:'Core Files', loot:'Loot Studio', analyzer:'Analyzer', graph:'Graph', profiles:'Profiles', backups:'Backups', activity:'Activity', diff:'Diff Preview',
+    dashboard:'Dashboard', settings:'App Settings', release:'Customer Ready', server:'Server Settings', corefiles:'Core Files', loot:'Loot Studio', analyzer:'Analyzer', graph:'Graph', profiles:'Profiles', backups:'Backups', activity:'Activity', diff:'Diff Preview',
     loading:'Loading…', refresh:'Refresh', backupCore:'Backup core', reloadLoot:'Reload loot', restartServer:'Restart server',
     localFirst:'LOCAL-FIRST CONTROL PLANE', readyCheck:'READY CHECK', heroTitle:'Edit server config, design loot, snapshot profiles, and keep every risky change recoverable.', heroBody:'Start with readiness, preview diffs, save with backups, and reload only when the config is ready.',
     configDirectory:'Config directory', backupsLabel:'Backups', nodes:'Nodes', spawners:'Spawners', health:'Health', healthHint:'What is configured and what is still missing.', commandOutput:'Command output', clear:'Clear', globalSearch:'Global Search', searchHint:'Search across settings, economy, nodes, and spawners.', searchPlaceholder:'Search item, node, spawner, setting...', search:'Search',
@@ -124,7 +128,7 @@ const i18n = {
     savedAppConfig:'App config saved', backupCreated:'Backup created', commandFinished:'Command finished', commandWarn:'Command returned warnings', serverSettingsSaved:'Server settings saved', serverSettingsSavedReload:'Server settings saved + reload sent', presetApplied:'Preset applied', coreSaved:'Core file saved', selectProfileFirst:'Select a profile first', profileCreated:'Profile snapshot created', profileApplied:'Profile applied + reload sent', profileDeleted:'Profile deleted', rotationSaved:'Rotation saved', rotationApplied:'Rotation applied', fileRestored:'File restored', updated:'Updated', size:'Size', bytes:'bytes', profileNamePrompt:'Profile name', profileNotesPrompt:'Notes (optional)', deleteProfileConfirm:'Delete selected profile?', restoreBackupConfirm:'Restore selected file from backup?', normalize:'Normalize', duplicate:'Duplicate', moveUp:'Up', moveDown:'Down', applyAutoFixDraft:'Load autofix draft', slider:'Slider', number:'Number', quickAdd:'Quick add', graphCounts:'Graph counts'
   },
   th: {
-    dashboard:'แดชบอร์ด', settings:'ตั้งค่าแอป', server:'ตั้งค่าเซิร์ฟเวอร์', corefiles:'ไฟล์หลัก', loot:'จัดการลูท', analyzer:'ตัววิเคราะห์', graph:'กราฟความสัมพันธ์', profiles:'โปรไฟล์', backups:'แบ็กอัป', activity:'กิจกรรม', diff:'พรีวิวความต่าง',
+    dashboard:'แดชบอร์ด', settings:'ตั้งค่าแอป', release:'ก่อนส่งลูกค้า', server:'ตั้งค่าเซิร์ฟเวอร์', corefiles:'ไฟล์หลัก', loot:'จัดการลูท', analyzer:'ตัววิเคราะห์', graph:'กราฟความสัมพันธ์', profiles:'โปรไฟล์', backups:'แบ็กอัป', activity:'กิจกรรม', diff:'พรีวิวความต่าง',
     loading:'กำลังโหลด…', refresh:'รีเฟรช', backupCore:'แบ็กอัปไฟล์หลัก', reloadLoot:'รีโหลดลูท', restartServer:'รีสตาร์ตเซิร์ฟเวอร์',
     localFirst:'ศูนย์ควบคุมแบบโลคัล', readyCheck:'ตรวจความพร้อม', heroTitle:'แก้คอนฟิกเซิร์ฟเวอร์ ออกแบบลูท เก็บโปรไฟล์ และย้อนกลับได้ก่อนงานพัง', heroBody:'เริ่มจากเช็กความพร้อม ดู diff ก่อน save สร้าง backup แล้วค่อย reload เมื่อค่าพร้อมใช้จริง',
     configDirectory:'โฟลเดอร์คอนฟิก', backupsLabel:'แบ็กอัป', nodes:'โหนด', spawners:'สปอว์นเนอร์', health:'สุขภาพระบบ', healthHint:'ดูว่าอะไรตั้งค่าแล้ว และอะไรยังขาดอยู่', commandOutput:'ผลลัพธ์คำสั่ง', clear:'ล้าง', globalSearch:'ค้นหาทั้งระบบ', searchHint:'ค้นหาข้าม settings, economy, nodes และ spawners', searchPlaceholder:'ค้นหา item, node, spawner หรือ setting...', search:'ค้นหา',

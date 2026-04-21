@@ -125,6 +125,24 @@ test('support bundle and loot preset APIs return local-safe release helpers', as
   }
 });
 
+test('startup doctor API summarizes first-run readiness checks', async () => {
+  const server = await listen();
+  const restoreConfig = withConfigRestore();
+  writeWorkspaceConfig(sampleRoot);
+  try {
+    const { response, body } = await request(server, '/api/startup-doctor');
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.report.ready, true);
+    assert.equal(body.report.nextStep.action, 'open-dashboard');
+    assert.equal(body.report.checks.some((check) => check.id === 'paths.nodes' && check.status === 'ok'), true);
+    assert.equal(body.report.checks.some((check) => check.id === 'commands.reload' && check.status === 'warn'), true);
+  } finally {
+    restoreConfig();
+    server.close();
+  }
+});
+
 test('P2.13 item catalog expands icon pack metadata with readable names and tags', async () => {
   const server = await listen();
   const restoreConfig = withConfigRestore();
@@ -144,6 +162,42 @@ test('P2.13 item catalog expands icon pack metadata with readable names and tags
     assert.equal(buckshot.displayNameTh.length > 0, true);
     assert.equal(buckshot.tags.includes('ammo'), true);
     assert.equal(Boolean(buckshot.rarity), true);
+  } finally {
+    restoreConfig();
+    server.close();
+  }
+});
+
+test('curated item catalog applies human Thai names, category, rarity, and tags', async () => {
+  const server = await listen();
+  const restoreConfig = withConfigRestore();
+  writeWorkspaceConfig(sampleRoot);
+  try {
+    const names = ['Magazine_AK47', 'Car_Repair_Kit', 'Antibiotics_01', 'BabyFood', 'Screwdriver'];
+    const catalog = new Map();
+    for (const name of names) {
+      const { response, body } = await request(server, `/api/items?q=${encodeURIComponent(name)}&limit=20`);
+      assert.equal(response.status, 200);
+      const item = body.items.find((entry) => entry.name === name);
+      assert.ok(item, `${name} should exist in item catalog`);
+      catalog.set(name, item);
+    }
+
+    assert.equal(catalog.get('Magazine_AK47').category, 'ammo');
+    assert.equal(catalog.get('Magazine_AK47').rarity, 'uncommon');
+    assert.equal(catalog.get('Magazine_AK47').displayNameTh, 'แม็กกาซีน AK-47');
+    assert.equal(catalog.get('Magazine_AK47').tags.includes('ak'), true);
+
+    assert.equal(catalog.get('Car_Repair_Kit').category, 'vehicle');
+    assert.equal(catalog.get('Car_Repair_Kit').rarity, 'rare');
+    assert.equal(catalog.get('Car_Repair_Kit').displayNameTh, 'ชุดซ่อมรถ');
+    assert.equal(catalog.get('Car_Repair_Kit').tags.includes('repair'), true);
+
+    assert.equal(catalog.get('Antibiotics_01').category, 'medical');
+    assert.equal(catalog.get('Antibiotics_01').displayNameTh, 'ยาปฏิชีวนะ');
+    assert.equal(catalog.get('BabyFood').displayNameTh, 'อาหารเด็ก');
+    assert.equal(catalog.get('Screwdriver').displayNameTh, 'ไขควง');
+    assert.equal(catalog.get('Screwdriver').tags.includes('raid'), true);
   } finally {
     restoreConfig();
     server.close();

@@ -5,6 +5,7 @@ const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
 const views = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'settings', label: 'App Settings' },
+  { id: 'release', label: 'Customer Ready' },
   { id: 'server', label: 'Server Settings' },
   { id: 'corefiles', label: 'Core Files' },
   { id: 'loot', label: 'Loot Studio' },
@@ -109,6 +110,21 @@ test('top-level routes open the matching page and support browser history', asyn
   await page.goto(`${baseUrl}/corefiles`, { waitUntil: 'networkidle' });
   await expect(page.locator('#view-corefiles')).toBeVisible();
   await expect(page).toHaveURL(/\/core-files$/);
+
+  await page.goto(`${baseUrl}/customer-ready`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#view-release')).toBeVisible();
+  await expect(page).toHaveURL(/\/customer-ready$/);
+});
+
+test('customer handoff page summarizes readiness and next action in one place', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseUrl}/customer-ready`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-release')).toBeVisible();
+  await expect(page.locator('#customer-ready-panel')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#customer-ready-panel')).toContainText(/Customer handoff|ก่อนปล่อยให้ลูกค้าใช้/);
+  await expect(page.locator('#customer-ready-panel')).toContainText(/Path ready|Backup ready|Loot errors|Reload command/);
+  await expect(page.locator('[data-release-next-action]').first()).toBeVisible({ timeout: 60000 });
 });
 
 test('thai mode renders readable app copy without mojibake artifacts', async ({ page }) => {
@@ -156,6 +172,11 @@ test('graph view has interactive focus and zoom controls', async ({ page }) => {
   await expect(page.locator('.graph-help-strip')).toBeVisible();
   await expect(page.locator('.graph-viewport')).toBeVisible();
   await expect(page.locator('#graph-connect-mode')).toBeVisible();
+  await expect(page.locator('#graph-edit-mode')).toBeVisible();
+  await page.locator('#graph-edit-mode').click();
+  await expect(page.locator('.graph-viewport')).toHaveClass(/edit-mode/);
+  await expect(page.locator('.graph-editor-strip')).toBeVisible();
+  await expect(page.locator('.graph-map-edge-action').first()).toBeVisible({ timeout: 60000 });
   await page.locator('#graph-connect-mode').click();
   await expect(page.locator('.graph-viewport')).toHaveClass(/connect-mode/);
   const firstNode = page.locator('.graph-map-node').first();

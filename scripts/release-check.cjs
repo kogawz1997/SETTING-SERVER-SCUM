@@ -104,6 +104,12 @@ function assertPackageScript(name) {
   'src/server/errors.cjs',
   'src/server/command-sandbox.cjs',
   'src/server/validation.cjs',
+  'src/server/item-catalog-curated.cjs',
+  'src/server/store/file-store.cjs',
+  'src/server/store/app-store.cjs',
+  'src/server/store/file-transaction.cjs',
+  'src/server/services/startup-doctor.cjs',
+  'src/server/services/workspace-domain.cjs',
   'src/server/safe-apply.cjs',
   'src/server/package-manager.cjs',
   'src/server/routes/index.cjs',
@@ -158,9 +164,16 @@ assertIncludes('src/server/routes/system.cjs', [
   '/api/bootstrap',
   '/api/readiness',
   '/api/diagnostics',
+  '/api/startup-doctor',
   '/api/support/bundle',
   '/api/schemas/loot',
 ]);
+assertIncludes('src/server/command-sandbox.cjs', ['shell: false', 'outside_allowlist', 'buildExecutionPlan']);
+assertIncludes('src/server/store/file-store.cjs', ['atomicWriteText', 'fingerprintFile', 'renameSync']);
+assertIncludes('src/server/store/app-store.cjs', ['createAppStore', 'inspectConfigFolder', 'readActivity']);
+assertIncludes('src/server/store/file-transaction.cjs', ['applyFileTransaction', 'restoreSnapshot', 'file_transaction_rollback']);
+assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
+assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'buildGraphRefEditPlan', 'buildReadinessReport']);
 assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
   '/api/loot/files',
@@ -186,13 +199,13 @@ assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:por
 assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
-assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);
-assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
+assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'customer-ready-panel', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);
+assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', '/customer-ready', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/app.js', ['normalizeLootEditorMode', 'applyLootEditorModeDom', 'refreshSplitRawPreview']);
-assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'graph-connect-mode', 'loot-setup-wizard', 'downloadSupportBundle']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'graph-connect-mode', 'graph-edit-mode', 'customer-ready-panel', 'loot-setup-wizard', 'downloadSupportBundle']);
 assertIncludes('public/style.css', ['loot-stage-split', 'readonly-preview']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'connect-mode', 'loot-wizard-grid']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'connect-mode', 'edit-mode', 'release-check-grid', 'loot-wizard-grid']);
 [
   'README.md',
   'docs/P2_3_STATUS.md',

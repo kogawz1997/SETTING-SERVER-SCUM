@@ -41,6 +41,30 @@ test('command sandbox allows project scripts by explicit file path', () => {
   assert.match(result.resolvedPath, /reload-scum-loot\.cmd$/i);
 });
 
+test('command sandbox builds a no-shell execution plan and enforces allowed roots', () => {
+  const { inspectCommand, runShellCommand } = require('../src/server/command-sandbox.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-command-'));
+  const scriptPath = path.join(tmp, 'echo.cmd');
+  fs.writeFileSync(scriptPath, '@echo off\r\necho command-ok %1\r\n', 'utf8');
+
+  const inspection = inspectCommand(`"${scriptPath}" smoke`, { cwd: tmp, allowedRoots: [tmp] });
+  assert.equal(inspection.runnable, true);
+  assert.equal(inspection.execution.shell, false);
+  assert.match(inspection.execution.runner, /cmd\.exe$/i);
+  assert.deepEqual(inspection.execution.args.slice(0, 3), ['/d', '/s', '/c']);
+
+  const outside = path.join(os.tmpdir(), `outside-${Date.now()}.cmd`);
+  fs.writeFileSync(outside, '@echo off\r\necho no\r\n', 'utf8');
+  const blocked = inspectCommand(`"${outside}"`, { cwd: tmp, allowedRoots: [tmp] });
+  assert.equal(blocked.runnable, false);
+  assert.equal(blocked.reason, 'outside_allowlist');
+
+  const result = runShellCommand(`"${scriptPath}" smoke`, { cwd: tmp, allowedRoots: [tmp] });
+  assert.equal(result.ok, true);
+  assert.match(result.output, /command-ok smoke/);
+  assert.equal(result.inspection.execution.shell, false);
+});
+
 test('server settings logical validation catches reversed ranges and impossible values', () => {
   const { validateServerSettingsLogic } = require('../src/server/validation.cjs');
   const result = validateServerSettingsLogic({
@@ -102,6 +126,114 @@ test('safe apply dry-run produces validation, diff, and does not write files', (
   assert.equal(plan.willWrite, true);
   assert.match(plan.patch, /scum\.MaxPlayers=64/);
   assert.equal(fs.readFileSync(filePath, 'utf8'), '[General]\nscum.MaxPlayers=32\n');
+});
+
+test('safe apply rolls back the original file when a write fails midway', () => {
+  const { applySafePlan } = require('../src/server/safe-apply.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-safe-rollback-'));
+  const backupRoot = path.join(tmp, 'backups', 'rollback-test');
+  const filePath = path.join(tmp, 'ServerSettings.ini');
+  fs.writeFileSync(filePath, '[General]\nscum.MaxPlayers=32\n', 'utf8');
+
+  assert.throws(() => applySafePlan({
+    logicalPath: 'ServerSettings.ini',
+    content: '[General]\nscum.MaxPlayers=64\n',
+    paths: { backupDir: path.join(tmp, 'backups') },
+    resolveLogicalPath: () => filePath,
+    validateContent: () => ({ entries: [], counts: { critical: 0, warning: 0, info: 0 }, highestSeverity: 'info', fixableCount: 0 }),
+    createDiff: () => '@@\n-old\n+new\n',
+    readText: (target) => fs.readFileSync(target, 'utf8'),
+    writeText: (target, content) => {
+      fs.writeFileSync(target, 'partial-write', 'utf8');
+      throw new Error('disk locked');
+    },
+    createBackup: () => {
+      fs.mkdirSync(backupRoot, { recursive: true });
+      fs.copyFileSync(filePath, path.join(backupRoot, 'ServerSettings.ini'));
+      return { backupDir: backupRoot, backupName: 'rollback-test', files: ['ServerSettings.ini'] };
+    },
+  }), /disk locked/);
+
+  assert.equal(fs.readFileSync(filePath, 'utf8'), '[General]\nscum.MaxPlayers=32\n');
+});
+
+test('file store writes atomically and reports stable fingerprints', () => {
+  const { atomicWriteText, fingerprintFile } = require('../src/server/store/file-store.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-file-store-'));
+  const filePath = path.join(tmp, 'nested', 'file.txt');
+
+  atomicWriteText(filePath, 'first');
+  const first = fingerprintFile(filePath);
+  atomicWriteText(filePath, 'second');
+  const second = fingerprintFile(filePath);
+
+  assert.equal(first.exists, true);
+  assert.equal(first.size, 5);
+  assert.equal(second.exists, true);
+  assert.equal(second.size, 6);
+  assert.notEqual(first.sha256, second.sha256);
+  assert.equal(fs.readFileSync(filePath, 'utf8'), 'second');
+  assert.equal(fs.readdirSync(path.dirname(filePath)).some((name) => name.includes('.tmp-')), false);
+});
+
+test('file transaction rolls back all touched files when one write fails', () => {
+  const { applyFileTransaction } = require('../src/server/store/file-transaction.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-file-transaction-'));
+  const firstPath = path.join(tmp, 'One.ini');
+  const secondPath = path.join(tmp, 'สอง ทดสอบ.ini');
+  fs.writeFileSync(firstPath, 'one-before', 'utf8');
+  fs.writeFileSync(secondPath, 'two-before', 'utf8');
+
+  assert.throws(() => applyFileTransaction({
+    operations: [
+      { logicalPath: 'One.ini', targetPath: firstPath, content: 'one-after' },
+      { logicalPath: 'สอง ทดสอบ.ini', targetPath: secondPath, content: 'two-after' },
+    ],
+    writeText: (targetPath, content) => {
+      if (targetPath === secondPath) {
+        fs.writeFileSync(targetPath, 'partial-two', 'utf8');
+        throw new Error('write failed');
+      }
+      fs.writeFileSync(targetPath, content, 'utf8');
+    },
+  }), /write failed/);
+
+  assert.equal(fs.readFileSync(firstPath, 'utf8'), 'one-before');
+  assert.equal(fs.readFileSync(secondPath, 'utf8'), 'two-before');
+});
+
+test('startup doctor reports first-run path, backup, permission, and command checks', () => {
+  const { buildStartupDoctorReport } = require('../src/server/services/startup-doctor.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-doctor-'));
+  const configRoot = path.join(tmp, 'WindowsServer');
+  const nodesDir = path.join(configRoot, 'Loot', 'Nodes', 'Current');
+  const spawnersDir = path.join(configRoot, 'Loot', 'Spawners', 'Presets', 'Override');
+  const backupDir = path.join(tmp, 'Backups');
+  fs.mkdirSync(nodesDir, { recursive: true });
+  fs.mkdirSync(spawnersDir, { recursive: true });
+  fs.mkdirSync(backupDir, { recursive: true });
+  fs.writeFileSync(path.join(configRoot, 'ServerSettings.ini'), '[General]\n', 'utf8');
+  fs.writeFileSync(path.join(configRoot, 'GameUserSettings.ini'), '[ServerSettings]\n', 'utf8');
+  fs.writeFileSync(path.join(configRoot, 'EconomyOverride.json'), '{}\n', 'utf8');
+
+  const report = buildStartupDoctorReport({
+    config: {
+      scumConfigDir: configRoot,
+      nodesDir,
+      spawnersDir,
+      backupDir,
+      reloadLootCommand: '',
+      restartServerCommand: '',
+    },
+    root: tmp,
+    inspectCommand: () => ({ configured: false, runnable: false, reason: 'missing' }),
+  });
+
+  assert.equal(report.ready, true);
+  assert.equal(report.checks.every((check) => check.status !== 'bad'), true);
+  assert.equal(report.checks.some((check) => check.id === 'paths.nodes' && check.status === 'ok'), true);
+  assert.equal(report.checks.some((check) => check.id === 'permissions.backup' && check.status === 'ok'), true);
+  assert.equal(report.nextStep.action, 'open-dashboard');
 });
 
 test('workspace package export/import round-trips config and selected files', () => {

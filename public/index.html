@@ -20,6 +20,7 @@
       <div class="nav-group">
         <button class="nav active" data-view="dashboard">Dashboard</button>
         <button class="nav" data-view="settings">App Settings</button>
+        <button class="nav" data-view="release">Customer Ready</button>
         <button class="nav" data-view="server">Server Settings</button>
         <button class="nav" data-view="corefiles">Core Files</button>
         <button class="nav" data-view="loot">Loot Studio</button>
@@ -82,6 +83,18 @@
             <div id="global-search-results" class="search-results"></div>
           </div>
         </div>
+      </section>
+
+      <section id="view-release" class="view">
+        <div class="customer-ready-hero card glass">
+          <div>
+            <div class="eyebrow">CUSTOMER HANDOFF</div>
+            <h3>ก่อนปล่อยให้ลูกค้าใช้</h3>
+            <p class="muted">หน้าเดียวสำหรับเช็กว่า path, backup, loot validation และ reload command พร้อมหรือยัง แล้วบอกว่าควรกดปุ่มไหนต่อ.</p>
+          </div>
+          <div class="release-score-shell" id="customer-ready-score"></div>
+        </div>
+        <div id="customer-ready-panel" class="customer-ready-panel"></div>
       </section>
 
       <section id="view-settings" class="view">

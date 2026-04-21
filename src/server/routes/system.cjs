@@ -14,6 +14,7 @@ function registerSystemRoutes(app, ctx) {
     loadRotation,
     buildReadinessReport,
     buildDiagnosticsReport,
+    buildStartupDoctorReport,
     buildLootSchemaReport,
     buildSupportBundle,
     safeScanLootWorkspace,
@@ -56,6 +57,7 @@ function registerSystemRoutes(app, ctx) {
         ok: true,
         config,
         health,
+        startupDoctor: buildStartupDoctorReport({ config, root: ROOT, inspectCommand }),
         fileHealth: inspection.fileHealth,
         configInspection: inspection,
         permissions: {
@@ -84,6 +86,15 @@ function registerSystemRoutes(app, ctx) {
   app.get('/api/diagnostics', (req, res) => {
     try {
       res.json({ ok: true, report: buildDiagnosticsReport({ includePaths: req.query.includePaths }) });
+    } catch (error) {
+      errorResponse(res, 500, error);
+    }
+  });
+
+  app.get('/api/startup-doctor', (req, res) => {
+    try {
+      const config = loadConfig();
+      res.json({ ok: true, report: buildStartupDoctorReport({ config, root: ROOT, inspectCommand }) });
     } catch (error) {
       errorResponse(res, 500, error);
     }

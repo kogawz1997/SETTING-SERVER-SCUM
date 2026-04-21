@@ -16,7 +16,8 @@
   state.lootUi.catalogImportMode = state.lootUi.catalogImportMode || 'merge';
   state.kitTemplates = Array.isArray(state.kitTemplates) ? state.kitTemplates : [];
   state.searchUi = state.searchUi || { scope: '__all', match: 'partial', issue: '__all' };
-  state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '', connectMode: false, connectFromId: '' };
+  state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '', connectMode: false, connectFromId: '', editMode: false };
+  state.graphUi.editMode = !!state.graphUi.editMode;
   state.graphUi.refEdit = state.graphUi.refEdit || { spawnerPath: '', groupIndex: 0, action: 'add', ref: '', oldRef: '' };
   state.backupUi = state.backupUi || { compareTarget: '', tagFilter: '__all', pathFilter: '' };
   state.packageUi = state.packageUi || { text: '', preview: null, lastExportName: '' };
@@ -1274,6 +1275,60 @@
     renderReadinessPanel(state.readiness);
   }
 
+  function readinessCheck(report, id) {
+    return (Array.isArray(report?.checks) ? report.checks : []).find((check) => check.id === id) || null;
+  }
+
+  function releaseCard(title, status, detail, actionLabel, view) {
+    const tone = status === 'ok' ? 'ok' : status === 'bad' ? 'bad' : 'warn';
+    return `<div class="release-check-card ${tone}"><div><span class="release-card-label">${escapeHtml(title)}</span><strong>${escapeHtml(readinessStatusText(tone === 'bad' ? 'bad' : tone === 'ok' ? 'ok' : 'warn'))}</strong><p>${escapeHtml(detail || '-')}</p></div>${view ? `<button type="button" class="ghost tiny" data-release-next-action data-release-view="${escapeHtml(view)}">${escapeHtml(actionLabel || uiText('เปิดไปแก้', 'Open fix'))}</button>` : ''}</div>`;
+  }
+
+  function renderCustomerReadyPanel(report = state.readiness) {
+    const host = $('customer-ready-panel');
+    const score = $('customer-ready-score');
+    if (!host) return;
+    if (!report) {
+      host.innerHTML = `<div class="card"><div class="section-head compact"><div><h3>${escapeHtml(uiText('กำลังตรวจความพร้อม', 'Checking customer readiness'))}</h3><p class="muted">${escapeHtml(uiText('กำลังรวม path, backup, loot และ command ไว้ในหน้าเดียว', 'Collecting path, backup, loot, and command status in one page.'))}</p></div><span class="tag">...</span></div></div>`;
+      if (score) score.innerHTML = '<span class="tag">...</span>';
+      return;
+    }
+    if (report.error) {
+      host.innerHTML = `<div class="card warn-card"><h3>${escapeHtml(uiText('ตรวจไม่ได้', 'Cannot run check'))}</h3><p>${escapeHtml(report.error)}</p><button id="customer-ready-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจใหม่', 'Recheck'))}</button></div>`;
+      if ($('customer-ready-refresh')) $('customer-ready-refresh').onclick = () => loadReadiness().catch((error) => showToast(error.message, true));
+      return;
+    }
+    const config = readinessCheck(report, 'config_root');
+    const nodes = readinessCheck(report, 'nodes_folder');
+    const spawners = readinessCheck(report, 'spawners_folder');
+    const backupFolder = readinessCheck(report, 'backup_folder');
+    const backupHistory = readinessCheck(report, 'backup_history');
+    const lootValidation = readinessCheck(report, 'loot_validation');
+    const missingRefs = readinessCheck(report, 'missing_refs');
+    const reload = readinessCheck(report, 'reload_command');
+    const pathReady = [config, nodes, spawners].every((check) => check?.status === 'ok');
+    const backupReady = backupFolder?.status === 'ok' && !backupHistory;
+    const lootReady = (!lootValidation || lootValidation.status === 'ok') && (!missingRefs || missingRefs.status === 'ok');
+    const reloadReady = reload?.status === 'ok';
+    const nextAction = (Array.isArray(report.nextActions) && report.nextActions.length)
+      ? report.nextActions[0]
+      : { view: report.ready ? 'loot' : 'settings', title: report.ready ? uiText('เริ่มแก้ไฟล์ได้ แต่ต้อง Preview Diff ก่อน Save', 'Start editing, but preview diff before save') : uiText('เริ่มจากแก้จุดที่ยังไม่พร้อม', 'Start by fixing the missing readiness item'), body: report.ready ? uiText('เปิด Loot Studio หรือ Server Settings ตามงานที่จะทำ', 'Open Loot Studio or Server Settings for the work you need.') : uiText('เช็ก path, backup หรือ command ตามการ์ดด้านบน', 'Check path, backup, or command from the cards above.'), action: report.ready ? uiText('เปิด Loot Studio', 'Open Loot Studio') : uiText('เปิด Settings', 'Open Settings') };
+    if (score) {
+      score.innerHTML = `<div class="release-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมส่งต่อ', 'Handoff ready') : uiText('ยังไม่ควรส่ง', 'Not ready'))}</span></div>`;
+    }
+    host.innerHTML = `<div class="card customer-ready-summary"><div class="section-head"><div><h3>${escapeHtml(uiText('Customer handoff check / ก่อนปล่อยให้ลูกค้าใช้', 'Customer handoff check / ก่อนปล่อยให้ลูกค้าใช้'))}</h3><p class="muted">${escapeHtml(uiText('เช็ก 4 เรื่องที่ลูกค้าจะพังได้บ่อยที่สุด แล้วบอกว่าควรกดอะไรต่อ', 'Checks the four things most likely to break for customers and tells you what to press next.'))}</p></div><button id="customer-ready-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run check'))}</button></div><div class="release-check-grid">${releaseCard(uiText('Path พร้อมไหม', 'Path ready'), pathReady ? 'ok' : 'bad', [config, nodes, spawners].map((check) => `${check?.label || '-'}: ${check?.detail || '-'}`).join(' | '), uiText('ไปตั้งค่า Path', 'Fix paths'), 'settings')}${releaseCard(uiText('Backup พร้อมไหม', 'Backup ready'), backupReady ? 'ok' : 'warn', backupReady ? uiText('มี backup folder และมี snapshot แล้ว', 'Backup folder and at least one snapshot are ready.') : (backupHistory?.detail || backupFolder?.detail || uiText('ยังไม่มี backup แรก', 'No first backup yet.')), uiText('ไปหน้า Backup', 'Open Backups'), 'backups')}${releaseCard(uiText('Loot มี error ไหม', 'Loot errors'), lootReady ? 'ok' : 'bad', `${lootValidation?.detail || uiText('ยังไม่มี validation issue', 'No validation issue')} | ${missingRefs?.detail || uiText('ไม่มี missing refs', 'No missing refs')}`, uiText('ไป Analyzer', 'Open Analyzer'), 'analyzer')}${releaseCard(uiText('Command reload ใช้ได้ไหม', 'Reload command'), reloadReady ? 'ok' : 'warn', reload?.detail || uiText('ยังไม่ได้ตั้ง reload command', 'Reload command is not configured.'), uiText('ไปตั้ง Command', 'Fix command'), 'settings')}</div><div class="release-next-step"><div><span class="eyebrow">${escapeHtml(uiText('กดปุ่มไหนต่อ', 'What to press next'))}</span><h3>${escapeHtml(nextAction.title || '-')}</h3><p class="muted">${escapeHtml(nextAction.body || nextAction.detail || '')}</p></div><button type="button" data-release-next-action data-release-view="${escapeHtml(nextAction.view || 'settings')}">${escapeHtml(nextAction.action || uiText('เปิดไปแก้', 'Open fix'))}</button></div></div>`;
+    const refresh = $('customer-ready-refresh');
+    if (refresh) refresh.onclick = () => loadReadiness().catch((error) => showToast(error.message, true));
+    host.querySelectorAll('[data-release-next-action]').forEach((button) => {
+      button.onclick = () => {
+        const view = button.dataset.releaseView || 'settings';
+        if (typeof setView === 'function') setView(view);
+        if (view === 'analyzer' && typeof loadAnalyzer === 'function') loadAnalyzer().catch((error) => showToast(error.message, true));
+        if (view === 'backups' && typeof loadBackups === 'function') loadBackups().catch((error) => showToast(error.message, true));
+      };
+    });
+  }
+
   function quickStepState(ok, warn = false) {
     if (ok) return 'ok';
     return warn ? 'warn' : 'bad';
@@ -1516,11 +1571,13 @@
     mountDiagnosticsPanel();
     renderReadinessPanel(state.readiness);
     renderQuickStartPanel(state.readiness);
+    renderCustomerReadyPanel(state.readiness);
     renderDiagnosticsPanel();
     const data = await api('/api/readiness');
     state.readiness = data.report;
     renderReadinessPanel(state.readiness);
     renderQuickStartPanel(state.readiness);
+    renderCustomerReadyPanel(state.readiness);
     return state.readiness;
   }
 
@@ -1566,6 +1623,7 @@
         state.readiness = { error: error.message };
         renderReadinessPanel(state.readiness);
         renderQuickStartPanel(state.readiness);
+        renderCustomerReadyPanel(state.readiness);
         renderDiagnosticsPanel();
       });
     };
@@ -1951,6 +2009,17 @@
       nodes.forEach((node) => matchedIds.add(node.id));
     }
     let visibleNodes = nodes.filter((node) => matchedIds.has(node.id) && (kind === '__all' || node.kind === kind));
+    if (!term && kind === '__all') {
+      const priorityIds = new Set();
+      const spawnerIds = visibleNodes.filter((node) => node.kind === 'spawner').slice(0, 140).map((node) => node.id);
+      spawnerIds.forEach((id) => priorityIds.add(id));
+      edges.forEach((edge) => {
+        if (priorityIds.has(edge.from)) priorityIds.add(edge.to);
+      });
+      const priority = visibleNodes.filter((node) => priorityIds.has(node.id));
+      const rest = visibleNodes.filter((node) => !priorityIds.has(node.id));
+      visibleNodes = [...priority, ...rest];
+    }
     const overflowCount = Math.max(0, visibleNodes.length - 420);
     if (overflowCount) visibleNodes = visibleNodes.slice(0, 420);
     const visibleIds = new Set(visibleNodes.map((node) => node.id));
@@ -2022,6 +2091,25 @@
     return true;
   }
 
+  function prepareGraphEdgeRemoval(edge) {
+    if (!edge || !String(edge.from || '').startsWith('Spawners/') || !String(edge.to || '').startsWith('ref:')) {
+      showToast(uiText('ตอนนี้ลบ relationship ได้เฉพาะเส้น Spawner -> Ref', 'Only Spawner -> Ref edges can be removed for now.'), true);
+      return;
+    }
+    const ref = String(edge.ref || edge.to || '').replace(/^ref:/, '');
+    state.graphUi.selectedId = edge.from;
+    state.graphUi.refEdit = {
+      spawnerPath: edge.from,
+      groupIndex: Number(edge.groupIndex || 0),
+      action: 'remove',
+      ref,
+      oldRef: ref,
+    };
+    renderGraph();
+    renderGraphFocus();
+    showToast(uiText('เตรียมลบ ref แล้ว กด Preview diff เพื่อตรวจไฟล์ก่อนบันทึก', 'Ref removal staged. Preview diff before writing.'));
+  }
+
   loadGraph = async function () {
     const focus = $('graph-filter')?.value || '';
     const data = await api(`/api/graph?focus=${encodeURIComponent(focus)}`);
@@ -2045,6 +2133,15 @@
       const active = selectedId && (edge.from === selectedId || edge.to === selectedId);
       return `<line class="graph-map-edge ${edge.missing ? 'missing' : ''} ${active ? 'active' : ''}" x1="${from.x + 250}" y1="${from.y + 25}" x2="${to.x}" y2="${to.y + 25}" />`;
     }).join('');
+    const edgeActionMarkup = state.graphUi.editMode ? edges.map((edge, index) => {
+      const from = positions.get(edge.from);
+      const to = positions.get(edge.to);
+      if (!from || !to || !String(edge.from || '').startsWith('Spawners/') || !String(edge.to || '').startsWith('ref:')) return '';
+      const left = Math.round((from.x + 250 + to.x) / 2) - 12;
+      const top = Math.round((from.y + 25 + to.y + 25) / 2) - 12;
+      const title = uiText('เตรียมลบเส้นนี้', 'Stage edge removal');
+      return `<button type="button" class="graph-map-edge-action" data-graph-edge-index="${index}" style="left:${left}px;top:${top}px" title="${escapeHtml(title)}">x</button>`;
+    }).join('') : '';
     const nodeMarkup = nodes.map((node) => {
       const pos = positions.get(node.id) || { x: 0, y: 0 };
       const active = node.id === selectedId;
@@ -2053,10 +2150,13 @@
       return `<button type="button" class="graph-map-node ${node.kind} ${active ? 'active' : ''} ${related ? 'related' : ''} ${connectSource ? 'connect-source' : ''}" data-graph-node-id="${escapeHtml(node.id)}" style="left:${pos.x}px;top:${pos.y}px"><span class="tag ${node.kind}">${escapeHtml(graphKindLabel(node.kind))}</span><strong>${escapeHtml(node.label || node.id)}</strong><small>${escapeHtml(node.path || '')}</small></button>`;
     }).join('');
     const kindButtons = ['__all', 'spawner', 'node', 'item', 'missing_ref'].map((kind) => `<button type="button" class="ghost tiny ${state.graphUi.kind === kind ? 'active' : ''}" data-graph-kind="${escapeHtml(kind)}">${escapeHtml(kind === '__all' ? uiText('ทั้งหมด', 'All') : graphKindLabel(kind))}</button>`).join('');
-    const graphHelp = escapeHtml(state.graphUi.connectMode
+    const graphHelp = escapeHtml(state.graphUi.editMode
+      ? uiText('Graph editor mode: คลิกปุ่ม x บนเส้นเพื่อเตรียมลบ ref หรือเปิด Drag connect เพื่อเพิ่มเส้นใหม่ แล้วตรวจ diff ก่อนบันทึก', 'Graph editor mode: click x on an edge to stage ref removal, or use Drag connect to add a new edge, then preview diff before saving.')
+      : state.graphUi.connectMode
       ? uiText('โหมดเชื่อมเปิดอยู่: ลากจาก spawner ไปหา node/ref แล้วค่อย Preview diff ก่อนบันทึก', 'Connect mode is on: drag from a spawner to a node/ref, then preview diff before saving.')
       : uiText('คลิก node เพื่อโฟกัส, ลากพื้นหลังเพื่อเลื่อน, ใช้ล้อเมาส์เพื่อ zoom และใช้ filter เพื่อลดกราฟใหญ่', 'Click a node to focus, drag the background to pan, use the mouse wheel to zoom, and use filters to narrow large graphs.'));
-    canvas.innerHTML = `<div class="graph-toolbar"><div class="actions tight wrap">${kindButtons}</div><div class="actions tight wrap"><button type="button" class="ghost tiny ${state.graphUi.connectMode ? 'active' : ''}" id="graph-connect-mode">${escapeHtml(uiText('ลากเชื่อม ref', 'Drag connect'))}</button><button type="button" class="ghost tiny" id="graph-zoom-out">-</button><span class="tag">${Math.round((state.graphUi.zoom || 1) * 100)}%</span><button type="button" class="ghost tiny" id="graph-zoom-in">+</button><button type="button" class="ghost tiny" id="graph-reset-view">${escapeHtml(uiText('รีเซ็ตมุมมอง', 'Reset view'))}</button></div></div><div class="graph-help-strip">${graphHelp}</div>${overflowCount ? `<div class="warn-card graph-limit-note">${escapeHtml(uiText(`แสดง 420 จุดแรก ซ่อนอีก ${overflowCount} จุด ใช้ช่องค้นหาเพื่อเจาะลงไป`, `Showing first 420 nodes. ${overflowCount} more hidden; use search to narrow the graph.`))}</div>` : ''}<div class="graph-viewport ${state.graphUi.connectMode ? 'connect-mode' : ''}"><div class="graph-map" style="width:${width}px;height:${height}px;transform:translate(${state.graphUi.panX || 0}px, ${state.graphUi.panY || 0}px) scale(${state.graphUi.zoom || 1})"><svg class="graph-map-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edgeMarkup}</svg>${nodeMarkup}</div></div>`;
+    const editorStrip = state.graphUi.editMode ? `<div class="graph-editor-strip"><strong>${escapeHtml(uiText('Relationship editor', 'Relationship editor'))}</strong><span>${escapeHtml(uiText('รองรับ Spawner -> Ref ก่อน เพื่อไม่แก้ tree item ผิดโครง', 'Supports Spawner -> Ref first so item trees are not rewritten incorrectly.'))}</span></div>` : '';
+    canvas.innerHTML = `<div class="graph-toolbar"><div class="actions tight wrap">${kindButtons}</div><div class="actions tight wrap"><button type="button" class="ghost tiny ${state.graphUi.editMode ? 'active' : ''}" id="graph-edit-mode">${escapeHtml(uiText('โหมดแก้เส้น', 'Edit relationships'))}</button><button type="button" class="ghost tiny ${state.graphUi.connectMode ? 'active' : ''}" id="graph-connect-mode">${escapeHtml(uiText('ลากเชื่อม ref', 'Drag connect'))}</button><button type="button" class="ghost tiny" id="graph-zoom-out">-</button><span class="tag">${Math.round((state.graphUi.zoom || 1) * 100)}%</span><button type="button" class="ghost tiny" id="graph-zoom-in">+</button><button type="button" class="ghost tiny" id="graph-reset-view">${escapeHtml(uiText('รีเซ็ตมุมมอง', 'Reset view'))}</button></div></div><div class="graph-help-strip">${graphHelp}</div>${editorStrip}${overflowCount ? `<div class="warn-card graph-limit-note">${escapeHtml(uiText(`แสดง 420 จุดแรก ซ่อนอีก ${overflowCount} จุด ใช้ช่องค้นหาเพื่อเจาะลงไป`, `Showing first 420 nodes. ${overflowCount} more hidden; use search to narrow the graph.`))}</div>` : ''}<div class="graph-viewport ${state.graphUi.connectMode ? 'connect-mode' : ''} ${state.graphUi.editMode ? 'edit-mode' : ''}"><div class="graph-map" style="width:${width}px;height:${height}px;transform:translate(${state.graphUi.panX || 0}px, ${state.graphUi.panY || 0}px) scale(${state.graphUi.zoom || 1})"><svg class="graph-map-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edgeMarkup}</svg>${edgeActionMarkup}${nodeMarkup}</div></div>`;
     canvas.querySelectorAll('[data-graph-kind]').forEach((button) => {
       button.onclick = () => { state.graphUi.kind = button.dataset.graphKind || '__all'; renderGraph(); };
     });
@@ -2110,10 +2210,19 @@
     const zoomOut = $('graph-zoom-out');
     const reset = $('graph-reset-view');
     const connect = $('graph-connect-mode');
+    const edit = $('graph-edit-mode');
     if (connect) connect.onclick = () => { state.graphUi.connectMode = !state.graphUi.connectMode; if (!state.graphUi.connectMode) state.graphUi.connectFromId = ''; renderGraph(); };
+    if (edit) edit.onclick = () => { state.graphUi.editMode = !state.graphUi.editMode; renderGraph(); };
     if (zoomIn) zoomIn.onclick = () => zoomBy(0.12);
     if (zoomOut) zoomOut.onclick = () => zoomBy(-0.12);
     if (reset) reset.onclick = () => { state.graphUi.zoom = 1; state.graphUi.panX = 0; state.graphUi.panY = 0; renderGraph(); };
+    canvas.querySelectorAll('[data-graph-edge-index]').forEach((button) => {
+      button.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        prepareGraphEdgeRemoval(edges[Number(button.dataset.graphEdgeIndex || -1)]);
+      };
+    });
     const viewport = canvas.querySelector('.graph-viewport');
     if (viewport) {
       let dragStart = null;
@@ -2953,6 +3062,7 @@
   mountReadinessPanel();
   mountQuickStartPanel();
   mountDiagnosticsPanel();
+  renderCustomerReadyPanel(state.readiness);
   applyCoreCopyPolish();
   applyLootShellCopy();
   bindLootContextTabs();
@@ -2968,6 +3078,7 @@
       state.readiness = { error: error.message };
       renderReadinessPanel(state.readiness);
       renderQuickStartPanel(state.readiness);
+      renderCustomerReadyPanel(state.readiness);
       renderDiagnosticsPanel();
     });
     loadBackups().catch(() => {});

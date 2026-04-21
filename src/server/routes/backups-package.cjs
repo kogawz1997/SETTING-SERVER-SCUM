@@ -14,6 +14,7 @@ function registerBackupsPackageRoutes(app, ctx) {
     compareBackupFiles,
     createBackup,
     restoreBackupFile,
+    applyFileTransaction,
     readText,
     writeText,
     resolveLogicalPath,
@@ -183,15 +184,22 @@ function registerBackupsPackageRoutes(app, ctx) {
       }
       const changedFiles = plans.filter((plan) => plan.changed).map((plan) => plan.logicalPath);
       const backup = changedFiles.length ? createBackup(paths, changedFiles, { note: 'package-import', tag: 'package' }) : null;
-      packageData.files.forEach((file) => {
-        const plan = plans.find((entry) => entry.logicalPath === file.path);
-        if (plan?.changed) writeText(resolveLogicalPath(file.path, paths), file.content);
+      const transaction = applyFileTransaction({
+        operations: packageData.files
+          .filter((file) => plans.find((entry) => entry.logicalPath === file.path)?.changed)
+          .map((file) => ({
+            logicalPath: file.path,
+            targetPath: resolveLogicalPath(file.path, paths),
+            content: file.content,
+          })),
+        writeText,
+        appendActivity,
       });
       if (req.body?.applyConfig) {
         saveConfig({ ...loadConfig(), ...packageData.config });
       }
       appendActivity('package_import', { fileCount: packageData.files.length, changed: changedFiles.length, backup: backup?.backupName || '' });
-      res.json({ ok: true, changedFiles, backup, appliedConfig: Boolean(req.body?.applyConfig) });
+      res.json({ ok: true, changedFiles, backup, transaction, appliedConfig: Boolean(req.body?.applyConfig) });
     } catch (error) {
       errorResponse(res, 400, error);
     }
