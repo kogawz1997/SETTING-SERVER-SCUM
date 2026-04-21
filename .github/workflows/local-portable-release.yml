@@ -33,16 +33,21 @@ jobs:
           }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "zip=dist/SETTING-SERVER-SCUM-$tag.zip" >> $env:GITHUB_OUTPUT
-          $notes = "docs/releases/$tag.md"
-          if (-not (Test-Path $notes)) {
-            $notes = "CHANGELOG.md"
-          }
-          "notes=$notes" >> $env:GITHUB_OUTPUT
 
       - name: Checkout release source
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.release_meta.outputs.tag }}
+
+      - name: Resolve release notes
+        id: release_notes
+        shell: pwsh
+        run: |
+          $notes = "docs/releases/${{ steps.release_meta.outputs.tag }}.md"
+          if (-not (Test-Path $notes)) {
+            $notes = "CHANGELOG.md"
+          }
+          "notes=$notes" >> $env:GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -81,5 +86,5 @@ jobs:
         with:
           tag_name: ${{ steps.release_meta.outputs.tag }}
           name: SETTING SERVER SCUM ${{ steps.release_meta.outputs.tag }}
-          body_path: ${{ steps.release_meta.outputs.notes }}
+          body_path: ${{ steps.release_notes.outputs.notes }}
           files: ${{ steps.release_meta.outputs.zip }}
