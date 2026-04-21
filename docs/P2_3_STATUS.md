@@ -1,6 +1,6 @@
-# P2.11 Local Status
+# P2.12 Local Status
 
-This project is now in a practical local-ready P2.11 state.
+This project is now in a practical local-ready P2.12 state.
 
 ## Done
 - Local web UI and Express backend.
@@ -9,9 +9,10 @@ This project is now in a practical local-ready P2.11 state.
 - Parsed Server Settings editor with grouped filters, field-level explanations, and boolean controls that show enabled/disabled choices instead of raw typing.
 - Core file editor with validation and diff preview.
 - Loot Studio with cleaner workspace, explicit Builder / Split / Raw editor modes, spawner group workbench, item row workbench, file scope filters, visible file counts, visual editing, quick access for recent/pinned files, beginner cheat sheets, probability presets for selected item rows, shareable file deep links, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
+- Final local polish guard that blocks broken UI copy such as question-mark blocks and mojibake in important app/docs files during release checks.
 - Item Catalog with discovered items, icons from `scum_items-main`, friendly names, categories, favorites, notes, import, and export.
 - Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, spawner coverage, human-readable next actions, and direct open-file buttons on result cards.
-- Graph with focus/filter, zoom/pan style controls in the UI layer, and dependency inspection.
+- Graph with focus/filter, zoom/pan style controls in the UI layer, usage hints, and dependency inspection.
 - Profiles, rotation, backups, restore selected file, backup notes/tags, backup compare, and backup cleanup.
 - Activity log.
 - Per-page browser routes for local pages such as `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`, and `/backups`; Loot Studio also supports `/loot-studio?file=Nodes/...` or `/loot-studio?file=Spawners/...`.
@@ -22,7 +23,7 @@ This project is now in a practical local-ready P2.11 state.
 - Analyzer advisory ignore list for known-safe unused nodes such as `Insects`.
 
 ## Local-Ready Criteria
-- `npm run release:check` verifies required files, scripts, launchers, routes, and UI override assets.
+- `npm run release:check` verifies required files, scripts, launchers, routes, UI override assets, and broken-copy guardrails.
 - `npm test` runs syntax checks and regression tests.
 - Dashboard Preflight verifies real machine paths and live config state.
 - Backups are created before save/restore flows.

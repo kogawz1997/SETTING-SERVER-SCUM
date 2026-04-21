@@ -423,6 +423,16 @@
   white-space: normal;
 }
 
+.simulator-note,
+.graph-help-strip {
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 224, 191, 0.18);
+  border-radius: 14px;
+  background: rgba(95, 224, 191, 0.07);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .sim-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -607,6 +617,10 @@
 }
 
 .graph-limit-note {
+  margin-bottom: 10px;
+}
+
+.graph-help-strip {
   margin-bottom: 10px;
 }
 

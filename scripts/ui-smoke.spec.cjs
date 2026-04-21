@@ -149,6 +149,7 @@ test('graph view has interactive focus and zoom controls', async ({ page }) => {
   await page.locator('#refresh-graph').click();
 
   await expect(page.locator('.graph-toolbar')).toBeVisible();
+  await expect(page.locator('.graph-help-strip')).toBeVisible();
   await expect(page.locator('.graph-viewport')).toBeVisible();
   const firstNode = page.locator('.graph-map-node').first();
   await expect(firstNode).toBeVisible({ timeout: 60000 });

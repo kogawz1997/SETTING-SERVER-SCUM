@@ -1,6 +1,6 @@
 # SETTING SERVER SCUM
 
-Current local-ready level: `P2.11`. Loot Studio now has clear Builder / Split / Raw editor modes, spawner group and item row workbenches for long loot lists, file scope filters, visible file counts, recent/pinned quick access, shareable links like `/loot-studio?file=Spawners/...`, and Analyzer/Search can open the exact loot file that needs work.
+Current local-ready level: `P2.12`. This is the final local polish pass: Loot Studio has clear Builder / Split / Raw editor modes, long-list workbenches, item catalog/icon support, safer copy checks, shareable file links, and Analyzer/Search can open the exact loot file that needs work.
 
 เครื่องมือเว็บสำหรับคนดูแลเซิร์ฟเวอร์ SCUM ที่ไม่อยากนั่งไล่แก้ `INI` / `JSON` ดิบๆ แล้วลุ้นว่าเซิร์ฟจะพังไหมตอนกด save
 
@@ -16,7 +16,7 @@ Current local-ready level: `P2.11`. Loot Studio now has clear Builder / Split / 
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.11` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.12` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
@@ -42,6 +42,7 @@ Current local-ready level: `P2.11`. Loot Studio now has clear Builder / Split / 
 - Help ในแอปสำหรับอธิบายลำดับตั้งค่า, วิธีอ่าน Loot Studio, flow การทำงานจริง, safe save flow และการใช้ filter ใน Server Settings
 - แต่ละหน้ามี route ของตัวเอง เช่น `/dashboard`, `/settings`, `/loot-studio`, `/analyzer`, `/help`
 - UI สลับไทย/อังกฤษได้
+- Release check กันข้อความเพี้ยนแบบ question-mark blocks หรือ mojibake ไม่ให้หลุดกลับเข้า UI/docs สำคัญ
 
 ## เครดิต
 
