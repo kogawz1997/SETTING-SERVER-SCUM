@@ -219,7 +219,7 @@ assertIncludes('src/server/services/loot-core-service.cjs', ['createLootCoreServ
 assertIncludes('src/server/services/loot-analyzer-service.cjs', ['createLootAnalyzerService', 'analyzeOverview', 'buildLootSchemaReport', 'detectLootSchemaKinds']);
 assertIncludes('src/server/services/loot-autofix-service.cjs', ['createLootAutofixService', 'autoFixLootObject', 'normalizeFlatProbabilities']);
 assertIncludes('src/server/services/loot-graph-service.cjs', ['createLootGraphService', 'buildGraph', 'buildGraphRefEditPlan']);
-assertIncludes('src/server/services/loot-simulator-service.cjs', ['createLootSimulatorService', 'simulateLootObject', 'compareSimulationResults']);
+assertIncludes('src/server/services/loot-simulator-service.cjs', ['createLootSimulatorService', 'simulateLootObject', 'compareSimulationResults', 'spawnerRefGroups', 'expectedCategorySummary', 'unresolvedRefs', 'rollPlan']);
 assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
 assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'workspace-utils.cjs', 'buildGraphRefEditPlan', 'buildReadinessReport']);
@@ -261,9 +261,9 @@ assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'customer-ready
 assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', '/customer-ready', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/app.js', ['normalizeLootEditorMode', 'applyLootEditorModeDom', 'refreshSplitRawPreview']);
-assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'graph-connect-mode', 'graph-edit-mode', 'graph-relationship-manager', 'data-graph-stage-remove', 'customer-ready-panel', 'loot-setup-wizard', 'downloadSupportBundle', 'startup-doctor-panel', '/api/startup-doctor']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'sim-roll-plan', 'sim-expected-category-card', 'expectedCategorySummary', 'graph-help-strip', 'graph-connect-mode', 'graph-edit-mode', 'graph-relationship-manager', 'data-graph-stage-remove', 'customer-ready-panel', 'loot-setup-wizard', 'downloadSupportBundle', 'startup-doctor-panel', '/api/startup-doctor']);
 assertIncludes('public/style.css', ['loot-stage-split', 'readonly-preview']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'connect-mode', 'edit-mode', 'graph-relationship-manager', 'graph-relationship-row', 'release-check-grid', 'loot-wizard-grid', 'startup-doctor-check']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'sim-category-row', 'sim-unresolved-list', 'graph-help-strip', 'connect-mode', 'edit-mode', 'graph-relationship-manager', 'graph-relationship-row', 'release-check-grid', 'loot-wizard-grid', 'startup-doctor-check']);
 [
   'README.md',
   'docs/P2_3_STATUS.md',

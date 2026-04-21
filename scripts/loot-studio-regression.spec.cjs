@@ -363,6 +363,8 @@ test('simulator compares saved loot against the current draft', async ({ page })
 
   await expect(page.locator('.simulator-output')).toBeVisible();
   await expect(page.locator('.simulator-note')).toBeVisible();
+  await expect(page.locator('.sim-roll-plan')).toBeVisible();
+  await expect(page.locator('.sim-expected-category-card').first()).toBeVisible();
   await expect(page.locator('.sim-card').filter({ hasText: /Draft|ตอนนี้/ }).first()).toBeVisible();
   await expect(page.locator('.sim-delta-row').first()).toBeVisible();
   await expect(page.locator('#simulate-output')).toContainText('Weapon_AK47');

@@ -240,6 +240,65 @@ test('loot simulator service produces deterministic flat-node results and compar
   assert.equal(compare[0].deltaRate, -0.5);
 });
 
+test('loot simulator service weights spawner groups and reports unresolved refs', () => {
+  const { createLootSimulatorService } = require('../src/server/services/loot-simulator-service.cjs');
+  const rarityWeight = (rarity) => ({ Abundant: 6, Common: 5, Uncommon: 4, Rare: 3, VeryRare: 2, ExtremelyRare: 1 }[rarity] || 1);
+  const treeObject = {
+    Name: 'ItemLootTreeNodes',
+    Children: [
+      { Name: 'CommonBandage', Rarity: 'Common' },
+      { Name: 'RareAK', Rarity: 'Rare' },
+    ],
+  };
+  const scan = {
+    nodes: [{ logicalName: 'Tree', relPath: 'Nodes/Tree.json', object: treeObject }],
+    spawners: [],
+    refIndex: new Map([
+      ['ItemLootTreeNodes.CommonBandage', { node: 'Tree', ref: 'ItemLootTreeNodes.CommonBandage', kind: 'leaf', rarity: 'Common' }],
+      ['ItemLootTreeNodes.RareAK', { node: 'Tree', ref: 'ItemLootTreeNodes.RareAK', kind: 'leaf', rarity: 'Rare' }],
+    ]),
+  };
+  const service = createLootSimulatorService({
+    scanLootWorkspace: () => scan,
+    readJsonObject: () => ({}),
+    resolveLogicalPath: (relPath) => relPath,
+    detectLootKind: (object) => (Array.isArray(object.Nodes) ? 'spawner' : Array.isArray(object.Children) ? 'node_tree' : 'unknown'),
+    itemEntryName: (entry) => entry?.Name || '',
+    categoryForItem: (name) => (/bandage/i.test(name) ? 'medical' : 'weapon'),
+    collectSpawnerRefs: (object) => (object.Nodes || []).flatMap((group) => group.Ids || []),
+    collectTreeRefs: () => [
+      { ref: 'ItemLootTreeNodes.CommonBandage', kind: 'leaf', rarity: 'Common' },
+      { ref: 'ItemLootTreeNodes.RareAK', kind: 'leaf', rarity: 'Rare' },
+    ],
+    resolveRefNode: (_object, ref) => {
+      if (/CommonBandage$/.test(ref)) return { Name: 'CommonBandage', Rarity: 'Common' };
+      if (/RareAK$/.test(ref)) return { Name: 'RareAK', Rarity: 'Rare' };
+      return null;
+    },
+    rarityWeight,
+  });
+
+  const result = service.simulateLootObject({
+    QuantityMin: 1,
+    QuantityMax: 1,
+    Nodes: [
+      { Rarity: 'Abundant', Ids: ['ItemLootTreeNodes.CommonBandage'] },
+      { Rarity: 'ExtremelyRare', Ids: ['ItemLootTreeNodes.RareAK'] },
+      { Rarity: 'ExtremelyRare', Ids: ['ItemLootTreeNodes.Missing'] },
+    ],
+  }, 'Spawners/Test.json', 50, scan, { seed: 'weighted-spawner' });
+
+  const rates = new Map(result.expectedRates.map((entry) => [entry.name, entry.expectedRate]));
+  const categories = new Map(result.expectedCategorySummary.map((entry) => [entry.category, entry.expectedItemsPerRun]));
+  assert.equal(rates.get('CommonBandage'), 0.75);
+  assert.equal(rates.get('RareAK'), 0.125);
+  assert.deepEqual(result.unresolvedRefs.map((entry) => entry.ref), ['ItemLootTreeNodes.Missing']);
+  assert.equal(categories.get('medical'), 0.75);
+  assert.equal(categories.get('weapon'), 0.125);
+  assert.equal(result.rollPlan.kind, 'spawner');
+  assert.equal(result.rollPlan.resolvedRefs, 2);
+});
+
 test('loot graph service builds graph refs and previews spawner ref edits', () => {
   const { createLootGraphService } = require('../src/server/services/loot-graph-service.cjs');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-graph-service-'));

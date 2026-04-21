@@ -6,8 +6,6 @@ function createLootSimulatorService(deps) {
     detectLootKind,
     itemEntryName,
     categoryForItem,
-    collectSpawnerRefs,
-    collectTreeRefs,
     resolveRefNode,
     rarityWeight,
   } = deps;
@@ -48,6 +46,77 @@ function createLootSimulatorService(deps) {
     return rows.map((row) => ({ entry: row.entry, rate: row.weight / total }));
   }
 
+  function normalizeRef(value = '') {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('ItemLootTreeNodes')
+      ? trimmed
+      : `ItemLootTreeNodes.${trimmed.replace(/^ItemLootTreeNodes\.?/, '')}`;
+  }
+
+  function resolveRefMeta(ref, scan = scanLootWorkspace()) {
+    const clean = String(ref || '').trim();
+    if (!clean) return null;
+    return scan.refIndex.get(clean) || scan.refIndex.get(normalizeRef(clean)) || null;
+  }
+
+  function spawnerRefGroups(object, scan = scanLootWorkspace()) {
+    if (!Array.isArray(object?.Nodes)) return [];
+    return object.Nodes.map((group, groupIndex) => {
+      const rawRefs = Array.isArray(group?.Ids)
+        ? group.Ids
+        : [group?.Node || group?.Name || group?.Ref].filter(Boolean);
+      const refs = rawRefs
+        .map((value, refIndex) => {
+          const ref = normalizeRef(value);
+          return { ref, rawRef: String(value || '').trim(), refIndex, groupIndex, meta: resolveRefMeta(ref, scan) };
+        })
+        .filter((entry) => entry.ref);
+      return {
+        groupIndex,
+        rarity: group?.Rarity || '',
+        weight: rarityWeight(group?.Rarity),
+        refs,
+      };
+    }).filter((group) => group.refs.length);
+  }
+
+  function unresolvedRefsFromGroups(groups = []) {
+    const seen = new Set();
+    return groups.flatMap((group) => group.refs
+      .filter((entry) => !entry.meta)
+      .map((entry) => ({ ref: entry.ref, rawRef: entry.rawRef, groupIndex: group.groupIndex, refIndex: entry.refIndex })))
+      .filter((entry) => {
+        const key = `${entry.groupIndex}:${entry.ref}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  function treeFileForRef(meta, scan = scanLootWorkspace()) {
+    return scan.nodes.find((file) => file.logicalName === meta?.node || file.relPath === meta?.path) || null;
+  }
+
+  function leafNameForRef(meta, scan = scanLootWorkspace(), random = Math.random) {
+    if (!meta) return null;
+    const treeFile = treeFileForRef(meta, scan);
+    const refNode = treeFile ? resolveRefNode(treeFile.object, meta.ref) : null;
+    if (!refNode) return String(meta.ref || '').split('.').filter(Boolean).slice(-1)[0] || null;
+    const children = Array.isArray(refNode.Children) ? refNode.Children.filter(Boolean) : [];
+    if (!children.length) return refNode.Name || String(meta.ref || '').split('.').filter(Boolean).slice(-1)[0] || null;
+    return chooseLeafFromTree(refNode, random);
+  }
+
+  function expectedRatesForRef(meta, scan = scanLootWorkspace(), multiplier = 1) {
+    if (!meta) return [];
+    const treeFile = treeFileForRef(meta, scan);
+    const refNode = treeFile ? resolveRefNode(treeFile.object, meta.ref) : null;
+    const fallbackName = String(meta.ref || '').split('.').filter(Boolean).slice(-1)[0] || '';
+    const rates = refNode ? expectedTreeLeafRates(refNode, multiplier) : [{ name: fallbackName, expectedRate: multiplier, rarity: meta.rarity || '' }];
+    return rates.filter((entry) => entry.name);
+  }
+
   function chooseLeafFromTree(node, random = Math.random) {
     const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
     if (!children.length) return node?.Name || null;
@@ -74,21 +143,38 @@ function createLootSimulatorService(deps) {
       return expectedTreeLeafRates(object).map((entry) => ({ ...entry, expectedRate: Number(entry.expectedRate.toFixed(6)), category: categoryForItem(entry.name) }));
     }
     if (kind === 'spawner') {
-      const refs = collectSpawnerRefs(object).map((ref) => scan.refIndex.get(ref)).filter(Boolean);
+      const groups = spawnerRefGroups(object, scan);
       const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
       const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
       const averageQuantity = (quantityMin + quantityMax) / 2;
       const rates = new Map();
-      weightedEntries(refs, (entry) => rarityWeight(entry.rarity)).forEach(({ entry, rate }) => {
-        const treeFile = scan.nodes.find((file) => file.logicalName === entry.node);
-        const refNode = treeFile ? resolveRefNode(treeFile.object, entry.ref) : null;
-        expectedTreeLeafRates(refNode).forEach((leaf) => {
-          rates.set(leaf.name, (rates.get(leaf.name) || 0) + averageQuantity * rate * leaf.expectedRate);
+      weightedEntries(groups, (group) => group.weight).forEach(({ entry: group, rate: groupRate }) => {
+        weightedEntries(group.refs, () => 1).forEach(({ entry: refEntry, rate: refRate }) => {
+          if (!refEntry.meta) return;
+          expectedRatesForRef(refEntry.meta, scan, averageQuantity * groupRate * refRate).forEach((leaf) => {
+            rates.set(leaf.name, (rates.get(leaf.name) || 0) + leaf.expectedRate);
+          });
         });
       });
       return [...rates.entries()].map(([name, expectedRate]) => ({ name, expectedRate: Number(expectedRate.toFixed(6)), category: categoryForItem(name) }));
     }
     return [];
+  }
+
+  function summarizeExpectedCategories(expectedRates = []) {
+    const totals = new Map();
+    for (const item of expectedRates) {
+      const category = item.category || categoryForItem(item.name);
+      totals.set(category, (totals.get(category) || 0) + Number(item.expectedRate || 0));
+    }
+    const total = [...totals.values()].reduce((sum, value) => sum + value, 0);
+    return [...totals.entries()]
+      .map(([category, expectedItemsPerRun]) => ({
+        category,
+        expectedItemsPerRun: Number(expectedItemsPerRun.toFixed(6)),
+        share: Number((expectedItemsPerRun / Math.max(total, 1)).toFixed(6)),
+      }))
+      .sort((a, b) => b.expectedItemsPerRun - a.expectedItemsPerRun || a.category.localeCompare(b.category));
   }
 
   function summarizeCategoriesFromHits(distinctItems) {
@@ -106,9 +192,10 @@ function createLootSimulatorService(deps) {
     const kind = detectLootKind(object);
     const sampleRuns = [];
     const hitMap = new Map();
-    const refLookup = scan.refIndex;
     const seed = options && typeof options === 'object' ? String(options.seed || '') : '';
     const random = createSeededRandom(seed);
+    const groups = kind === 'spawner' ? spawnerRefGroups(object, scan) : [];
+    const unresolvedRefs = kind === 'spawner' ? unresolvedRefsFromGroups(groups) : [];
     let totalItems = 0;
     for (let index = 0; index < count; index += 1) {
       let run = [];
@@ -120,19 +207,13 @@ function createLootSimulatorService(deps) {
         const picked = chooseLeafFromTree(object, random);
         if (picked) run = [picked];
       } else if (kind === 'spawner') {
-        const refs = collectSpawnerRefs(object).map((ref) => refLookup.get(ref)).filter(Boolean);
         const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
         const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
         const quantity = Math.round(quantityMin + random() * Math.max(0, quantityMax - quantityMin));
         run = Array.from({ length: quantity }, () => {
-          const ref = randomChoiceWeighted(refs, (entry) => rarityWeight(entry.rarity), random);
-          if (!ref) return null;
-          const treeFile = scan.nodes.find((entry) => entry.logicalName === ref.node);
-          if (!treeFile) return null;
-          const targetNode = collectTreeRefs(treeFile.object, treeFile.relPath).find((entry) => entry.ref === ref.ref);
-          if (!targetNode) return null;
-          const resolvedName = targetNode.kind === 'leaf' ? targetNode.ref.split('.').slice(-1)[0] : chooseLeafFromTree(resolveRefNode(treeFile.object, ref.ref), random);
-          return resolvedName || null;
+          const group = randomChoiceWeighted(groups, (entry) => entry.weight, random);
+          const refEntry = randomChoiceWeighted(group?.refs || [], () => 1, random);
+          return leafNameForRef(refEntry?.meta, scan, random);
         }).filter(Boolean);
       }
       totalItems += run.length;
@@ -143,13 +224,27 @@ function createLootSimulatorService(deps) {
       .map(([name, hits]) => ({ name, hits, dropRate: Number((hits / Math.max(1, count)).toFixed(6)), category: categoryForItem(name) }))
       .sort((a, b) => b.hits - a.hits || a.name.localeCompare(b.name));
     const expectedRates = expectedLootRates(object, relPath, scan).sort((a, b) => b.expectedRate - a.expectedRate || a.name.localeCompare(b.name));
+    const rollPlan = kind === 'spawner'
+      ? {
+        kind,
+        groups: groups.length,
+        refs: groups.reduce((sum, group) => sum + group.refs.length, 0),
+        resolvedRefs: groups.reduce((sum, group) => sum + group.refs.filter((entry) => entry.meta).length, 0),
+        unresolvedRefs: unresolvedRefs.length,
+        quantityMin: Math.max(0, Number(object.QuantityMin ?? 1)),
+        quantityMax: Math.max(Math.max(0, Number(object.QuantityMin ?? 1)), Number(object.QuantityMax ?? object.QuantityMin ?? 1)),
+      }
+      : { kind, entries: kind === 'node' ? (Array.isArray(object.Items) ? object.Items.length : 0) : expectedRates.length };
     return {
       count,
       seed,
       averageItemsPerRun: Number((totalItems / Math.max(1, count)).toFixed(2)),
       distinctItems,
       expectedRates,
+      expectedCategorySummary: summarizeExpectedCategories(expectedRates),
       categorySummary: summarizeCategoriesFromHits(distinctItems),
+      unresolvedRefs,
+      rollPlan,
       sampleRuns,
     };
   }
