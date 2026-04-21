@@ -9,6 +9,7 @@ function registerSystemRoutes(app, ctx) {
     inspectConfigFolder,
     inspectCommand,
     runShellCommand,
+    runConfiguredCommand,
     appendActivity,
     readActivity,
     readOperationLogs,
@@ -196,8 +197,7 @@ function registerSystemRoutes(app, ctx) {
 
   app.post('/api/action/reload-loot', (req, res) => {
     try {
-      const config = loadConfig();
-      const commandResult = runShellCommand(config.reloadLootCommand);
+      const commandResult = runConfiguredCommand ? runConfiguredCommand('reload') : runShellCommand(loadConfig().reloadLootCommand);
       appendActivity('action_reload', { ok: commandResult.ok, output: commandResult.output.slice(0, 500) });
       res.json({ ok: commandResult.ok, commandResult });
     } catch (error) {
@@ -207,8 +207,7 @@ function registerSystemRoutes(app, ctx) {
 
   app.post('/api/action/restart-server', (req, res) => {
     try {
-      const config = loadConfig();
-      const commandResult = runShellCommand(config.restartServerCommand);
+      const commandResult = runConfiguredCommand ? runConfiguredCommand('restart') : runShellCommand(loadConfig().restartServerCommand);
       appendActivity('action_restart', { ok: commandResult.ok, output: commandResult.output.slice(0, 500) });
       res.json({ ok: commandResult.ok, commandResult });
     } catch (error) {

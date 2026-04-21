@@ -65,6 +65,46 @@ test('command sandbox builds a no-shell execution plan and enforces allowed root
   assert.equal(result.inspection.execution.shell, false);
 });
 
+test('command runner only runs configured commands from allowed roots and writes operation logs', () => {
+  const { createCommandRunner } = require('../src/server/services/command-runner.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-command-runner-'));
+  const commandDir = path.join(root, 'server scripts');
+  fs.mkdirSync(commandDir, { recursive: true });
+  const reloadScript = path.join(commandDir, 'reload loot.cmd');
+  fs.writeFileSync(reloadScript, '@echo off\r\necho reload-ok %1\r\n', 'utf8');
+  const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-outside-command-'));
+  const outsideScript = path.join(outsideDir, 'restart.cmd');
+  fs.writeFileSync(outsideScript, '@echo off\r\necho outside\r\n', 'utf8');
+  const operationLogs = [];
+  const activity = [];
+  const runner = createCommandRunner({
+    root,
+    loadConfig: () => ({
+      reloadLootCommand: `"${reloadScript}" smoke`,
+      restartServerCommand: '',
+    }),
+    appendOperationLog: (event, detail) => operationLogs.push({ event, detail }),
+    appendActivity: (event, detail) => activity.push({ event, detail }),
+  });
+
+  const configured = runner.inspectCommand(`"${reloadScript}" smoke`);
+  assert.equal(configured.runnable, true);
+  assert.equal(configured.execution.shell, false);
+
+  const blocked = runner.inspectCommand(`"${outsideScript}"`);
+  assert.equal(blocked.runnable, false);
+  assert.equal(blocked.reason, 'outside_allowlist');
+
+  const result = runner.runConfiguredCommand('reload');
+  assert.equal(result.ok, true);
+  assert.match(result.output, /reload-ok smoke/);
+  assert.equal(result.inspection.execution.shell, false);
+  assert.equal(operationLogs[0].event, 'command_run');
+  assert.equal(operationLogs[0].detail.kind, 'reload');
+  assert.equal(operationLogs[0].detail.ok, true);
+  assert.equal(activity[0].event, 'command_run');
+});
+
 test('server settings logical validation catches reversed ranges and impossible values', () => {
   const { validateServerSettingsLogic } = require('../src/server/validation.cjs');
   const result = validateServerSettingsLogic({
@@ -200,6 +240,95 @@ test('file transaction rolls back all touched files when one write fails', () =>
 
   assert.equal(fs.readFileSync(firstPath, 'utf8'), 'one-before');
   assert.equal(fs.readFileSync(secondPath, 'utf8'), 'two-before');
+});
+
+test('backup service round-trips files with spaces and unicode using atomic restore', () => {
+  const { createBackupService } = require('../src/server/services/backup-service.cjs');
+  const { ensureDir, readText, writeText, loadJson, saveJson } = require('../src/server/store/file-store.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-backup-service-'));
+  const workspace = path.join(tmp, 'Windows Server');
+  const backupDir = path.join(tmp, 'Backups');
+  const logicalPath = 'Nodes/ไทย file.json';
+  const sourcePath = path.join(workspace, 'Nodes', 'ไทย file.json');
+  ensureDir(path.dirname(sourcePath));
+  fs.writeFileSync(sourcePath, '{"before":true}\n', 'utf8');
+  const activities = [];
+  const service = createBackupService({
+    fs,
+    path,
+    CORE_FILES: [],
+    resolvedPaths: () => ({ scumConfigDir: workspace, backupDir }),
+    resolveLogicalPath: (targetPath) => path.join(workspace, targetPath.replace(/\//g, path.sep)),
+    listLootFiles: () => ({ nodes: [{ relPath: logicalPath }], spawners: [] }),
+    createDiff: (name, before, after) => `${name}\n-${before}+${after}`,
+    ensureDir,
+    readText,
+    writeText,
+    loadJson,
+    saveJson,
+    appendActivity: (type, detail) => activities.push({ type, detail }),
+  });
+
+  const backup = service.createBackup(undefined, [logicalPath], { note: 'space-path', tag: 'keep' });
+  writeText(sourcePath, '{"after":true}\n');
+  service.restoreBackupFile(backup.backupName, logicalPath);
+
+  assert.equal(readText(sourcePath), '{"before":true}\n');
+  assert.equal(service.listBackups()[0].tag, 'keep');
+  assert.equal(service.listBackupFiles(backup.backupName)[0].relPath, logicalPath);
+  assert.equal(activities.some((entry) => entry.type === 'backup'), true);
+  assert.equal(activities.some((entry) => entry.type === 'restore'), true);
+});
+
+test('profile service applies snapshots through file transactions and rolls back on write failure', () => {
+  const { createProfileService } = require('../src/server/services/profile-service.cjs');
+  const { ensureDir, readText, writeText, loadJson, saveJson } = require('../src/server/store/file-store.cjs');
+  const { applyFileTransaction } = require('../src/server/store/file-transaction.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-profile-service-'));
+  const profileStoreDir = path.join(tmp, 'profile-store');
+  const firstPath = path.join(tmp, 'ServerSettings.ini');
+  const secondPath = path.join(tmp, 'Nodes', 'Broken.json');
+  ensureDir(path.dirname(secondPath));
+  fs.writeFileSync(firstPath, 'server-before', 'utf8');
+  fs.writeFileSync(secondPath, 'node-before', 'utf8');
+  saveJson(path.join(profileStoreDir, 'profile_test.json'), {
+    id: 'profile_test',
+    name: 'Rollback Test',
+    createdAt: '2026-04-21T00:00:00.000Z',
+    files: [
+      { path: 'ServerSettings.ini', content: 'server-after' },
+      { path: 'Nodes/Broken.json', content: 'node-after' },
+    ],
+  });
+  const service = createProfileService({
+    path,
+    profileStoreDir,
+    loadProfilesData: () => ({ profiles: [] }),
+    saveProfilesData: () => {},
+    loadRotation: () => ({ enabled: false, entries: [] }),
+    saveRotation: () => {},
+    resolvedPaths: () => ({ backupDir: path.join(tmp, 'Backups') }),
+    allWorkspaceLogicalPaths: () => ['ServerSettings.ini', 'Nodes/Broken.json'],
+    readLogicalFile: (logicalPath) => ({ content: readText(logicalPath === 'ServerSettings.ini' ? firstPath : secondPath) }),
+    resolveLogicalPath: (logicalPath) => (logicalPath === 'ServerSettings.ini' ? firstPath : secondPath),
+    createBackup: () => ({ backupName: 'profile-backup', files: [] }),
+    runConfiguredCommand: () => null,
+    applyFileTransaction,
+    loadJson,
+    saveJson,
+    appendActivity: () => {},
+    writeText: (targetPath, content) => {
+      if (targetPath === secondPath) {
+        fs.writeFileSync(targetPath, 'partial-node', 'utf8');
+        throw new Error('disk locked');
+      }
+      writeText(targetPath, content);
+    },
+  });
+
+  assert.throws(() => service.applyProfileSnapshot('profile_test'), /disk locked/);
+  assert.equal(readText(firstPath), 'server-before');
+  assert.equal(readText(secondPath), 'node-before');
 });
 
 test('startup doctor reports first-run path, backup, permission, and command checks', () => {

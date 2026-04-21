@@ -18,7 +18,7 @@ function registerLootRoutes(app, ctx) {
     readText,
     autoFixLootObject,
     createDiff,
-    runShellCommand,
+    runConfiguredCommand,
     buildItemCatalog,
     LOOT_TUNING_PRESETS,
     upsertItemCatalogOverride,
@@ -152,7 +152,7 @@ function registerLootRoutes(app, ctx) {
         createBackup(paths, [logicalPath], `autofix:${logicalPath}`);
         writeText(resolveLogicalPath(logicalPath, paths), fixed.content);
         appendActivity('loot_autofix_apply', { path: logicalPath, changes: fixed.changes.length });
-        if (req.body?.reloadAfter) commandResult = runShellCommand(config.reloadLootCommand);
+        if (req.body?.reloadAfter) commandResult = runConfiguredCommand('reload', { config });
       }
       res.json({ ok: true, patch, content: fixed.content, changes: fixed.changes, warnings: fixed.changes, validation: fixed.validation, commandResult });
     } catch (error) {

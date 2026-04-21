@@ -4,7 +4,6 @@ const express = require('express');
 const ini = require('ini');
 const Diff = require('diff');
 const { sendError } = require('./src/server/errors.cjs');
-const commandSandbox = require('./src/server/command-sandbox.cjs');
 const {
   ensureDir,
   stripBom,
@@ -15,6 +14,10 @@ const {
 } = require('./src/server/store/file-store.cjs');
 const { createAppStore } = require('./src/server/store/app-store.cjs');
 const { applyFileTransaction } = require('./src/server/store/file-transaction.cjs');
+const { createCommandRunner } = require('./src/server/services/command-runner.cjs');
+const { createBackupService } = require('./src/server/services/backup-service.cjs');
+const { createProfileService } = require('./src/server/services/profile-service.cjs');
+const { createKitTemplateService } = require('./src/server/services/kit-template-service.cjs');
 const { validateServerSettingsLogic, validateLootLogic } = require('./src/server/validation.cjs');
 const { buildSafeApplyPlan, applySafePlan } = require('./src/server/safe-apply.cjs');
 const { createWorkspacePackage, parseWorkspacePackage } = require('./src/server/package-manager.cjs');
@@ -71,6 +74,7 @@ const {
   resolvedPaths,
   inspectConfigFolder,
   appendActivity,
+  appendOperationLog,
   readActivity,
   readOperationLogs,
   operationsLogFile,
@@ -173,59 +177,41 @@ function loadLootAdvisoryIgnore() {
   };
 }
 
-function nowIso() {
-  return new Date().toISOString();
-}
+const commandRunner = createCommandRunner({
+  root: ROOT,
+  loadConfig,
+  appendActivity,
+  appendOperationLog,
+  timeout: 30000,
+});
+const {
+  inspectCommand,
+  runShellCommand,
+  runConfiguredCommand,
+} = commandRunner;
 
-function nowStamp() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-}
-
-function normalizeKey(value) {
-  return String(value || '')
-    .replace(/\.[^.]+$/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
-}
-
-function posixify(value) {
-  return String(value || '').replace(/\\/g, '/');
-}
-
-function sortByName(list, key = 'name') {
-  return [...list].sort((a, b) => String(a[key] || '').localeCompare(String(b[key] || '')));
-}
-
-function walkFiles(dir, filter = () => true, baseDir = dir, results = []) {
-  if (!fs.existsSync(dir)) return results;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      walkFiles(fullPath, filter, baseDir, results);
-    } else if (filter(fullPath, entry.name)) {
-      results.push({
-        fullPath,
-        relPath: posixify(path.relative(baseDir, fullPath)),
-        name: entry.name,
-      });
-    }
-  }
-  return results;
-}
-
-function inspectCommand(command) {
-  return commandSandbox.inspectCommand(command, { cwd: ROOT });
-}
-
-function runShellCommand(command) {
-  return commandSandbox.runShellCommand(command, { cwd: ROOT, timeout: 30000 });
-}
+const kitTemplateService = createKitTemplateService({
+  kitTemplatesFile: KIT_TEMPLATES_FILE,
+  defaultTemplates: DEFAULT_KIT_TEMPLATE_LIBRARY,
+  loadJson,
+  saveJson,
+  appendActivity,
+});
+const {
+  loadKitTemplates,
+  createKitTemplate,
+  deleteKitTemplate,
+} = kitTemplateService;
 
 function errorResponse(res, status, error) {
   sendError(res, error, status);
 }
+
+let backupService;
+let profileService;
+function createBackup(...args) { return backupService.createBackup(...args); }
+function listBackups(...args) { return backupService.listBackups(...args); }
+function allWorkspaceLogicalPaths(...args) { return backupService.allWorkspaceLogicalPaths(...args); }
 
 const workspaceDomain = createWorkspaceDomain({
   fs,
@@ -291,347 +277,59 @@ const {
   buildLootSchemaReport,
 } = workspaceDomain;
 
-function resolveBackupRoot(backupName, paths = resolvedPaths()) {
-  const root = path.resolve(paths.backupDir);
-  const target = path.resolve(root, String(backupName || ''));
-  if (!String(backupName || '').trim() || (target !== root && !target.startsWith(`${root}${path.sep}`))) throw new Error('Invalid backup name');
-  return target;
-}
+backupService = createBackupService({
+  fs,
+  path,
+  CORE_FILES,
+  resolvedPaths,
+  resolveLogicalPath,
+  listLootFiles,
+  createDiff,
+  ensureDir,
+  readText,
+  writeText,
+  loadJson,
+  saveJson,
+  appendActivity,
+});
+const {
+  resolveBackupRoot,
+  resolveBackupFilePath,
+  listBackupFiles,
+  restoreBackupFile,
+  updateBackupMeta,
+  compareBackupFiles,
+  backupCleanupCandidates,
+  cleanupBackups,
+  workspacePackageFiles,
+} = backupService;
 
-function resolveBackupFilePath(backupRoot, logicalPath) {
-  const normalized = posixify(logicalPath).replace(/^\/+/, '');
-  const target = path.resolve(backupRoot, normalized);
-  if (target !== backupRoot && !target.startsWith(`${path.resolve(backupRoot)}${path.sep}`)) throw new Error('Invalid backup file path');
-  return target;
-}
-
-function readBackupMeta(backupName, paths = resolvedPaths()) {
-  const metaPath = path.join(resolveBackupRoot(backupName, paths), '_meta.json');
-  return fs.existsSync(metaPath) ? loadJson(metaPath, {}) : {};
-}
-
-function writeBackupMeta(backupName, meta, paths = resolvedPaths()) {
-  const backupRoot = resolveBackupRoot(backupName, paths);
-  if (!fs.existsSync(backupRoot)) throw new Error('Backup was not found');
-  saveJson(path.join(backupRoot, '_meta.json'), meta);
-}
-
-function createBackup(paths = resolvedPaths(), logicalPaths = [], options = '') {
-  const note = typeof options === 'string' ? options : String(options?.note || '');
-  const tag = typeof options === 'string' ? '' : String(options?.tag || '');
-  const stamp = nowStamp();
-  let targetDir = path.join(paths.backupDir, stamp);
-  let suffix = 1;
-  while (fs.existsSync(targetDir)) {
-    suffix += 1;
-    targetDir = path.join(paths.backupDir, `${stamp}-${suffix}`);
-  }
-  ensureDir(targetDir);
-  const selectedPaths = logicalPaths.length ? logicalPaths : allWorkspaceLogicalPaths(paths);
-  const files = [];
-  for (const logicalPath of selectedPaths) {
-    const fullPath = resolveLogicalPath(logicalPath, paths);
-    if (!fs.existsSync(fullPath)) continue;
-    const backupPath = path.join(targetDir, posixify(logicalPath));
-    ensureDir(path.dirname(backupPath));
-    fs.copyFileSync(fullPath, backupPath);
-    const stat = fs.statSync(fullPath);
-    files.push({ relPath: posixify(logicalPath), size: stat.size, updatedAt: stat.mtime.toISOString() });
-  }
-  saveJson(path.join(targetDir, '_meta.json'), { createdAt: nowIso(), note, tag, files });
-  appendActivity('backup', { backup: path.basename(targetDir), note, tag, fileCount: files.length });
-  return { backupDir: targetDir, backupName: path.basename(targetDir), files };
-}
-
-function listBackups(paths = resolvedPaths()) {
-  ensureDir(paths.backupDir);
-  return fs.readdirSync(paths.backupDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const metaPath = path.join(paths.backupDir, entry.name, '_meta.json');
-      const meta = fs.existsSync(metaPath) ? loadJson(metaPath, {}) : {};
-      return {
-        name: entry.name,
-        updatedAt: meta.createdAt || fs.statSync(path.join(paths.backupDir, entry.name)).mtime.toISOString(),
-        note: meta.note || '',
-        tag: meta.tag || '',
-        fileCount: Array.isArray(meta.files) ? meta.files.length : listBackupFiles(entry.name, paths).length,
-      };
-    })
-    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-}
-
-function listBackupFiles(backupName, paths = resolvedPaths()) {
-  const backupRoot = resolveBackupRoot(backupName, paths);
-  const files = walkFiles(backupRoot, (filePath, name) => name !== '_meta.json', backupRoot);
-  return files.map((entry) => {
-    const stat = fs.statSync(entry.fullPath);
-    return { relPath: entry.relPath, size: stat.size, updatedAt: stat.mtime.toISOString() };
-  });
-}
-
-function restoreBackupFile(backupName, logicalPath, paths = resolvedPaths()) {
-  const backupRoot = resolveBackupRoot(backupName, paths);
-  const sourcePath = resolveBackupFilePath(backupRoot, logicalPath);
-  if (!fs.existsSync(sourcePath)) throw new Error('Backup file was not found');
-  const targetPath = resolveLogicalPath(logicalPath, paths);
-  ensureDir(path.dirname(targetPath));
-  fs.copyFileSync(sourcePath, targetPath);
-  appendActivity('restore', { backup: backupName, path: logicalPath });
-}
-
-function updateBackupMeta(backupName, updates = {}, paths = resolvedPaths()) {
-  const meta = readBackupMeta(backupName, paths);
-  const next = {
-    ...meta,
-    note: updates.note != null ? String(updates.note) : (meta.note || ''),
-    tag: updates.tag != null ? String(updates.tag) : (meta.tag || ''),
-    updatedMetaAt: nowIso(),
-  };
-  writeBackupMeta(backupName, next, paths);
-  appendActivity('backup_meta_update', { backup: backupName, tag: next.tag, note: next.note });
-  return next;
-}
-
-function compareBackupFiles(baseBackup, targetBackup, logicalPath = '', paths = resolvedPaths()) {
-  const baseRoot = resolveBackupRoot(baseBackup, paths);
-  const targetRoot = resolveBackupRoot(targetBackup, paths);
-  if (!fs.existsSync(baseRoot) || !fs.existsSync(targetRoot)) throw new Error('Backup was not found');
-  if (logicalPath) {
-    const normalized = posixify(logicalPath);
-    const basePath = resolveBackupFilePath(baseRoot, normalized);
-    const targetPath = resolveBackupFilePath(targetRoot, normalized);
-    const before = fs.existsSync(basePath) ? readText(basePath) : '';
-    const after = fs.existsSync(targetPath) ? readText(targetPath) : '';
-    return {
-      mode: 'file',
-      path: normalized,
-      existsInBase: fs.existsSync(basePath),
-      existsInTarget: fs.existsSync(targetPath),
-      changed: before !== after,
-      patch: createDiff(normalized, before, after),
-    };
-  }
-  const baseFiles = new Map(listBackupFiles(baseBackup, paths).map((file) => [posixify(file.relPath), file]));
-  const targetFiles = new Map(listBackupFiles(targetBackup, paths).map((file) => [posixify(file.relPath), file]));
-  const allPaths = [...new Set([...baseFiles.keys(), ...targetFiles.keys()])].sort();
-  const files = allPaths.map((filePath) => {
-    const baseFile = baseFiles.get(filePath);
-    const targetFile = targetFiles.get(filePath);
-    let status = 'changed';
-    if (!baseFile) status = 'added';
-    else if (!targetFile) status = 'removed';
-    else {
-      const baseText = readText(resolveBackupFilePath(baseRoot, filePath));
-      const targetText = readText(resolveBackupFilePath(targetRoot, filePath));
-      status = baseText === targetText ? 'same' : 'changed';
-    }
-    return { relPath: filePath, status, baseSize: baseFile?.size || 0, targetSize: targetFile?.size || 0 };
-  });
-  return {
-    mode: 'summary',
-    files,
-    counts: files.reduce((acc, file) => {
-      acc[file.status] = (acc[file.status] || 0) + 1;
-      return acc;
-    }, { added: 0, removed: 0, changed: 0, same: 0 }),
-  };
-}
-
-function isProtectedBackup(backup) {
-  const tag = String(backup?.tag || '').trim().toLowerCase();
-  return ['keep', 'pinned', 'protected'].includes(tag);
-}
-
-function backupCleanupCandidates(options = {}, paths = resolvedPaths()) {
-  const keepLatest = Math.max(1, Math.min(500, Number(options.keepLatest || 10)));
-  const tag = String(options.tag || '').trim();
-  const includeProtected = Boolean(options.includeProtected);
-  const backups = listBackups(paths);
-  const keptLatest = new Set(backups.slice(0, keepLatest).map((backup) => backup.name));
-  const candidates = backups.filter((backup) => {
-    if (keptLatest.has(backup.name)) return false;
-    if (!includeProtected && isProtectedBackup(backup)) return false;
-    if (tag && backup.tag !== tag) return false;
-    return true;
-  });
-  return {
-    keepLatest,
-    tag,
-    includeProtected,
-    total: backups.length,
-    protectedCount: backups.filter(isProtectedBackup).length,
-    candidates,
-    kept: backups.length - candidates.length,
-  };
-}
-
-function cleanupBackups(options = {}, paths = resolvedPaths()) {
-  const plan = backupCleanupCandidates(options, paths);
-  const deleted = [];
-  for (const backup of plan.candidates) {
-    const backupRoot = resolveBackupRoot(backup.name, paths);
-    if (!fs.existsSync(backupRoot)) continue;
-    fs.rmSync(backupRoot, { recursive: true, force: true });
-    deleted.push(backup);
-  }
-  appendActivity('backup_cleanup', {
-    deletedCount: deleted.length,
-    keepLatest: plan.keepLatest,
-    tag: plan.tag,
-    includeProtected: plan.includeProtected,
-  });
-  return { ...plan, deleted };
-}
-
-function allWorkspaceLogicalPaths(paths = resolvedPaths()) {
-  const loot = listLootFiles(paths);
-  return [...CORE_FILES.filter((file) => fs.existsSync(resolveLogicalPath(file, paths))), ...loot.nodes.map((file) => file.relPath), ...loot.spawners.map((file) => file.relPath)];
-}
-
-function workspacePackageFiles(paths = resolvedPaths(), requestedPaths = []) {
-  const available = new Set(allWorkspaceLogicalPaths(paths).map(posixify));
-  const selected = requestedPaths.length ? requestedPaths.map(posixify) : [...available];
-  return selected
-    .filter((logicalPath) => available.has(logicalPath))
-    .map((logicalPath) => ({ path: logicalPath, content: readText(resolveLogicalPath(logicalPath, paths)) }));
-}
-
-function loadUserKitTemplates() {
-  const data = loadJson(KIT_TEMPLATES_FILE, []);
-  return Array.isArray(data) ? data : [];
-}
-
-function loadKitTemplates() {
-  const userTemplates = loadUserKitTemplates();
-  const userIds = new Set(userTemplates.map((entry) => entry.id));
-  return [...userTemplates, ...DEFAULT_KIT_TEMPLATE_LIBRARY.filter((entry) => !userIds.has(entry.id))];
-}
-
-function saveKitTemplates(templates) {
-  saveJson(KIT_TEMPLATES_FILE, Array.isArray(templates) ? templates : []);
-}
-
-function itemEntryName(entry = {}) {
-  return entry?.ClassName || entry?.Id || entry?.Item || entry?.Name || '';
-}
-
-function itemEntryProbability(entry = {}) {
-  const value = Number(entry?.Probability ?? entry?.Chance ?? 1);
-  return Number.isFinite(value) ? value : 1;
-}
-
-function sanitizeKitItems(items = []) {
-  return (Array.isArray(items) ? items : [])
-    .map((entry) => {
-      const name = String(itemEntryName(entry) || '').trim();
-      const probability = Number(itemEntryProbability(entry));
-      if (!name) return null;
-      return {
-        ClassName: name,
-        Probability: Number.isFinite(probability) && probability >= 0 ? Number(probability.toFixed(4)) : 1,
-      };
-    })
-    .filter(Boolean);
-}
-
-function createKitTemplate(name, notes, items) {
-  const cleanName = String(name || '').trim();
-  const cleanItems = sanitizeKitItems(items);
-  if (!cleanName) throw new Error('Kit template name is required');
-  if (!cleanItems.length) throw new Error('Kit template needs at least one item');
-  const template = {
-    id: `kit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    name: cleanName,
-    notes: String(notes || '').trim(),
-    items: cleanItems,
-    itemCount: cleanItems.length,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  };
-  const templates = loadUserKitTemplates();
-  saveKitTemplates([template, ...templates.filter((entry) => entry.id !== template.id)]);
-  appendActivity('kit_create', { id: template.id, name: template.name, itemCount: template.itemCount });
-  return template;
-}
-
-function deleteKitTemplate(id) {
-  const cleanId = String(id || '').trim();
-  if (DEFAULT_KIT_TEMPLATE_LIBRARY.some((entry) => entry.id === cleanId)) throw new Error('Built-in kit templates cannot be deleted');
-  const templates = loadUserKitTemplates();
-  const target = templates.find((entry) => entry.id === cleanId);
-  if (!target) throw new Error('Kit template was not found');
-  saveKitTemplates(templates.filter((entry) => entry.id !== cleanId));
-  appendActivity('kit_delete', { id: cleanId, name: target.name });
-  return target;
-}
-
-function createProfileSnapshot(name, notes, paths = resolvedPaths()) {
-  ensureDir(PROFILE_STORE_DIR);
-  const id = `profile_${Date.now()}`;
-  const snapshot = {
-    id,
-    name,
-    notes,
-    createdAt: nowIso(),
-    files: allWorkspaceLogicalPaths(paths).map((logicalPath) => {
-      const { content } = readLogicalFile(logicalPath, paths);
-      return { path: logicalPath, content };
-    }),
-  };
-  saveJson(path.join(PROFILE_STORE_DIR, `${id}.json`), snapshot);
-  const data = loadProfilesData();
-  data.profiles = [snapshotMeta(snapshot), ...(data.profiles || []).filter((profile) => profile.id !== id)];
-  saveProfilesData(data);
-  appendActivity('profile_create', { id, name, fileCount: snapshot.files.length });
-  return snapshotMeta(snapshot);
-}
-
-function snapshotMeta(snapshot) {
-  return {
-    id: snapshot.id,
-    name: snapshot.name,
-    notes: snapshot.notes || '',
-    updatedAt: snapshot.createdAt,
-    fileCount: Array.isArray(snapshot.files) ? snapshot.files.length : 0,
-  };
-}
-
-function readProfileSnapshot(id) {
-  const filePath = path.join(PROFILE_STORE_DIR, `${id}.json`);
-  if (!fs.existsSync(filePath)) throw new Error('Profile snapshot was not found');
-  return loadJson(filePath, null);
-}
-
-function applyProfileSnapshot(id, reloadAfter = false, paths = resolvedPaths(), config = loadConfig()) {
-  const snapshot = readProfileSnapshot(id);
-  createBackup(paths, snapshot.files.map((file) => file.path), `profile-${id}`);
-  snapshot.files.forEach((entry) => {
-    writeText(resolveLogicalPath(entry.path, paths), entry.content);
-  });
-  appendActivity('profile_apply', { id, name: snapshot.name, fileCount: snapshot.files.length });
-  const commandResult = reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
-  return { activeProfile: snapshotMeta(snapshot), commandResult };
-}
-
-function nextRotationRun(rotation) {
-  if (!rotation.enabled || !rotation.everyMinutes) return '';
-  return new Date(Date.now() + Number(rotation.everyMinutes) * 60000).toISOString();
-}
-
-function runRotation(force = false, config = loadConfig(), paths = resolvedPaths()) {
-  const rotation = loadRotation();
-  const enabledEntries = (rotation.entries || []).filter((entry) => entry.enabled !== false && entry.profileId);
-  if (!rotation.enabled && !force) return { ran: false, reason: 'rotation-disabled', nextRunAt: rotation.nextRunAt || '' };
-  if (!enabledEntries.length) return { ran: false, reason: 'no-enabled-entries', nextRunAt: rotation.nextRunAt || '' };
-  const currentIndex = enabledEntries.findIndex((entry) => entry.profileId === rotation.activeProfileId);
-  const nextEntry = enabledEntries[(currentIndex + 1) % enabledEntries.length] || enabledEntries[0];
-  const result = applyProfileSnapshot(nextEntry.profileId, true, paths, config);
-  const nextState = { ...rotation, activeProfileId: nextEntry.profileId, nextRunAt: nextRotationRun(rotation) };
-  saveRotation(nextState);
-  appendActivity('rotation_run', { profileId: nextEntry.profileId });
-  return { ran: true, activeProfile: result.activeProfile, commandResult: result.commandResult, nextRunAt: nextState.nextRunAt, rotation: nextState };
-}
+profileService = createProfileService({
+  path,
+  profileStoreDir: PROFILE_STORE_DIR,
+  loadProfilesData,
+  saveProfilesData,
+  loadRotation,
+  saveRotation,
+  resolvedPaths,
+  allWorkspaceLogicalPaths,
+  readLogicalFile,
+  resolveLogicalPath,
+  createBackup,
+  runConfiguredCommand,
+  applyFileTransaction,
+  ensureDir,
+  loadJson,
+  saveJson,
+  appendActivity,
+  writeText,
+});
+const {
+  createProfileSnapshot,
+  applyProfileSnapshot,
+  nextRotationRun,
+  runRotation,
+} = profileService;
 
 const app = express();
 app.use(express.json({ limit: '25mb' }));
@@ -662,6 +360,7 @@ const serverContext = {
   inspectConfigFolder,
   inspectCommand,
   runShellCommand,
+  runConfiguredCommand,
   errorResponse,
   readLogicalFile,
   resolveLogicalPath,

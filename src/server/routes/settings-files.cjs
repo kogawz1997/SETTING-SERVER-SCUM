@@ -17,7 +17,7 @@ function registerSettingsFilesRoutes(app, ctx) {
     writeText,
     createBackup,
     appendActivity,
-    runShellCommand,
+    runConfiguredCommand,
     errorResponse,
   } = ctx;
 
@@ -69,7 +69,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         appendActivity,
         backupNote: 'server-settings-save',
       });
-      const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
+      const commandResult = req.body?.reloadAfter ? runConfiguredCommand('reload', { config }) : null;
       appendActivity('server_settings_save', { reloadAfter: !!req.body?.reloadAfter, changed: plan.changed });
       res.json({ ok: true, commandResult, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
@@ -89,7 +89,7 @@ function registerSettingsFilesRoutes(app, ctx) {
       if (req.body?.apply) {
         createBackup(resolvedPaths(), ['ServerSettings.ini'], `preset-${req.body.presetId}`);
         writeText(resolveLogicalPath('ServerSettings.ini'), nextText);
-        if (req.body?.reloadAfter) runShellCommand(loadConfig().reloadLootCommand);
+        if (req.body?.reloadAfter) runConfiguredCommand('reload', { config: loadConfig() });
       }
       res.json({ ok: true, patch, parsed: nextParsed });
     } catch (error) {
@@ -128,7 +128,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         backupNote: `file-save:${logicalPath}`,
       });
       appendActivity('file_save', { path: logicalPath, reloadAfter: !!req.body?.reloadAfter, changed: plan.changed });
-      const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
+      const commandResult = req.body?.reloadAfter ? runConfiguredCommand('reload', { config }) : null;
       res.json({ ok: true, commandResult, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
       errorResponse(res, 400, error);
@@ -173,7 +173,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         appendActivity,
         backupNote: `safe-apply:${logicalPath}`,
       });
-      const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
+      const commandResult = req.body?.reloadAfter ? runConfiguredCommand('reload', { config }) : null;
       res.json({ ok: true, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) }, commandResult });
     } catch (error) {
       errorResponse(res, 400, error);

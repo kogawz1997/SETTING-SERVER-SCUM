@@ -40,6 +40,18 @@ function assertIncludesAny(relPath, label, needles) {
   }
 }
 
+function assertNotIncludes(relPath, needles) {
+  const source = read(relPath);
+  for (const needle of needles) {
+    if (source.includes(needle)) fail(`${relPath} must not include "${needle}"`);
+  }
+}
+
+function assertLineCountAtMost(relPath, maxLines) {
+  const count = read(relPath).split(/\r?\n/).length;
+  if (count > maxLines) fail(`${relPath} has ${count} lines; keep it at or below ${maxLines} by moving logic into services/routes`);
+}
+
 function assertNoMojibake(relPath) {
   const source = read(relPath);
   const badPatterns = [
@@ -109,6 +121,10 @@ function assertPackageScript(name) {
   'src/server/store/file-store.cjs',
   'src/server/store/app-store.cjs',
   'src/server/store/file-transaction.cjs',
+  'src/server/services/backup-service.cjs',
+  'src/server/services/command-runner.cjs',
+  'src/server/services/kit-template-service.cjs',
+  'src/server/services/profile-service.cjs',
   'src/server/services/startup-doctor.cjs',
   'src/server/services/workspace-domain.cjs',
   'src/server/safe-apply.cjs',
@@ -159,7 +175,19 @@ assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000.
 assertIncludes('public/index.html', ['/loot-overrides.css', '/app.js', '/loot-overrides.js']);
 assertIncludes('server.js', [
   'registerRoutes(app, serverContext)',
+  'createCommandRunner',
+  'createBackupService',
+  'createProfileService',
+  'createKitTemplateService',
   'module.exports',
+]);
+assertLineCountAtMost('server.js', 650);
+assertNotIncludes('server.js', [
+  'function resolveBackupRoot(',
+  'function createKitTemplate(',
+  'function createProfileSnapshot(',
+  'spawnSync(',
+  'shell: true',
 ]);
 assertIncludes('src/server/routes/system.cjs', [
   '/api/bootstrap',
@@ -173,6 +201,10 @@ assertIncludes('src/server/command-sandbox.cjs', ['shell: false', 'outside_allow
 assertIncludes('src/server/store/file-store.cjs', ['atomicWriteText', 'fingerprintFile', 'renameSync']);
 assertIncludes('src/server/store/app-store.cjs', ['createAppStore', 'inspectConfigFolder', 'readActivity', 'readOperationLogs', 'operations.jsonl']);
 assertIncludes('src/server/store/file-transaction.cjs', ['applyFileTransaction', 'restoreSnapshot', 'file_transaction_rollback']);
+assertIncludes('src/server/services/command-runner.cjs', ['createCommandRunner', 'allowedRoots', 'runConfiguredCommand', 'command_run']);
+assertIncludes('src/server/services/backup-service.cjs', ['createBackupService', 'restoreBackupFile', 'workspacePackageFiles']);
+assertIncludes('src/server/services/kit-template-service.cjs', ['createKitTemplateService', 'sanitizeKitItems']);
+assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
 assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'buildGraphRefEditPlan', 'buildReadinessReport']);
 assertIncludes('src/server/routes/loot.cjs', [
