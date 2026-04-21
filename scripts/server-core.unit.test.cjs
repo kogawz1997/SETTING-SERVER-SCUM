@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 test('workspace utilities normalize file keys and walk nested JSON files', () => {
   const { clone, normalizeKey, posixify, sortByName, walkFiles } = require('../src/server/services/workspace-utils.cjs');
@@ -1062,9 +1063,30 @@ test('P2.13 launcher has buildable Windows EXE source', () => {
   const root = path.resolve(__dirname, '..');
   const csproj = path.join(root, 'launcher', 'SettingServerScumLauncher', 'SettingServerScumLauncher.csproj');
   const program = path.join(root, 'launcher', 'SettingServerScumLauncher', 'Program.cs');
+  const launcherScript = path.join(root, 'Start SETTING SERVER SCUM.ps1');
 
   assert.equal(fs.existsSync(csproj), true);
   assert.equal(fs.existsSync(program), true);
   assert.match(fs.readFileSync(program, 'utf8'), /Start SETTING SERVER SCUM\.ps1/);
   assert.match(fs.readFileSync(program, 'utf8'), /ProcessStartInfo/);
+  assert.match(fs.readFileSync(launcherScript, 'utf8'), /portable-manifest\.json/);
+  assert.match(fs.readFileSync(launcherScript, 'utf8'), /Missing required portable files/);
+});
+
+test('portable package build writes a launcher manifest with required files', () => {
+  const root = path.resolve(__dirname, '..');
+  const packageScript = path.join(root, 'scripts', 'create-portable-package.cjs');
+  const outDir = path.join(root, 'dist', 'SETTING-SERVER-SCUM-local');
+  const manifestPath = path.join(outDir, 'portable-manifest.json');
+
+  execFileSync(process.execPath, [packageScript], { cwd: root, stdio: 'ignore' });
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assert.equal(manifest.name, 'SETTING SERVER SCUM');
+  assert.equal(typeof manifest.version, 'string');
+  assert.equal(manifest.nodeMinimum, '18.0.0');
+  assert.equal(Array.isArray(manifest.requiredFiles), true);
+  assert.equal(manifest.requiredFiles.includes('server.js'), true);
+  assert.equal(manifest.requiredFiles.includes('Start SETTING SERVER SCUM.ps1'), true);
+  assert.equal(fs.existsSync(path.join(outDir, 'README_PORTABLE.txt')), true);
 });

@@ -51,6 +51,20 @@ const skipDataFiles = new Set([
   'activity.log',
 ]);
 
+const requiredFiles = [
+  'server.js',
+  'package.json',
+  'public/index.html',
+  'public/app.js',
+  'public/style.css',
+  'public/loot-overrides.js',
+  'public/loot-overrides.css',
+  'src/server/routes/index.cjs',
+  'src/server/services/workspace-domain.cjs',
+  'Start SETTING SERVER SCUM.ps1',
+  'Start SETTING SERVER SCUM.cmd',
+];
+
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
@@ -180,6 +194,33 @@ for (const relPath of dirs) {
 }
 
 const launcherBuilt = buildLauncherExe();
+const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const manifest = {
+  name: 'SETTING SERVER SCUM',
+  version: packageJson.version,
+  generatedAt: new Date().toISOString(),
+  nodeMinimum: '18.0.0',
+  launcherBuilt,
+  startEntrypoints: [
+    launcherBuilt ? 'Start SETTING SERVER SCUM.exe' : null,
+    'Start SETTING SERVER SCUM.cmd',
+    'Start SETTING SERVER SCUM.ps1',
+  ].filter(Boolean),
+  requiredFiles,
+  optionalFolders: [
+    'scum_items-main',
+    'samples',
+    'docs',
+  ],
+  privateFilesExcluded: [
+    'data/config.json',
+    'logs/',
+    'backups/',
+    'profile-store/',
+  ],
+};
+
+fs.writeFileSync(path.join(outDir, 'portable-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
 fs.writeFileSync(path.join(outDir, 'README_PORTABLE.txt'), [
   'SETTING SERVER SCUM - Portable Local Build',
@@ -189,8 +230,10 @@ fs.writeFileSync(path.join(outDir, 'README_PORTABLE.txt'), [
   '2. If Windows blocks the EXE or it is not included, double-click "Start SETTING SERVER SCUM.cmd".',
   '3. Install Node.js 18 or newer if this computer does not have it.',
   '4. The launcher installs missing dependencies, finds a free port, starts the server, and opens the browser.',
+  '5. If the folder looks incomplete, open portable-manifest.json and compare the requiredFiles list.',
   '',
   `EXE launcher included: ${launcherBuilt ? 'yes' : 'no'}`,
+  `Version: ${manifest.version}`,
   '',
   'Private files are intentionally not included:',
   '- data/config.json',

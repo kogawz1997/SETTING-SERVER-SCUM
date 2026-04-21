@@ -182,7 +182,7 @@ function assertPackageScript(name) {
 assertIncludes('start-local.cmd', ['where node', 'node_modules\\express', 'node server.js']);
 assertIncludes('start-local.ps1', ['Get-Command node', 'node_modules\\express', 'node server.js']);
 assertIncludes('Start SETTING SERVER SCUM.cmd', ['Portable Launcher', 'Start SETTING SERVER SCUM.ps1']);
-assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000..3010', 'Start-Process $TargetUrl']);
+assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000..3010', 'Start-Process $TargetUrl', 'portable-manifest.json', '$requiredFiles', 'Missing required portable files', 'startup.log']);
 assertIncludes('public/index.html', ['/loot-overrides.css', '/app.js', '/loot-overrides.js']);
 assertIncludes('server.js', [
   'registerRoutes(app, serverContext)',
@@ -268,7 +268,7 @@ assertNotIncludes('.github/workflows/local-portable-release.yml', [
   'node-version: 20',
   'softprops/action-gh-release',
 ]);
-assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt']);
+assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt', 'portable-manifest.json', 'requiredFiles', 'launcherBuilt']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'customer-ready-panel', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);

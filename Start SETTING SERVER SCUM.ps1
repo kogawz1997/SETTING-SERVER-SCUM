@@ -24,8 +24,50 @@ function Test-PortFree {
   }
 }
 
+function Get-RelativeMissingFiles {
+  param([string[]]$Files)
+  $missing = @()
+  foreach ($file in $Files) {
+    if (-not (Test-Path (Join-Path $root $file))) {
+      $missing += $file
+    }
+  }
+  return $missing
+}
+
 Write-Host "SETTING SERVER SCUM - Portable Launcher" -ForegroundColor Cyan
 Write-Host "Folder: $root"
+
+$manifestPath = Join-Path $root "portable-manifest.json"
+$requiredFiles = @(
+  "server.js",
+  "package.json",
+  "public\index.html",
+  "public\app.js",
+  "public\style.css",
+  "public\loot-overrides.js",
+  "public\loot-overrides.css",
+  "src\server\routes\index.cjs",
+  "src\server\services\workspace-domain.cjs"
+)
+if (Test-Path $manifestPath) {
+  try {
+    $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
+    if ($manifest.version) {
+      Write-Host "Build version: $($manifest.version)"
+    }
+    if ($manifest.requiredFiles) {
+      $requiredFiles = @($manifest.requiredFiles)
+    }
+  } catch {
+    Write-Host "portable-manifest.json could not be read. Continuing with built-in checks." -ForegroundColor Yellow
+  }
+}
+
+$missingFiles = @(Get-RelativeMissingFiles -Files $requiredFiles)
+if ($missingFiles.Count -gt 0) {
+  Stop-WithMessage "Missing required portable files: $($missingFiles -join ', '). Extract the zip again into a clean folder."
+}
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Stop-WithMessage "Node.js was not found. Install Node.js 18 or newer from https://nodejs.org/ and run this launcher again."
@@ -72,10 +114,21 @@ Write-Host "Log: $logPath"
 Write-Host ""
 Write-Host "Starting local server. Keep this window open while using the app." -ForegroundColor Cyan
 
+@(
+  "SETTING SERVER SCUM startup",
+  "Time: $(Get-Date -Format o)",
+  "Folder: $root",
+  "Node: $(node -v)",
+  "Port: $port",
+  "URL: $url",
+  "Manifest: $(if (Test-Path $manifestPath) { 'present' } else { 'missing' })",
+  ""
+) | Set-Content -Path $logPath -Encoding UTF8
+
 Start-Job -ScriptBlock {
   param($TargetUrl)
   Start-Sleep -Seconds 2
   Start-Process $TargetUrl
 } -ArgumentList $url | Out-Null
 
-node server.js *> $logPath
+node server.js *>> $logPath
