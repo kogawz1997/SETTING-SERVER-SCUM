@@ -5,7 +5,6 @@ const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
 const views = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'settings', label: 'App Settings' },
-  { id: 'release', label: 'Customer Ready' },
   { id: 'server', label: 'Server Settings' },
   { id: 'corefiles', label: 'Core Files' },
   { id: 'loot', label: 'Loot Studio' },
@@ -13,9 +12,7 @@ const views = [
   { id: 'graph', label: 'Graph' },
   { id: 'profiles', label: 'Profiles' },
   { id: 'backups', label: 'Backups' },
-  { id: 'activity', label: 'Activity' },
-  { id: 'help', label: 'Help' },
-  { id: 'diff', label: 'Diff Preview' }
+  { id: 'help', label: 'Help' }
 ];
 
 async function collectOverflowIssues(page, viewId) {
@@ -115,20 +112,35 @@ test('top-level routes open the matching page and support browser history', asyn
   await expect(page.locator('#view-corefiles')).toBeVisible();
   await expect(page).toHaveURL(/\/core-files$/);
 
-  await page.goto(`${baseUrl}/customer-ready`, { waitUntil: 'networkidle' });
-  await expect(page.locator('#view-release')).toBeVisible();
-  await expect(page).toHaveURL(/\/customer-ready$/);
 });
 
-test('customer handoff page summarizes readiness and next action in one place', async ({ page }) => {
+test('production navigation hides internal utility pages', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`${baseUrl}/customer-ready`, { waitUntil: 'networkidle' });
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
 
-  await expect(page.locator('#view-release')).toBeVisible();
-  await expect(page.locator('#customer-ready-panel')).toBeVisible({ timeout: 60000 });
-  await expect(page.locator('#customer-ready-panel')).toContainText(/Customer handoff|ก่อนปล่อยให้ลูกค้าใช้/);
-  await expect(page.locator('#customer-ready-panel')).toContainText(/Path ready|Backup ready|Loot errors|Reload command/);
-  await expect(page.locator('[data-release-next-action]').first()).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('.nav[data-view="release"]')).toHaveCount(0);
+  await expect(page.locator('.nav[data-view="activity"]')).toHaveCount(0);
+  await expect(page.locator('.nav[data-view="diff"]')).toHaveCount(0);
+  await expect(page.locator('#view-release')).toHaveCount(0);
+
+  const navText = await page.locator('.nav-group').innerText();
+  for (const label of [
+    'Dashboard',
+    'App Settings',
+    'Server Settings',
+    'Core Files',
+    'Loot Studio',
+    'Analyzer',
+    'Graph',
+    'Profiles',
+    'Backups',
+    'Help'
+  ]) {
+    expect(navText).toContain(label);
+  }
+  expect(navText).not.toContain('Customer Ready');
+  expect(navText).not.toContain('Activity');
+  expect(navText).not.toContain('Diff Preview');
 });
 
 test('settings page keeps startup doctor checks collapsed but available', async ({ page }) => {

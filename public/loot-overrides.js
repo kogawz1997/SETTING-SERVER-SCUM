@@ -1721,7 +1721,6 @@
     renderReadinessPanel(state.readiness);
     renderStartupDoctorPanel(state.startupDoctor);
     renderQuickStartPanel(state.readiness);
-    renderCustomerReadyPanel(state.readiness);
     renderDiagnosticsPanel();
     const data = await api('/api/readiness');
     state.readiness = data.report;
@@ -1734,7 +1733,6 @@
     renderReadinessPanel(state.readiness);
     renderStartupDoctorPanel(state.startupDoctor);
     renderQuickStartPanel(state.readiness);
-    renderCustomerReadyPanel(state.readiness);
     return state.readiness;
   }
 
@@ -1783,7 +1781,6 @@
         renderReadinessPanel(state.readiness);
         renderStartupDoctorPanel(state.startupDoctor);
         renderQuickStartPanel(state.readiness);
-        renderCustomerReadyPanel(state.readiness);
         renderDiagnosticsPanel();
       });
     };
@@ -3405,7 +3402,6 @@
   mountQuickStartPanel();
   mountDiagnosticsPanel();
   renderStartupDoctorPanel(state.startupDoctor);
-  renderCustomerReadyPanel(state.readiness);
   applyCoreCopyPolish();
   applyLootShellCopy();
   bindLootContextTabs();
@@ -3423,7 +3419,6 @@
       renderReadinessPanel(state.readiness);
       renderStartupDoctorPanel(state.startupDoctor);
       renderQuickStartPanel(state.readiness);
-      renderCustomerReadyPanel(state.readiness);
       renderDiagnosticsPanel();
     });
     loadBackups().catch(() => {});

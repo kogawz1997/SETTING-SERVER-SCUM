@@ -24,7 +24,8 @@ test('backups support tags, notes, compare, and activity filtering', async ({ pa
   await page.locator('#compare-backup-summary').click();
   await expect(page.locator('#backup-file-preview')).toContainText(/Backup compare|added=|changed=/);
 
-  await page.locator('.nav[data-view="activity"]').click();
+  await page.goto(`${baseUrl}/activity`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#view-activity')).toBeVisible();
   await expect(page.locator('#activity-filter-panel')).toBeVisible();
   await page.locator('#activity-term-filter').fill(tag);
   await page.locator('#activity-apply-filter').click();
@@ -64,7 +65,8 @@ test('backup cleanup previews and deletes old unprotected backups', async ({ pag
   expect(names.has(created[0].backupPath)).toBeTruthy();
   expect(names.has(created[3].backupPath)).toBeTruthy();
 
-  await page.locator('.nav[data-view="activity"]').click();
+  await page.goto(`${baseUrl}/activity`, { waitUntil: 'networkidle' });
+  await expect(page.locator('#view-activity')).toBeVisible();
   await page.locator('#activity-term-filter').fill('backup_cleanup');
   await page.locator('#activity-apply-filter').click();
   await expect(page.locator('#activity-log')).toContainText('backup_cleanup');

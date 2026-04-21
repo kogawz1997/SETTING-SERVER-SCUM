@@ -44,7 +44,7 @@ Recommended for normal users who do not want to run `npm` manually.
 3. Extract the zip into a clean folder
 4. Double-click `Start SETTING SERVER SCUM.exe`
 5. If Windows blocks the `.exe`, run `Start SETTING SERVER SCUM.cmd`
-6. Open Dashboard and check Startup Doctor / Customer Ready before editing real files
+6. Open Dashboard and check Startup Doctor before editing real files
 
 The launcher checks portable files, Node.js, dependencies, free port, startup log, and browser launch. If something is missing, it prints a `How to fix:` message instead of failing silently.
 
@@ -120,7 +120,6 @@ If your server uses a different `Nodes` or `Spawners` location, point those fold
 | `/graph` | Spawner -> Node -> Item dependency view and staged ref edits |
 | `/backups` | Backup, restore, compare, cleanup |
 | `/profiles` | Snapshots, presets, rotation |
-| `/customer-ready` | One-page checklist before giving the tool to someone else |
 | `/help` | In-app usage guide |
 
 ## Safety Model
