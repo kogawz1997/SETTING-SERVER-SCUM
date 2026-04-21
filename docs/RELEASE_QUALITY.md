@@ -38,7 +38,8 @@ GitHub release automation:
 
 - Push a tag like `v1.0.2-local`.
 - `.github/workflows/local-portable-release.yml` builds the portable folder, creates `SETTING-SERVER-SCUM-<tag>.zip`, and publishes a GitHub Release with that zip attached.
-- The workflow uses `GITHUB_TOKEN` inside GitHub Actions, so the local machine does not need `gh` CLI.
+- The workflow uses GitHub-hosted `gh release` with `GITHUB_TOKEN`, so the local machine does not need `gh` CLI for tag-based releases.
+- The workflow pins `actions/checkout@v5`, `actions/setup-node@v5`, and Node.js 22 for release verification.
 
 ถ้าอยาก bump version:
 

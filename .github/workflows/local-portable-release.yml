@@ -35,7 +35,7 @@ jobs:
           "zip=dist/SETTING-SERVER-SCUM-$tag.zip" >> $env:GITHUB_OUTPUT
 
       - name: Checkout release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.release_meta.outputs.tag }}
 
@@ -50,9 +50,9 @@ jobs:
           "notes=$notes" >> $env:GITHUB_OUTPUT
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -82,9 +82,18 @@ jobs:
           Get-Item $zip
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_meta.outputs.tag }}
-          name: SETTING SERVER SCUM ${{ steps.release_meta.outputs.tag }}
-          body_path: ${{ steps.release_notes.outputs.notes }}
-          files: ${{ steps.release_meta.outputs.zip }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.release_meta.outputs.tag }}"
+          $zip = "${{ steps.release_meta.outputs.zip }}"
+          $notes = "${{ steps.release_notes.outputs.notes }}"
+          $title = "SETTING SERVER SCUM $tag"
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $zip --repo "${{ github.repository }}" --clobber
+            gh release edit $tag --repo "${{ github.repository }}" --title $title --notes-file $notes
+          } else {
+            gh release create $tag $zip --repo "${{ github.repository }}" --title $title --notes-file $notes --verify-tag
+          }

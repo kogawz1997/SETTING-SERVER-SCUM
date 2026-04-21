@@ -73,6 +73,7 @@ function assertPackageScript(name) {
 
 [
   'server.js',
+  '.github/workflows/local-portable-release.yml',
   '.gitignore',
   'package.json',
   'package-lock.json',
@@ -254,6 +255,19 @@ assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
 assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable']);
 assertIncludes('scripts/run-playwright-with-server.cjs', ['BASE_URL', 'server.js', '/api/startup-doctor']);
 assertIncludes('package.json', ['run-playwright-with-server.cjs scripts/ui-smoke.spec.cjs', 'run-playwright-with-server.cjs scripts/loot-studio-regression.spec.cjs']);
+assertIncludes('.github/workflows/local-portable-release.yml', [
+  'actions/checkout@v5',
+  'actions/setup-node@v5',
+  'node-version: 22',
+  'gh release create',
+  'GH_TOKEN: ${{ github.token }}',
+]);
+assertNotIncludes('.github/workflows/local-portable-release.yml', [
+  'actions/checkout@v4',
+  'actions/setup-node@v4',
+  'node-version: 20',
+  'softprops/action-gh-release',
+]);
 assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
