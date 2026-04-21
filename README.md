@@ -1,73 +1,100 @@
 # SETTING SERVER SCUM
 
-เครื่องมือจัดการไฟล์ตั้งค่าและระบบ Loot ของ SCUM server แบบ local-first สำหรับคนที่อยากแก้ `INI` / `JSON` ให้ง่ายขึ้น เห็นผลก่อน save และมีทางกู้กลับถ้าแก้พลาด
+![SETTING SERVER SCUM banner](docs/assets/repo-banner.svg)
 
-เครดิตโปรเจกต์: `KOGA.EXE`
+[![Latest Release](https://img.shields.io/github/v/release/kogawz1997/scum-server-config-manager?label=latest%20local%20release)](https://github.com/kogawz1997/scum-server-config-manager/releases/latest)
+[![Release Quality](https://img.shields.io/badge/release%20quality-guarded-2ea043)](docs/RELEASE_QUALITY.md)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-43853d)](docs/COMPATIBILITY.md)
+[![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078d4)](docs/COMPATIBILITY.md)
+[![Credit](https://img.shields.io/badge/credit-KOGA.EXE-f0b429)](#credit)
 
-## สถานะล่าสุด
+Local-first control panel for SCUM server settings, loot files, backups, profiles, analyzer, graph view, and safe apply workflows. It is built for people who want to manage real `INI` and `JSON` server files without hand-editing everything blind.
 
-- เวอร์ชันล่าสุด: `v1.0.6-local`
-- ระดับโปรเจกต์: `P2.13 local-ready` พร้อม patch readiness ล่าสุด
-- GitHub Release ล่าสุด: [SETTING SERVER SCUM v1.0.6-local](https://github.com/kogawz1997/scum-server-config-manager/releases/tag/v1.0.6-local)
-- ไฟล์ portable: `SETTING-SERVER-SCUM-v1.0.6-local.zip`
-- Release notes: [docs/releases/v1.0.6-local.md](docs/releases/v1.0.6-local.md)
+โปรเจกต์นี้คือเครื่องมือจัดการไฟล์ตั้งค่าและระบบ loot ของ SCUM server แบบ local-first เปิดบนเครื่องตัวเอง แก้ไฟล์จริงได้ เห็น diff ก่อน save มี backup/restore และมีตัวช่วยตรวจ config ไม่ให้พังง่าย
 
-รอบ `v1.0.6-local` เพิ่มของสำคัญสำหรับการใช้งานจริง: Startup Doctor, operation log แบบ JSONL, support bundle ที่แนบ log ล่าสุด, test UI แบบเปิด server แยกเองไม่ชน port เก่า และแก้ bug save kit template ใน Loot Studio
+## Current Release
+
+- Latest: [`v1.0.9-local`](https://github.com/kogawz1997/scum-server-config-manager/releases/tag/v1.0.9-local)
+- Portable zip: [`SETTING-SERVER-SCUM-v1.0.9-local.zip`](https://github.com/kogawz1997/scum-server-config-manager/releases/download/v1.0.9-local/SETTING-SERVER-SCUM-v1.0.9-local.zip)
+- Release notes: [docs/releases/v1.0.9-local.md](docs/releases/v1.0.9-local.md)
+- Project track: `P2.13 local-ready`
+- Scope: local/portable app, not SaaS
 
 ![Dashboard](docs/assets/dashboard.png)
 
-## ใช้งานแบบ Portable
+## What It Does
 
-เหมาะกับคนที่ไม่อยากเปิด terminal หรือใช้ `npm` เอง
+SETTING SERVER SCUM turns a messy SCUM config folder into a safer working surface:
 
-1. ไปหน้า [Latest Release](https://github.com/kogawz1997/scum-server-config-manager/releases/latest)
-2. ดาวน์โหลด `SETTING-SERVER-SCUM-v1.0.6-local.zip`
-3. แตกไฟล์ zip
-4. ดับเบิลคลิก `Start SETTING SERVER SCUM.exe`
-5. ถ้า Windows block ไฟล์ `.exe` ให้ใช้ `Start SETTING SERVER SCUM.cmd`
-6. เปิด Dashboard แล้วดู Startup Doctor / Preflight ก่อนแก้ไฟล์จริง
+- Edit `ServerSettings.ini`, `GameUserSettings.ini`, `EconomyOverride.json`, `Nodes/*.json`, and `Spawners/*.json`
+- Use Loot Studio instead of raw JSON for common item, probability, node, and spawner work
+- Search across nodes, spawners, item names, refs, and file content
+- Analyze loot balance, missing refs, unused nodes, frequent items, schema shape, and risk level
+- View relationships as `Spawner -> Node -> Item`, with staged ref edit preview before apply
+- Run dry-run, validation, diff preview, backup, rollback, and safe apply flows
+- Save profiles, rotate configs, compare backups, and export support bundles
+- Use curated item catalog metadata with icon-backed autocomplete, category, rarity, tags, and Thai/English names
 
-ตัว launcher จะช่วยเช็ก Node.js, ติดตั้ง dependency ที่ขาด, หา port ว่าง, เปิด local server, เขียน `logs/startup.log` และเปิด browser ให้อัตโนมัติ
+## Portable Use
 
-## ใช้งานจาก Source
+Recommended for normal users who do not want to run `npm` manually.
 
-ต้องมี Node.js 18 หรือใหม่กว่า
+1. Open the [Latest Release](https://github.com/kogawz1997/scum-server-config-manager/releases/latest)
+2. Download `SETTING-SERVER-SCUM-v1.0.9-local.zip`
+3. Extract the zip into a clean folder
+4. Double-click `Start SETTING SERVER SCUM.exe`
+5. If Windows blocks the `.exe`, run `Start SETTING SERVER SCUM.cmd`
+6. Open Dashboard and check Startup Doctor / Customer Ready before editing real files
+
+The launcher checks portable files, Node.js, dependencies, free port, startup log, and browser launch. If something is missing, it prints a `How to fix:` message instead of failing silently.
+
+Required release scripts:
+
+```powershell
+npm run package:portable
+npm run package:portable:smoke
+npm run package:portable:zip-smoke
+```
+
+## Source Use
+
+Requirements:
+
+- Windows 10/11
+- Node.js 18+
+- SCUM server config folder, or the included sample workspace for testing
+
+Run locally:
 
 ```powershell
 npm install
 npm start
 ```
 
-แล้วเปิด:
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-บน Windows สามารถดับเบิลคลิกไฟล์นี้ได้:
+Windows shortcut:
 
 ```text
 start-local.cmd
 ```
 
-## วิธีตั้งค่าครั้งแรก
+## First-Time Setup
 
-เข้า `App Settings` แล้วตั้ง path ให้ครบก่อนแก้ไฟล์จริง
+Go to `/settings` and set these paths before touching real server files:
 
-- `SCUM config folder`: โฟลเดอร์ config หลักของ SCUM server
-- `Backup folder`: โฟลเดอร์เก็บ backup
-- `Nodes folder`: โฟลเดอร์ `Nodes` ถ้าไม่ได้อยู่ใต้ config root
-- `Spawners folder`: โฟลเดอร์ `Spawners` ถ้าไม่ได้อยู่ใต้ config root
-- `Reload loot command`: ใส่เฉพาะถ้ามี script reload ที่ทดสอบแล้ว
-- `Restart server command`: ใส่เฉพาะถ้ามี script restart ที่ทดสอบแล้ว
+- `SCUM config folder`: main `WindowsServer` config folder
+- `Backup folder`: where backups should be written
+- `Nodes folder`: optional override if nodes are not under the config root
+- `Spawners folder`: optional override if spawners are not under the config root
+- `Reload loot command`: only if you already have a tested reload script
+- `Restart server command`: only if you already have a tested restart script
 
-ตัวอย่าง path ที่เจอบ่อย:
-
-```text
-C:\scumserver\SCUM\Saved\Config\WindowsServer
-```
-
-โครงไฟล์ที่ระบบคาดหวังโดยทั่วไป:
+Typical shape:
 
 ```text
 WindowsServer/
@@ -78,131 +105,93 @@ WindowsServer/
   Spawners/
 ```
 
-ถ้า `Nodes` หรือ `Spawners` อยู่คนละที่ ให้ชี้ path เองใน `App Settings`
+If your server uses a different `Nodes` or `Spawners` location, point those folders directly in App Settings.
 
-## หน้าในระบบ
+## Main Screens
 
-- `/dashboard`: ภาพรวมระบบ, Startup Doctor, Preflight, quick actions
-- `/settings`: ตั้งค่า path, backup folder, reload/restart command และ setup wizard แบบพับได้
-- `/server-settings`: แก้ `ServerSettings.ini` แบบแบ่งหมวด มี dropdown/filter และ True/False เป็นตัวเลือก
-- `/core-files`: แก้ `GameUserSettings.ini` และ `EconomyOverride.json`
-- `/loot-studio`: แก้ `Nodes/*.json` และ `Spawners/*.json`
-- `/analyzer`: วิเคราะห์ loot/config, missing refs, unused nodes, balance และคำแนะนำ
-- `/graph`: ดูความสัมพันธ์ `Spawner -> Node -> Item` และแก้ spawner refs แบบ preview/apply
-- `/backups`: backup, restore, compare, cleanup
-- `/profiles`: snapshot/profile/rotation
-- `/help`: คู่มือใช้งานในแอป
-- `/customer-ready`: หน้าเดียวสำหรับเช็กก่อนส่งให้คนอื่นใช้
+| Route | Purpose |
+| --- | --- |
+| `/dashboard` | Health overview, readiness checks, quick actions |
+| `/settings` | App paths, backup folder, commands, first-run setup |
+| `/server-settings` | Grouped server settings editor with human labels and True/False controls |
+| `/core-files` | Core INI/JSON file editor |
+| `/loot-studio` | Visual loot editor, catalog, simulator, bulk tools, raw JSON fallback |
+| `/analyzer` | Loot/config balance, missing refs, unused nodes, advice |
+| `/graph` | Spawner -> Node -> Item dependency view and staged ref edits |
+| `/backups` | Backup, restore, compare, cleanup |
+| `/profiles` | Snapshots, presets, rotation |
+| `/customer-ready` | One-page checklist before giving the tool to someone else |
+| `/help` | In-app usage guide |
 
-## Loot Studio ทำอะไรได้
+## Safety Model
 
-Loot Studio ถูกทำให้คนที่ไม่อยากแก้ JSON ดิบใช้ง่ายขึ้น
+This app touches real server files, so the safety layer is part of the product:
 
-- แยกโหมด `Visual Builder`, `Split View`, `Raw JSON`
-- ค้นหาและเปิดไฟล์ Nodes/Spawners ได้เร็ว
-- มี quick access สำหรับไฟล์ที่ปักหมุดและไฟล์ที่เปิดล่าสุด
-- แก้ item แบบแถวได้ เพิ่ม/ลบ/clone/reorder
-- ปรับ probability, normalize, ใช้ preset probability และ bulk edit
-- มี item autocomplete พร้อม icon
-- มี item catalog จาก `scum_items-main` พร้อมชื่อไทย/อังกฤษ, หมวด, rarity, tag และ icon
-- มี kit template สำหรับบันทึกชุด item แล้วเอากลับมาใช้ซ้ำ
-- มี simulator แบบ deterministic สำหรับเทียบ draft กับไฟล์ที่ save แล้ว
-- มี autofix preview และ quick fix สำหรับเคสพื้นฐาน
+- Diff preview before risky writes
+- Backup before save/apply flows
+- Dry-run support for safe apply and repair actions
+- Transaction rollback for multi-file writes
+- Atomic file write discipline in server-side stores
+- Command sandbox for reload/restart actions
+- Startup Doctor and Workspace Health Center
+- Activity log plus structured operation logs at `logs/operations.jsonl`
+- Support bundle export with private paths sanitized
+- Release zip smoke test that extracts the generated zip before publishing
 
-## ระบบกันพัง
+Direct rule: create a backup and pass readiness checks before editing production server configs.
 
-โปรเจกต์นี้แตะไฟล์จริง จึงมีชั้นป้องกันหลายจุด
+## Release Quality
 
-- backup ก่อน save/apply ใน flow เสี่ยง
-- diff preview ก่อนเขียนไฟล์
-- validation สำหรับ INI/JSON/loot refs
-- dry-run / safe apply
-- rollback ตอน transaction เขียนหลายไฟล์แล้วล้ม
-- command sandbox สำหรับ reload/restart
-- activity log สำหรับดูประวัติ action
-- operation log ที่ `logs/operations.jsonl`
-- support bundle สำหรับ export config/log/diagnostics แบบไม่ติด path ส่วนตัว
-
-คำแนะนำตรงๆ: ก่อนแก้ server จริง ให้สร้าง backup ก่อนเสมอ และอย่ากด reload/restart ถ้ายังไม่ได้ทดสอบ command นอกแอป
-
-## Startup Doctor
-
-`v1.0.6-local` เพิ่ม Startup Doctor เพื่อบอกเป็นภาษาคนว่าเครื่องนี้พร้อมใช้แค่ไหน
-
-มันจะเช็ก:
-
-- โฟลเดอร์ config หลัก
-- `Nodes folder`
-- `Spawners folder`
-- backup folder
-- สิทธิ์อ่าน/เขียน
-- reload/restart command
-- ไฟล์หลัก เช่น `ServerSettings.ini`, `GameUserSettings.ini`, `EconomyOverride.json`
-
-ถ้ายังมีจุดเสี่ยง ระบบจะบอกว่าควรแก้อะไรก่อน ไม่ใช่ปล่อยให้ user เดาเอง
-
-## Quality Gate
-
-ก่อนปล่อย build ให้คนอื่นใช้ ให้รัน:
+Before a local build is considered releasable:
 
 ```powershell
 npm run release:quality
 ```
 
-ชุดนี้จะตรวจ:
+The quality gate runs:
 
 - basic checks
-- release checks
-- config roundtrip
-- sample workspace smoke test
+- release file checks
+- config/package roundtrip
+- sample workspace smoke
 - performance smoke
 - docs link check
-- changelog check
-- portable package build
-- unit/integration/UI/regression tests
+- changelog/version check
+- portable build
+- portable folder smoke
+- portable zip extract smoke
+- full unit, integration, UI, loot, settings, and backup regression tests
 
-คำสั่งแยกที่ใช้บ่อย:
+Latest verified release: `v1.0.9-local`
 
-```powershell
-npm test
-npm run release:check
-npm run package:portable
-npm run repair:loot-refs -- --dry-run
-```
-
-## Release ล่าสุดที่ตรวจผ่าน
-
-ก่อนปล่อย `v1.0.6-local` ตรวจผ่านแล้ว:
-
-- Unit: `17/17`
-- Integration: `9/9`
-- UI smoke: `15/15`
-- Loot regression: `19/19`
-- Settings regression: `4/4`
-- Backup activity: `2/2`
-- `npm run release:quality`: ผ่าน
-
-## เอกสารเพิ่มเติม
+## More Documentation
 
 - [Quick Start](docs/QUICK_START.md)
-- [Install TH](docs/INSTALL_TH.md)
+- [Thai Install Guide](docs/INSTALL_TH.md)
 - [Daily Use](docs/DAILY_USE.md)
 - [Recovery Guide](docs/RECOVERY_GUIDE.md)
 - [Power User Guide](docs/POWER_USER_GUIDE.md)
-- [Compatibility](docs/COMPATIBILITY.md)
+- [Compatibility Matrix](docs/COMPATIBILITY.md)
 - [Release Quality](docs/RELEASE_QUALITY.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)
 - [P2.13 Status](docs/P2_3_STATUS.md)
 - [Changelog](CHANGELOG.md)
 
-## ขอบเขตที่ยังเป็นอนาคต
+## Roadmap Boundary
 
-รอบนี้ปิดงานฝั่ง local/portable เป็นหลัก ยังไม่รวม SaaS หรือ remote agent
+This repository is now focused on the polished local/portable tool. SaaS, tenant hosting, auth, remote agents, and multi-server online control are intentionally outside this local release line.
 
-- hosted multi-tenant SaaS
-- local agent installer สำหรับ remote apply
-- auth/tenant permissions
-- goal-based tuning / AI-assisted proposals
-- graph editor แบบลากแก้ทุก relationship เต็มระบบ
-- simulator ที่จำลอง runtime SCUM ได้เป๊ะ 100%
+Future work can still improve:
+
+- full graph editor for every relationship type
+- deeper runtime-accurate simulator
+- larger curated item catalog
+- more ready-made loot presets
+- smarter goal-based balancing
+
+## Credit
+
+Project credit: `KOGA.EXE`
+
+Built as a local-first SCUM server configuration manager with a bias toward readable UI, recoverable saves, and practical server-owner workflows.

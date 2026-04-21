@@ -737,6 +737,11 @@
   color: #ffb2b2;
 }
 
+.graph-viewport.connect-mode .graph-map-edge-action {
+  opacity: 0.22;
+  pointer-events: none;
+}
+
 .graph-editor-strip {
   display: flex;
   flex-wrap: wrap;

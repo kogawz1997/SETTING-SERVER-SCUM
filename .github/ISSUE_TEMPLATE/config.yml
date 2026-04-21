@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Latest portable release
+    url: https://github.com/kogawz1997/scum-server-config-manager/releases/latest
+    about: Download the newest local portable zip.
+  - name: Thai install guide
+    url: https://github.com/kogawz1997/scum-server-config-manager/blob/main/docs/INSTALL_TH.md
+    about: Read setup instructions before reporting first-run path problems.

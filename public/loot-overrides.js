@@ -2392,7 +2392,7 @@
         renderGraph();
         renderGraphFocus();
       };
-      button.onpointerdown = (event) => {
+      const startConnectDrag = (event) => {
         if (!state.graphUi.connectMode) return;
         const node = nodeMap.get(button.dataset.graphNodeId || '');
         if (node?.kind !== 'spawner') return;
@@ -2402,13 +2402,15 @@
         state.graphUi.selectedId = node.id;
         button.classList.add('connecting');
         updateGraphConnectPreview(event, button);
-        button.setPointerCapture(event.pointerId);
+        if (event.pointerId !== undefined && button.setPointerCapture) {
+          try { button.setPointerCapture(event.pointerId); } catch (_) { /* Mouse fallback still keeps preview usable. */ }
+        }
       };
-      button.onpointermove = (event) => {
+      const moveConnectDrag = (event) => {
         if (!state.graphUi.connectMode || state.graphUi.connectFromId !== button.dataset.graphNodeId) return;
         updateGraphConnectPreview(event, button);
       };
-      button.onpointerup = (event) => {
+      const endConnectDrag = (event) => {
         if (!state.graphUi.connectMode || !state.graphUi.connectFromId) return;
         const targetButton = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-graph-node-id]');
         const source = nodeMap.get(state.graphUi.connectFromId);
@@ -2418,7 +2420,17 @@
         if (target && target.id !== source?.id && prepareGraphConnection(source, target)) return;
         renderGraphFocus();
       };
+      button.onpointerdown = startConnectDrag;
+      button.onmousedown = startConnectDrag;
+      button.onpointermove = moveConnectDrag;
+      button.onmousemove = moveConnectDrag;
+      button.onpointerup = endConnectDrag;
+      button.onmouseup = endConnectDrag;
       button.onpointercancel = () => { button.classList.remove('connecting'); clearGraphConnectPreview(); };
+      button.onmouseleave = () => {
+        if (state.graphUi.connectMode && state.graphUi.connectFromId === button.dataset.graphNodeId) return;
+        button.classList.remove('connecting');
+      };
     });
     const zoomBy = (amount) => {
       state.graphUi.zoom = Math.max(0.45, Math.min(1.8, Number(((state.graphUi.zoom || 1) + amount).toFixed(2))));
