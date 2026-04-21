@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8 - 2026-04-21
+
+- Improve portable launcher self-checks, Graph relationship editing, curated item catalog metadata, simulator roll planning, and release workflow hardening.
+
 ## 1.0.7 - 2026-04-21
 
 - Split remaining workspace file/domain logic into focused services and tighten release guards.
