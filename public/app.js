@@ -244,7 +244,7 @@ function applyTranslations(){
   set('#settings-title', t('appSettings')); set('#settings-hint', t('appSettingsHint')); set('#settings-paths-title', uiText('โฟลเดอร์ทำงาน', 'Workspace paths')); set('#settings-paths-hint', uiText('ชี้ให้ถูกว่าหน้าไหนต้องแก้ไฟล์จากที่ไหน', 'Point each editor at the real folders it should work against.')); set('#label-scum-dir', t('scumConfigFolder')); set('#label-backup-dir', t('backupFolder')); set('#label-nodes-dir', uiText('โฟลเดอร์ Nodes', 'Nodes folder')); set('#label-spawners-dir', uiText('โฟลเดอร์ Spawners', 'Spawners folder')); set('#settings-paths-note', uiText('ปล่อย Nodes กับ Spawners ว่างไว้ได้ ถ้าต้องการใช้โฟลเดอร์ย่อยมาตรฐานใต้ SCUM config root', 'Leave Nodes and Spawners blank to use the default subfolders under the SCUM config root.')); set('#settings-commands-title', uiText('คำสั่งเสริม', 'Commands')); set('#settings-commands-hint', uiText('คำสั่งที่ให้ระบบช่วยรันหลัง save หรือ apply', 'Optional commands the app can run after a save or apply.')); set('#label-reload-cmd', t('reloadLootCommand')); set('#label-restart-cmd', t('restartServerCommand')); set('#label-autobackup', t('autoBackupCore')); set('#settings-status-title', uiText('สถานะการตั้งค่า', 'Setup status')); set('#settings-status-hint', uiText('ดูให้ชัดว่า root, loot folders และไฟล์หลักพร้อมจริงหรือยัง', 'See whether the root, loot folders, and required files are actually ready.')); set('#settings-discovery-title', uiText('โฟลเดอร์ที่น่าจะใช่', 'Likely folders')); set('#settings-discovery-hint', uiText('ตำแหน่งบน Windows ที่มักเจอ dedicated server config', 'Common Windows locations for a dedicated server config.')); set('#save-config-btn', t('saveAppConfig')); set('#check-config-btn', uiText('ตรวจโฟลเดอร์', 'Check folder')); set('#discover-config-btn', uiText('หาโฟลเดอร์ที่น่าจะใช่', 'Find likely folders'));
   set('#server-title', t('parsedServerSettings')); set('#server-hint', t('parsedHint')); setp('#server-field-filter', t('filterKeys')); set('#reload-server-parsed', t('reload')); set('#save-server-parsed', t('save')); set('#save-server-parsed-reload', t('saveReload')); const sectionFilter=$('server-section-filter'); if(sectionFilter){ const allOption=sectionFilter.querySelector('option[value="__all"]'); if(allOption) allOption.textContent=uiText('ทุกหมวด', 'All sections'); } const groupFilter=$('server-group-filter'); if(groupFilter){ const allOption=groupFilter.querySelector('option[value="__all"]'); if(allOption) allOption.textContent=uiText('ทุกกลุ่ม', 'All groups'); }
   const cH4=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) h4'); if(cH4) cH4.textContent=t('files'); const cP1=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) p.muted'); if(cP1) cP1.textContent=t('rawCoreHint'); const cH42=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) h4'); if(cH42) cH42.textContent=t('meta'); const cP2=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) p.muted'); if(cP2) cP2.textContent=t('metaHint'); const cEditP=document.querySelector('#view-corefiles .grid.three .card:nth-child(3) p.muted'); if(cEditP) cEditP.textContent=t('previewBeforeSaving'); if(state.selectedCorePath==='') set('#core-file-title', t('noFileSelected')); set('#core-preview-diff', t('previewDiff')); set('#core-save', t('save'));
-  const lH4=document.querySelector('#view-loot .grid.three .card:nth-child(1) h4'); if(lH4) lH4.textContent=t('lootFiles'); const lP=document.querySelector('#view-loot .grid.three .card:nth-child(1) p.muted'); if(lP) lP.textContent=t('lootHint'); const listHeads=document.querySelectorAll('#view-loot .list-head h5'); if(listHeads[0]) listHeads[0].textContent=t('nodes'); if(listHeads[1]) listHeads[1].textContent=t('spawners'); set('#new-node-btn', t('new')); set('#new-spawner-btn', t('new')); set('#loot-inspector-title', t('inspector')); set('#loot-inspector-hint', t('inspectorHint')); set('#loot-validation-title', t('validation')); set('#loot-autofix-preview', t('autoFixPreview')); set('#loot-autofix-apply', t('autoFixSave')); set('#loot-usedby-title', t('usedBy')); set('#loot-simulator-title', t('simulator')); set('#loot-kit-title', t('kitTemplates')); set('#simulate-btn', t('run')); document.querySelectorAll('[data-kit="ak"]').forEach(el=>el.textContent=t('akKit')); document.querySelectorAll('[data-kit="sniper"]').forEach(el=>el.textContent=t('sniperKit')); document.querySelectorAll('[data-kit="medical"]').forEach(el=>el.textContent=t('medicalKit')); if(!state.selectedLootPath) set('#loot-editor-title', t('noLootFileSelected')); const lootP=document.querySelector('#view-loot .grid.three .card:nth-child(3) p.muted'); if(lootP) lootP.textContent=t('visualSyncHint'); set('#loot-preview-diff', t('previewDiff')); set('#loot-save', t('save')); set('#loot-save-reload', t('saveReload')); set('#toggle-visual', t('visualBuilder')); set('#toggle-raw', t('rawJson')); set('#clone-loot', t('clone')); set('#delete-loot', t('delete')); document.querySelectorAll('[data-t-normalize]').forEach(el=>el.textContent=t('normalize')); document.querySelectorAll('[data-t-duplicate]').forEach(el=>el.textContent=t('duplicate')); document.querySelectorAll('[data-t-up]').forEach(el=>el.textContent=t('moveUp')); document.querySelectorAll('[data-t-down]').forEach(el=>el.textContent=t('moveDown')); document.querySelectorAll('[data-t-apply-draft]').forEach(el=>el.textContent=t('applyAutoFixDraft')); document.querySelectorAll('[data-t-quickadd]').forEach(el=>el.textContent=t('quickAdd'));
+  const lH4=document.querySelector('#view-loot .grid.three .card:nth-child(1) h4'); if(lH4) lH4.textContent=t('lootFiles'); const lP=document.querySelector('#view-loot .grid.three .card:nth-child(1) p.muted'); if(lP) lP.textContent=t('lootHint'); const listHeads=document.querySelectorAll('#view-loot .list-head h5'); if(listHeads[0]) listHeads[0].textContent=t('nodes'); if(listHeads[1]) listHeads[1].textContent=t('spawners'); set('#new-node-btn', t('new')); set('#new-spawner-btn', t('new')); set('#loot-inspector-title', t('inspector')); set('#loot-inspector-hint', t('inspectorHint')); set('#loot-validation-title', t('validation')); set('#loot-autofix-preview', t('autoFixPreview')); set('#loot-autofix-apply', t('autoFixSave')); set('#loot-usedby-title', t('usedBy')); set('#loot-simulator-title', t('simulator')); set('#loot-kit-title', t('kitTemplates')); set('#simulate-btn', t('run')); document.querySelectorAll('[data-kit="ak"]').forEach(el=>el.textContent=t('akKit')); document.querySelectorAll('[data-kit="sniper"]').forEach(el=>el.textContent=t('sniperKit')); document.querySelectorAll('[data-kit="medical"]').forEach(el=>el.textContent=t('medicalKit')); if(!state.selectedLootPath) set('#loot-editor-title', t('noLootFileSelected')); const lootP=document.querySelector('#view-loot .grid.three .card:nth-child(3) p.muted'); if(lootP) lootP.textContent=t('visualSyncHint'); set('#loot-preview-diff', t('previewDiff')); set('#loot-save', t('save')); set('#loot-save-reload', t('saveReload')); set('#toggle-visual', t('visualBuilder')); set('#toggle-split', uiText('แยกจอ', 'Split View')); set('#toggle-raw', t('rawJson')); set('#clone-loot', t('clone')); set('#delete-loot', t('delete')); document.querySelectorAll('[data-t-normalize]').forEach(el=>el.textContent=t('normalize')); document.querySelectorAll('[data-t-duplicate]').forEach(el=>el.textContent=t('duplicate')); document.querySelectorAll('[data-t-up]').forEach(el=>el.textContent=t('moveUp')); document.querySelectorAll('[data-t-down]').forEach(el=>el.textContent=t('moveDown')); document.querySelectorAll('[data-t-apply-draft]').forEach(el=>el.textContent=t('applyAutoFixDraft')); document.querySelectorAll('[data-t-quickadd]').forEach(el=>el.textContent=t('quickAdd'));
   set('#loot-shortcuts-title', uiText('เปิดเร็ว', 'Quick access')); set('#loot-shortcuts-hint', uiText('ปักไฟล์สำคัญและกลับไปไฟล์ล่าสุดได้เร็ว', 'Pin important files and reopen recent work fast.')); set('#loot-pinned-title', uiText('ปักไว้', 'Pinned')); set('#loot-recent-title', uiText('ล่าสุด', 'Recent')); renderLootShortcuts();
   set('#loot-nodes-title', t('nodes')); set('#loot-spawners-title', t('spawners')); set('#loot-file-scope-all', uiText('ทุกไฟล์', 'All files')); set('#loot-file-scope-nodes', uiText('เฉพาะ Nodes', 'Nodes only')); set('#loot-file-scope-spawners', uiText('เฉพาะ Spawners', 'Spawners only')); set('#loot-clear-search', uiText('ล้างค้นหา', 'Clear')); renderLootLists();
   set('#view-analyzer .grid.two .card:nth-child(1) h3', t('analyzerOverview')); set('#view-analyzer .grid.two .card:nth-child(1) p.muted', t('analyzerHint')); set('#refresh-analyzer', t('refresh')); set('#view-analyzer .grid.two .card:nth-child(2) h3', t('warnings')); set('#view-analyzer .grid.two .card:nth-child(2) p.muted', t('warningHint')); const warnHeads=document.querySelectorAll('#view-analyzer .grid.two .card:nth-child(2) h4'); if(warnHeads[0]) warnHeads[0].textContent=t('missingNodeReferences'); if(warnHeads[1]) warnHeads[1].textContent=t('unusedNodes'); const topCard=document.querySelector('#view-analyzer > .card:last-child h3'); if(topCard) topCard.textContent=t('topItems'); const topCardP=document.querySelector('#view-analyzer > .card:last-child p.muted'); if(topCardP) topCardP.textContent=t('topItemsHint');
@@ -323,8 +323,32 @@ function setLootSaveBusy(busy){
 }
 function getLootDraftContent(){
   if(!$('loot-editor')) return '';
-  if($('loot-editor').classList.contains('hidden')) return fmtJson(state.currentLootObject || {});
-  return $('loot-editor').value;
+  return state.lootUi.editorMode === 'raw' ? $('loot-editor').value : fmtJson(state.currentLootObject || {});
+}
+function normalizeLootEditorMode(mode){
+  return ['visual', 'split', 'raw'].includes(mode) ? mode : 'visual';
+}
+function applyLootEditorModeDom(){
+  const mode = normalizeLootEditorMode(state.lootUi.editorMode);
+  state.lootUi.editorMode = mode;
+  const visual = $('visual-builder');
+  const raw = $('loot-editor');
+  const stage = document.querySelector('.loot-stage');
+  if(visual) visual.classList.toggle('hidden', mode === 'raw');
+  if(raw){
+    raw.classList.toggle('hidden', mode === 'visual');
+    raw.readOnly = mode === 'split';
+    raw.classList.toggle('readonly-preview', mode === 'split');
+    if(mode === 'split') raw.value = fmtJson(state.currentLootObject || {});
+  }
+  if(stage) stage.classList.toggle('loot-stage-split', mode === 'split');
+  $('toggle-visual')?.classList.toggle('active', mode === 'visual');
+  $('toggle-split')?.classList.toggle('active', mode === 'split');
+  $('toggle-raw')?.classList.toggle('active', mode === 'raw');
+}
+function refreshSplitRawPreview(){
+  if(state.lootUi.editorMode !== 'split' || !$('loot-editor')) return;
+  $('loot-editor').value = fmtJson(state.currentLootObject || {});
 }
 function refreshLootDirtyState(){
   const dirty = Boolean(state.selectedLootPath) && getLootDraftContent() !== (state.currentLootContent || '');
@@ -342,6 +366,7 @@ function updateLootWorkspaceLayout(){
   view.classList.toggle('loot-hide-files', !state.lootUi.showFiles && !state.lootUi.focusMode);
   view.classList.toggle('loot-hide-inspector', !state.lootUi.showInspector && !state.lootUi.focusMode);
   view.classList.toggle('loot-focus-mode', !!state.lootUi.focusMode);
+  applyLootEditorModeDom();
   const fileButton = $('loot-files-toggle');
   if(fileButton) fileButton.classList.toggle('active', !!state.lootUi.showFiles && !state.lootUi.focusMode);
   const contextButton = $('loot-inspector-toggle');
@@ -395,23 +420,14 @@ function syncRawEditorToVisualBuilder(){
   }
 }
 function setLootEditorMode(mode){
-  if(mode === state.lootUi.editorMode){
-    updateLootWorkspaceCopy();
-    return;
-  }
-  if(mode === 'visual'){
-    if(!$('loot-editor').classList.contains('hidden') && !syncRawEditorToVisualBuilder()) return;
-    $('visual-builder').classList.remove('hidden');
-    $('loot-editor').classList.add('hidden');
-    state.lootUi.editorMode = 'visual';
-  } else {
+  const nextMode = normalizeLootEditorMode(mode);
+  const currentMode = normalizeLootEditorMode(state.lootUi.editorMode);
+  if(currentMode === 'raw' && nextMode !== 'raw' && !syncRawEditorToVisualBuilder()) return;
+  state.lootUi.editorMode = nextMode;
+  if((nextMode === 'raw' || nextMode === 'split') && $('loot-editor')){
     $('loot-editor').value = fmtJson(state.currentLootObject || {});
-    $('visual-builder').classList.add('hidden');
-    $('loot-editor').classList.remove('hidden');
-    state.lootUi.editorMode = 'raw';
   }
-  $('toggle-visual')?.classList.toggle('active', state.lootUi.editorMode === 'visual');
-  $('toggle-raw')?.classList.toggle('active', state.lootUi.editorMode === 'raw');
+  applyLootEditorModeDom();
   refreshLootDirtyState();
 }
 function normalizeRoutePath(pathname = window.location.pathname){
@@ -1118,9 +1134,7 @@ async function saveLoot(reloadAfter=false){
   if(!state.selectedLootPath) return showToast(uiText('เลือกไฟล์ลูทก่อน', 'Select a loot file first'), true);
   setLootSaveBusy(true);
   try {
-    const content = $('loot-editor').classList.contains('hidden')
-      ? fmtJson(state.currentLootObject || {})
-      : $('loot-editor').value;
+    const content = getLootDraftContent();
     const data = await api('/api/file', { method:'PUT', body: JSON.stringify({ path: state.selectedLootPath, content, reloadAfter }) });
     state.currentLootContent = content;
     state.lootUi.dirty = false;
@@ -1704,21 +1718,22 @@ function bindEvents(){
   if($('loot-clear-search')) $('loot-clear-search').onclick=()=>{ $('loot-search').value=''; renderLootLists(); };
   $('new-node-btn').onclick=()=>createLootFile('nodes');
   $('new-spawner-btn').onclick=()=>createLootFile('spawners');
-  $('loot-preview-diff').onclick=()=>previewDiff(state.selectedLootPath, $('loot-editor').classList.contains('hidden') ? fmtJson(state.currentLootObject) : $('loot-editor').value);
+  $('loot-preview-diff').onclick=()=>previewDiff(state.selectedLootPath, getLootDraftContent());
   $('loot-save').onclick=()=>saveLoot(false);
   $('loot-save-reload').onclick=()=>saveLoot(true);
   $('simulate-btn').onclick=simulateLoot;
   $('clone-loot').onclick=cloneLootFile;
   $('delete-loot').onclick=deleteLootFile;
   $('toggle-visual').onclick=()=>setLootEditorMode('visual');
+  $('toggle-split').onclick=()=>setLootEditorMode('split');
   $('toggle-raw').onclick=()=>setLootEditorMode('raw');
   $('loot-files-toggle').onclick=()=>{ if(state.lootUi.focusMode) state.lootUi.focusMode = false; state.lootUi.showFiles = !state.lootUi.showFiles; updateLootWorkspaceLayout(); };
   $('loot-inspector-toggle').onclick=()=>{ if(state.lootUi.focusMode) state.lootUi.focusMode = false; state.lootUi.showInspector = !state.lootUi.showInspector; updateLootWorkspaceLayout(); };
   $('loot-focus-toggle').onclick=()=>{ state.lootUi.focusMode = !state.lootUi.focusMode; if(!state.lootUi.focusMode){ state.lootUi.showFiles = true; state.lootUi.showInspector = true; } updateLootWorkspaceLayout(); };
   $('loot-reset-layout').onclick=()=>{ state.lootUi.focusMode = false; state.lootUi.showFiles = true; state.lootUi.showInspector = true; updateLootWorkspaceLayout(); };
   $('loot-editor').oninput=()=>refreshLootDirtyState();
-  $('visual-builder').addEventListener('input', ()=>refreshLootDirtyState(), true);
-  $('visual-builder').addEventListener('change', ()=>refreshLootDirtyState(), true);
+  $('visual-builder').addEventListener('input', ()=>{ refreshSplitRawPreview(); refreshLootDirtyState(); });
+  $('visual-builder').addEventListener('change', ()=>{ refreshSplitRawPreview(); refreshLootDirtyState(); });
   document.querySelectorAll('[data-kit]').forEach((b)=>b.onclick=()=>applyKit(b.dataset.kit));
   $('refresh-analyzer').onclick=loadAnalyzer; $('refresh-graph').onclick=loadGraph; $('graph-filter').oninput=()=>loadGraph().catch(err=>showToast(err.message,true)); $('loot-autofix-preview').onclick=()=>lootAutoFix(false); $('loot-autofix-apply').onclick=()=>lootAutoFix(true);
   $('profile-create').onclick=createProfile; $('refresh-profiles').onclick=async()=>{ await loadProfiles(); await loadRotation(); }; $('profile-apply').onclick=applySelectedProfile; $('profile-delete').onclick=deleteSelectedProfile; $('rotation-save').onclick=saveRotation; $('rotation-run').onclick=runRotationNow;

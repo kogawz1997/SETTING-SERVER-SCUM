@@ -1,6 +1,6 @@
 # SETTING SERVER SCUM
 
-Current local-ready level: `P2.10`. Loot Studio now has spawner group and item row workbenches for long loot lists, file scope filters, visible file counts, recent/pinned quick access, shareable links like `/loot-studio?file=Spawners/...`, and Analyzer/Search can open the exact loot file that needs work.
+Current local-ready level: `P2.11`. Loot Studio now has clear Builder / Split / Raw editor modes, spawner group and item row workbenches for long loot lists, file scope filters, visible file counts, recent/pinned quick access, shareable links like `/loot-studio?file=Spawners/...`, and Analyzer/Search can open the exact loot file that needs work.
 
 เครื่องมือเว็บสำหรับคนดูแลเซิร์ฟเวอร์ SCUM ที่ไม่อยากนั่งไล่แก้ `INI` / `JSON` ดิบๆ แล้วลุ้นว่าเซิร์ฟจะพังไหมตอนกด save
 
@@ -16,7 +16,7 @@ Current local-ready level: `P2.10`. Loot Studio now has spawner group and item r
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.10` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.11` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
@@ -25,6 +25,7 @@ Current local-ready level: `P2.10`. Loot Studio now has spawner group and item r
 - Server Settings สำหรับแก้ `ServerSettings.ini` แบบแยกหมวด มี dropdown/filter, คำอธิบายใต้ field และ True/False เป็นตัวเลือก
 - Core Files สำหรับเปิดแก้ `GameUserSettings.ini` และ `EconomyOverride.json`
 - Loot Studio สำหรับแก้ `Nodes/*.json` และ `Spawners/*.json`
+- Loot Studio มีโหมด `Visual Builder / Split View / Raw JSON` เพื่อไม่ให้ตัวแก้แบบภาพกับ JSON ดิบกองซ้อนกันตลอดเวลา
 - Loot Studio มี spawner group workbench สำหรับค้นหา ref, ล้างคำค้น และยุบ/เปิด Node groups ที่เห็นในไฟล์ spawner ยาวๆ
 - Loot Studio มี item row workbench สำหรับค้นหาแถวไอเท็ม ล้างคำค้น และยุบ/เปิดแถวที่เห็นในไฟล์ยาวๆ
 - Loot Studio มีตัวกรองไฟล์ `All / Nodes / Spawners`, ตัวนับไฟล์ที่แสดงอยู่ และปุ่มล้าง search เพื่อลดลิสต์ยาวๆ

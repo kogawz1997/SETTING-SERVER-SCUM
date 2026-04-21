@@ -7,6 +7,7 @@ async function openLootFileFromRail(page, relPath) {
   await page.locator('.nav[data-view="loot"]').click();
   await expect(page.locator('[data-loot-path]').first()).toBeVisible({ timeout: 60000 });
   await page.locator(`[data-loot-path="${relPath}"]`).click();
+  await expect(page.locator('#loot-editor-title')).toContainText(relPath, { timeout: 60000 });
 }
 
 test('spawner simple mode keeps advanced fields hidden until requested', async ({ page }) => {
@@ -85,6 +86,37 @@ test('loot context tabs keep support data separated instead of stacking every pa
   await page.locator('[data-loot-context-tab="simulator"]').click();
   await expect(page.locator('[data-loot-context-panel="simulator"]')).toBeVisible();
   await expect(page.locator('#simulate-output')).toBeVisible();
+});
+
+test('loot editor mode switch separates builder raw and split views', async ({ page }) => {
+  await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
+
+  await expect(page.locator('#visual-builder')).toBeVisible();
+  await expect(page.locator('#loot-editor')).toBeHidden();
+  await expect(page.locator('#toggle-visual')).toHaveClass(/active/);
+
+  await page.locator('#toggle-split').scrollIntoViewIfNeeded();
+  await page.locator('#toggle-split').click();
+  await expect(page.locator('#visual-builder')).toBeVisible();
+  await expect(page.locator('#loot-editor')).toBeVisible();
+  await expect(page.locator('#loot-editor')).toHaveJSProperty('readOnly', true);
+  await expect(page.locator('.loot-stage')).toHaveClass(/loot-stage-split/);
+
+  await page.locator('[data-entry-name="0"]').fill('__Split_Mode_Item__');
+  await expect(page.locator('#loot-editor')).toHaveValue(/__Split_Mode_Item__/);
+
+  await page.locator('#toggle-raw').scrollIntoViewIfNeeded();
+  await page.locator('#toggle-raw').click();
+  await expect(page.locator('#visual-builder')).toBeHidden();
+  await expect(page.locator('#loot-editor')).toBeVisible();
+  await expect(page.locator('#loot-editor')).toHaveJSProperty('readOnly', false);
+  await expect(page.locator('.loot-stage')).not.toHaveClass(/loot-stage-split/);
+
+  await page.locator('#toggle-visual').scrollIntoViewIfNeeded();
+  await page.locator('#toggle-visual').click();
+  await expect(page.locator('#visual-builder')).toBeVisible();
+  await expect(page.locator('#loot-editor')).toBeHidden();
+  await expect(page.locator('[data-entry-name="0"]')).toHaveValue('__Split_Mode_Item__');
 });
 
 test('flat item rows show icon identity for item-based loot files', async ({ page }) => {

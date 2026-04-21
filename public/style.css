@@ -676,6 +676,23 @@ label > span {
     radial-gradient(circle at top right, rgba(95, 224, 191, 0.12), transparent 36%);
 }
 
+.loot-stage.loot-stage-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.loot-stage.loot-stage-split #visual-builder,
+.loot-stage.loot-stage-split #loot-editor {
+  min-width: 0;
+}
+
+#loot-editor.readonly-preview {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
 .loot-stage .editor {
   min-height: 520px;
 }
@@ -1949,6 +1966,7 @@ input[type="range"] {
   .visual-main,
   .builder-guide-grid,
   .loot-inline-grid,
+  .loot-stage.loot-stage-split,
   .tree-node-summary {
     grid-template-columns: 1fr;
   }
