@@ -176,23 +176,23 @@ assertIncludes('src/server/package-manager.cjs', ['sanitizePortableConfig', 'rem
 assertIncludesAny('README.md', 'first-time setup instructions', ['First-Time Setup', 'วิธีตั้งค่าครั้งแรก']);
 assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบบกันพัง']);
 assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
-assertIncludes('README.md', ['P2.12', 'docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
+assertIncludes('README.md', ['P2.13', 'docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
 assertIncludes('README.md', ['docs/QUICK_START.md', 'npm run release:quality', 'CHANGELOG.md']);
-assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.cmd']);
+assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.exe', 'Start SETTING SERVER SCUM.cmd']);
 assertIncludes('CHANGELOG.md', ['## 1.0.0']);
 assertIncludes('docs/RELEASE_QUALITY.md', ['npm run release:quality', 'config/package roundtrip']);
 assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
 assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable']);
 assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt']);
-assertIncludes('docs/P2_3_STATUS.md', ['P2.12', 'broken-copy guardrails']);
-assertIncludes('docs/USAGE_GUIDE.md', ['P2.12 final local polish']);
+assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
+assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);
 assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/app.js', ['normalizeLootEditorMode', 'applyLootEditorModeDom', 'refreshSplitRawPreview']);
-assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'loot-setup-wizard', 'downloadSupportBundle']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'graph-connect-mode', 'loot-setup-wizard', 'downloadSupportBundle']);
 assertIncludes('public/style.css', ['loot-stage-split', 'readonly-preview']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'loot-wizard-grid']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'connect-mode', 'loot-wizard-grid']);
 [
   'README.md',
   'docs/P2_3_STATUS.md',

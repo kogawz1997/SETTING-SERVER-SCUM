@@ -67,13 +67,17 @@ test('dashboard readiness preflight renders actionable checks', async ({ page })
   await expect(page.locator('#view-dashboard .hero')).not.toContainText(/landfill|betrayed|explodes/);
   await expect(page.locator('#view-dashboard .hero')).toContainText(/applying changes|apply/);
   await expect(page.locator('#readiness-panel')).toBeVisible();
+  await expect(page.locator('#readiness-panel details.assist-collapse')).toBeVisible({ timeout: 60000 });
+  await page.locator('#readiness-panel details.assist-collapse > summary').click();
   await expect(page.locator('.readiness-score')).toBeVisible({ timeout: 60000 });
   await expect(page.locator('#quick-start-panel')).toBeVisible();
+  await page.locator('#quick-start-panel details.assist-collapse > summary').click();
   await expect(page.locator('.quick-start-step')).toHaveCount(7);
   await page.locator('[data-quick-view="settings"]').first().click();
   await expect(page.locator('#view-settings')).toBeVisible();
   await page.locator('.nav[data-view="dashboard"]').click();
   await expect(page.locator('#diagnostics-panel')).toBeVisible();
+  await page.locator('#diagnostics-panel details.assist-collapse > summary').click();
   await page.locator('#diagnostics-include-paths').uncheck();
   await page.locator('#generate-diagnostics').click();
   await expect(page.locator('#diagnostics-output')).toContainText(/"readiness"|"loot"/);
@@ -151,6 +155,9 @@ test('graph view has interactive focus and zoom controls', async ({ page }) => {
   await expect(page.locator('.graph-toolbar')).toBeVisible();
   await expect(page.locator('.graph-help-strip')).toBeVisible();
   await expect(page.locator('.graph-viewport')).toBeVisible();
+  await expect(page.locator('#graph-connect-mode')).toBeVisible();
+  await page.locator('#graph-connect-mode').click();
+  await expect(page.locator('.graph-viewport')).toHaveClass(/connect-mode/);
   const firstNode = page.locator('.graph-map-node').first();
   await expect(firstNode).toBeVisible({ timeout: 60000 });
   await firstNode.click();

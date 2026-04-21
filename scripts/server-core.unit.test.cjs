@@ -209,3 +209,46 @@ test('local polish utilities summarize risky saves and build sanitized support z
   assert.equal(DEFAULT_ITEM_CATALOG_PACK.some((item) => item.tags.includes('weapon')), true);
   assert.equal(DEFAULT_KIT_TEMPLATE_LIBRARY.some((kit) => kit.locked && /solo/i.test(kit.id)), true);
 });
+
+test('P2.13 built-in loot presets cover common server playstyles', () => {
+  const { DEFAULT_KIT_TEMPLATE_LIBRARY, LOOT_TUNING_PRESETS } = require('../src/server/local-polish.cjs');
+  const kitIds = new Set(DEFAULT_KIT_TEMPLATE_LIBRARY.map((kit) => kit.id));
+  const tuningIds = new Set(LOOT_TUNING_PRESETS.map((preset) => preset.id));
+
+  [
+    'preset_solo_starter',
+    'preset_pvp_fight',
+    'preset_hardcore_poor',
+    'preset_bunker_rich',
+    'preset_survival_poor',
+    'preset_medical_relief',
+    'preset_police_station',
+    'preset_starter_friendly',
+    'preset_vehicle_support',
+    'preset_rare_weapons_low',
+  ].forEach((id) => assert.equal(kitIds.has(id), true, `missing kit ${id}`));
+
+  [
+    'solo_balanced',
+    'pvp_hot',
+    'hardcore_sparse',
+    'bunker_rich',
+    'survival_poor',
+    'medical_relief',
+    'police_station',
+    'starter_friendly',
+    'vehicle_support',
+    'rare_weapons_low',
+  ].forEach((id) => assert.equal(tuningIds.has(id), true, `missing tuning preset ${id}`));
+});
+
+test('P2.13 launcher has buildable Windows EXE source', () => {
+  const root = path.resolve(__dirname, '..');
+  const csproj = path.join(root, 'launcher', 'SettingServerScumLauncher', 'SettingServerScumLauncher.csproj');
+  const program = path.join(root, 'launcher', 'SettingServerScumLauncher', 'Program.cs');
+
+  assert.equal(fs.existsSync(csproj), true);
+  assert.equal(fs.existsSync(program), true);
+  assert.match(fs.readFileSync(program, 'utf8'), /Start SETTING SERVER SCUM\.ps1/);
+  assert.match(fs.readFileSync(program, 'utf8'), /ProcessStartInfo/);
+});

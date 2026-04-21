@@ -32,7 +32,7 @@ Output folder:
 dist/SETTING-SERVER-SCUM-local
 ```
 
-Give users the folder and tell them to double-click `Start SETTING SERVER SCUM.cmd`.
+Give users the folder and tell them to double-click `Start SETTING SERVER SCUM.exe`. If Windows blocks the EXE, use `Start SETTING SERVER SCUM.cmd` as the fallback.
 
 GitHub release automation:
 

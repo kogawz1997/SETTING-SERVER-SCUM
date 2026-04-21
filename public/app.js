@@ -724,6 +724,37 @@ function onboardingStep(index, title, done, body, action = ''){
   return `<div class="onboarding-step ${done ? 'done' : ''}"><div class="onboarding-index">${index}</div><div><div class="info-pair"><strong>${escapeHtml(title)}</strong><span class="pill ${done ? 'good' : 'bad'}">${escapeHtml(done ? uiText('ผ่านแล้ว', 'Done') : uiText('ต้องทำ', 'Needs action'))}</span></div><p class="muted">${escapeHtml(body)}</p>${action ? `<div class="actions tight wrap">${action}</div>` : ''}</div></div>`;
 }
 
+const assistCollapsePrefix = 'scum_assist_collapsed_';
+
+function isAssistCollapsed(key, fallback = true) {
+  try {
+    const stored = localStorage.getItem(`${assistCollapsePrefix}${key}`);
+    if (stored === '1') return true;
+    if (stored === '0') return false;
+  } catch {}
+  return fallback;
+}
+
+function setAssistCollapsed(key, collapsed) {
+  try {
+    localStorage.setItem(`${assistCollapsePrefix}${key}`, collapsed ? '1' : '0');
+  } catch {}
+}
+
+function collapsibleAssistPanel(key, title, body, badge, content, options = {}) {
+  const collapsed = isAssistCollapsed(key, options.defaultCollapsed !== false);
+  const tone = options.tone || '';
+  const className = options.className || '';
+  const badgeClass = options.badgeClass || 'tag';
+  return `<details class="assist-collapse ${escapeHtml(className)} ${escapeHtml(tone)}" data-assist-collapse="${escapeHtml(key)}"${collapsed ? '' : ' open'}><summary><div><h3>${escapeHtml(title)}</h3>${body ? `<p class="muted">${escapeHtml(body)}</p>` : ''}</div><span class="${escapeHtml(badgeClass)}">${escapeHtml(badge)}</span><span class="assist-collapse-hint" data-open-label="${escapeHtml(uiText('ซ่อน', 'Hide'))}" data-closed-label="${escapeHtml(uiText('เปิดดู', 'Open'))}"></span></summary><div class="assist-collapse-body">${content}</div></details>`;
+}
+
+function bindAssistCollapses(root = document) {
+  root.querySelectorAll('details[data-assist-collapse]').forEach((details) => {
+    details.ontoggle = () => setAssistCollapsed(details.dataset.assistCollapse, !details.open);
+  });
+}
+
 function renderOnboardingWizard(data){
   const el = $('onboarding-wizard');
   if(!el) return;
@@ -745,7 +776,17 @@ function renderOnboardingWizard(data){
     onboardingStep(6, uiText('สร้าง backup แรก', 'Create first backup'), hasBackup, uiText('ก่อนแก้ไฟล์จริงควรมี backup อย่างน้อยหนึ่งชุด', 'Before editing real files, keep at least one backup.'), `<button id="onboarding-first-backup" class="ghost tiny">${escapeHtml(uiText('สร้าง backup', 'Create backup'))}</button>`),
     onboardingStep(7, uiText('เปิด dashboard', 'Open dashboard'), Boolean(data?.health?.ready), uiText('กลับไปดู Preflight ถ้ามี critical ให้แก้ก่อน save ไฟล์จริง', 'Return to Preflight and fix critical issues before saving real files.'), `<button id="onboarding-dashboard" class="tiny">${escapeHtml(uiText('ไป Dashboard', 'Go to Dashboard'))}</button>`),
   ];
-  el.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('ตัวช่วยตั้งค่าครั้งแรก', 'First-run onboarding'))}</h3><p class="muted">${escapeHtml(uiText('ทำตาม 7 ขั้นนี้เพื่อให้คนที่ไม่รู้ path ก็เริ่มใช้ได้โดยไม่เอาไฟล์จริงไปเสี่ยงก่อน', 'Follow these 7 steps so a new user can start without risking real files first.'))}</p></div><span class="tag">${escapeHtml(`${steps.filter((step)=>step.includes('class="onboarding-step done"')).length}/7`)}</span></div><div class="onboarding-steps">${steps.join('')}</div><div class="muted small">${escapeHtml(uiText(`Sample path: ${samplePath}`, `Sample path: ${samplePath}`))}</div>`;
+  const doneCount = steps.filter((step)=>step.includes('class="onboarding-step done"')).length;
+  const content = `<div class="onboarding-steps">${steps.join('')}</div><div class="muted small">${escapeHtml(uiText(`Sample path: ${samplePath}`, `Sample path: ${samplePath}`))}</div>`;
+  el.innerHTML = collapsibleAssistPanel(
+    'settings-onboarding',
+    uiText('ตัวช่วยตั้งค่าครั้งแรก', 'First-run onboarding'),
+    uiText('ถ้าตั้งค่าเป็นแล้วพับเก็บไว้ได้ เปิดดูเฉพาะตอนต้องตั้งเครื่องใหม่', 'Collapse this once you know the setup. Open it again only when setting up a new machine.'),
+    `${doneCount}/7`,
+    content,
+    { className: 'onboarding-collapse', tone: doneCount >= 6 ? 'good' : 'warn' }
+  );
+  bindAssistCollapses(el);
   if($('onboarding-lang-th')) $('onboarding-lang-th').onclick=()=>{ setLanguage('th'); renderOnboardingWizard(state.bootstrap); };
   if($('onboarding-lang-en')) $('onboarding-lang-en').onclick=()=>{ setLanguage('en'); renderOnboardingWizard(state.bootstrap); };
   if($('onboarding-discover')) $('onboarding-discover').onclick=()=>discoverConfigFolders().catch((error)=>showToast(error.message, true));
@@ -880,7 +921,18 @@ function renderCommandAssist(){
     const templates = commandTemplateMeta(kind);
     return `<div class="command-assist-card ${tone}"><div class="section-head compact"><div><h4>${escapeHtml(title)}</h4><p class="muted">${escapeHtml(hint)}</p></div><span class="pill ${tone === 'good' ? 'good' : tone === 'bad' ? 'bad' : ''}">${escapeHtml(status)}</span></div><div class="command-assist-meta"><div class="path-line">${view.command.trim() ? `<code>${escapeHtml(view.command)}</code>` : `<span class="muted">${escapeHtml(uiText('ยังไม่ได้กำหนดคำสั่ง', 'No command set yet.'))}</span>`}</div><ul class="setup-list compact-list">${advice.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div><div class="actions tight wrap"><button class="ghost tiny" data-check-command="${kind}">${escapeHtml(uiText('Check command', 'Check command'))}</button><button class="ghost tiny" data-clear-command="${kind}">${escapeHtml(uiText('ล้างช่องนี้', 'Clear field'))}</button></div><details class="command-example-box"><summary>${escapeHtml(uiText('ดูรูปแบบคำสั่งที่ใส่ได้', 'See valid command formats'))}</summary><div class="command-example-grid">${templates.map((template) => `<div class="command-template-card"><strong>${escapeHtml(template.label)}</strong><div class="muted small">${escapeHtml(template.hint)}</div><code>${escapeHtml(template.value)}</code><div class="actions tight"><button class="ghost tiny" data-command-template="${kind}" data-template-kind="${template.key}">${escapeHtml(uiText('ใช้ template นี้', 'Use this template'))}</button></div></div>`).join('')}</div></details></div>`;
   }).join('');
-  host.innerHTML = `<div class="command-assist-grid">${cards}</div>`;
+  const commandViews = ['reload', 'restart'].map((kind) => commandDraftState(kind));
+  const readyCount = commandViews.filter((view) => view.inspection?.runnable).length;
+  const content = `<div class="command-assist-grid">${cards}</div>`;
+  host.innerHTML = collapsibleAssistPanel(
+    'settings-command-assist',
+    uiText('ตัวช่วยเช็กคำสั่ง reload / restart', 'Command setup helper'),
+    uiText('ส่วนนี้ยาวเพราะมีตัวอย่างคำสั่ง พับไว้ได้ถ้าไม่ใช้ปุ่ม Save + Reload', 'This section is long because it includes command examples. Collapse it if you do not use Save + Reload.'),
+    `${readyCount}/2`,
+    content,
+    { className: 'command-assist-collapse', tone: readyCount ? 'good' : 'warn' }
+  );
+  bindAssistCollapses(host);
   document.querySelectorAll('[data-check-command]').forEach((button) => {
     button.onclick = () => checkCommandDraft(button.dataset.checkCommand);
   });
@@ -976,7 +1028,17 @@ function renderSettingsStatusSummary(data){
       hint: commandStatusHint(commandHealth.restart, 'restart')
     }
   ];
-  el.innerHTML = rows.map((row)=>`<div class="status-panel ${row.good ? 'good' : 'bad'}"><div class="info-pair"><strong>${escapeHtml(row.label)}</strong><span class="pill ${row.good ? 'good' : 'bad'}">${escapeHtml(row.good ? uiText('พร้อม', 'Ready') : uiText('ต้องเช็ก', 'Needs attention'))}</span></div><div class="path-line">${row.path ? `<code>${escapeHtml(row.path)}</code>` : `<span class="muted">${escapeHtml(uiText('ยังไม่ได้กำหนด', 'Not configured yet.'))}</span>`}</div><div class="muted">${escapeHtml(row.hint)}</div></div>`).join('');
+  const readyRows = rows.filter((row) => row.good).length;
+  const content = rows.map((row)=>`<div class="status-panel ${row.good ? 'good' : 'bad'}"><div class="info-pair"><strong>${escapeHtml(row.label)}</strong><span class="pill ${row.good ? 'good' : 'bad'}">${escapeHtml(row.good ? uiText('พร้อม', 'Ready') : uiText('ต้องเช็ก', 'Needs attention'))}</span></div><div class="path-line">${row.path ? `<code>${escapeHtml(row.path)}</code>` : `<span class="muted">${escapeHtml(uiText('ยังไม่ได้กำหนด', 'Not configured yet.'))}</span>`}</div><div class="muted">${escapeHtml(row.hint)}</div></div>`).join('');
+  el.innerHTML = collapsibleAssistPanel(
+    'settings-status-summary',
+    uiText('สรุปสถานะ path และคำสั่ง', 'Path and command status'),
+    uiText('ดูแบบย่อพอ ถ้าต้องไล่ปัญหาค่อยเปิดรายละเอียด', 'Keep this compact. Open details only when troubleshooting.'),
+    `${readyRows}/${rows.length}`,
+    content,
+    { className: 'settings-status-collapse', tone: readyRows === rows.length ? 'good' : 'warn' }
+  );
+  bindAssistCollapses(el);
   renderCommandAssist();
   applyCommandActionState();
 }
@@ -991,10 +1053,29 @@ function renderConfigDiscovery(data){
   }
   const found = data?.found || [];
   if(!found.length){
-    el.innerHTML = `<div class="path-result bad"><h4>${escapeHtml(uiText('หาโฟลเดอร์อัตโนมัติ', 'Likely SCUM folders'))}</h4><div class="muted">${escapeHtml(uiText('ยังไม่เจอโฟลเดอร์ SCUM ใน path มาตรฐานของ Windows ให้ลองวาง path เองแล้วกดตรวจโฟลเดอร์', 'No likely SCUM config folders were found in common Windows locations. Paste a path manually and use Check folder.'))}</div></div>`;
+    const content = `<div class="path-result bad"><h4>${escapeHtml(uiText('หาโฟลเดอร์อัตโนมัติ', 'Likely SCUM folders'))}</h4><div class="muted">${escapeHtml(uiText('ยังไม่เจอโฟลเดอร์ SCUM ใน path มาตรฐานของ Windows ให้ลองวาง path เองแล้วกดตรวจโฟลเดอร์', 'No likely SCUM config folders were found in common Windows locations. Paste a path manually and use Check folder.'))}</div></div>`;
+    el.innerHTML = collapsibleAssistPanel(
+      'settings-discovery-results',
+      uiText('ผลค้นหาโฟลเดอร์อัตโนมัติ', 'Likely folder search results'),
+      uiText('เปิดดูเฉพาะตอนต้องหา path ใหม่', 'Open this only when finding a new path.'),
+      '0',
+      content,
+      { className: 'settings-discovery-collapse', tone: 'warn', defaultCollapsed: false }
+    );
+    bindAssistCollapses(el);
     return;
   }
-  el.innerHTML = found.map((inspection)=>`<div class="path-result ${inspection.ready ? 'good' : 'bad'}"><h4>${escapeHtml(inspection.ready ? uiText('โฟลเดอร์ที่พร้อมใช้งาน', 'Ready folder') : uiText('โฟลเดอร์ที่เจอ', 'Found folder'))}</h4><div class="path-line"><code>${escapeHtml(inspection.path)}</code></div><div class="pill-row"><span class="pill ${inspection.ready ? 'good' : 'bad'}">${escapeHtml(inspection.ready ? uiText('พร้อมแก้ไฟล์', 'Ready for editing') : uiText('เจอ path แต่ไฟล์ยังไม่ครบ', 'Path exists but required files are missing'))}</span></div><div class="path-actions"><button data-use-config-path="${escapeHtml(inspection.path)}">${escapeHtml(uiText('ใช้ path นี้', 'Use this path'))}</button><button data-check-config-path="${escapeHtml(inspection.path)}" class="ghost">${escapeHtml(uiText('ตรวจซ้ำ', 'Check again'))}</button></div></div>`).join('');
+  const readyCount = found.filter((inspection) => inspection.ready).length;
+  const content = found.map((inspection)=>`<div class="path-result ${inspection.ready ? 'good' : 'bad'}"><h4>${escapeHtml(inspection.ready ? uiText('โฟลเดอร์ที่พร้อมใช้งาน', 'Ready folder') : uiText('โฟลเดอร์ที่เจอ', 'Found folder'))}</h4><div class="path-line"><code>${escapeHtml(inspection.path)}</code></div><div class="pill-row"><span class="pill ${inspection.ready ? 'good' : 'bad'}">${escapeHtml(inspection.ready ? uiText('พร้อมแก้ไฟล์', 'Ready for editing') : uiText('เจอ path แต่ไฟล์ยังไม่ครบ', 'Path exists but required files are missing'))}</span></div><div class="path-actions"><button data-use-config-path="${escapeHtml(inspection.path)}">${escapeHtml(uiText('ใช้ path นี้', 'Use this path'))}</button><button data-check-config-path="${escapeHtml(inspection.path)}" class="ghost">${escapeHtml(uiText('ตรวจซ้ำ', 'Check again'))}</button></div></div>`).join('');
+  el.innerHTML = collapsibleAssistPanel(
+    'settings-discovery-results',
+    uiText('ผลค้นหาโฟลเดอร์อัตโนมัติ', 'Likely folder search results'),
+    uiText('เปิดดูเฉพาะตอนต้องหา path ใหม่', 'Open this only when finding a new path.'),
+    `${readyCount}/${found.length}`,
+    content,
+    { className: 'settings-discovery-collapse', tone: readyCount ? 'good' : 'warn', defaultCollapsed: false }
+  );
+  bindAssistCollapses(el);
   document.querySelectorAll('[data-use-config-path]').forEach((button)=>button.onclick=()=>applyDiscoveredPath(button.dataset.useConfigPath));
   document.querySelectorAll('[data-check-config-path]').forEach((button)=>button.onclick=()=>checkConfigFolder(button.dataset.checkConfigPath));
 }
@@ -1661,7 +1742,16 @@ function renderLootLists(){
   });
   renderLootShortcuts();
 }
-async function simulateLoot(){ const count=Number($('simulate-count').value||100); const data=await api('/api/loot/simulate',{method:'POST',body:JSON.stringify({path:state.selectedLootPath,count})}); const r=data.result; $('simulate-output').textContent=`Runs: ${r.count}\nAverage items/run: ${r.averageItemsPerRun}\n\nTop results:\n${r.distinctItems.slice(0,20).map(x=>`${x.name}: ${x.hits}`).join('\n')}\n\nSample runs:\n${r.sampleRuns.map((run,i)=>`${i+1}. ${run.join(', ')||'(empty)'}`).join('\n')}`; }
+async function simulateLoot(){
+  const count=Number($('simulate-count').value||100);
+  const seed=`${state.selectedLootPath || 'loot'}:${count}`;
+  const data=await api('/api/loot/simulate',{method:'POST',body:JSON.stringify({path:state.selectedLootPath,count,seed})});
+  const r=data.result;
+  const top=(r.distinctItems||[]).slice(0,20).map(x=>`${x.name}: ${x.hits} (${Math.round((x.dropRate||0)*1000)/10}%)`).join('\n');
+  const expected=(r.expectedRates||[]).slice(0,12).map(x=>`${x.name}: ${Math.round((x.expectedRate||0)*1000)/10}% expected`).join('\n');
+  const categories=(r.categorySummary||[]).map(x=>`${x.category}: ${x.hits}`).join('\n');
+  $('simulate-output').textContent=`Runs: ${r.count}\nSeed: ${r.seed || '-'}\nAverage items/run: ${r.averageItemsPerRun}\n\nTop results:\n${top}\n\nExpected rates:\n${expected || '(not available)'}\n\nCategory summary:\n${categories || '(empty)'}\n\nSample runs:\n${r.sampleRuns.map((run,i)=>`${i+1}. ${run.join(', ')||'(empty)'}`).join('\n')}`;
+}
 async function createLootFile(kind){ const fileName=prompt(`New ${kind} file name`); if(!fileName) return; await api('/api/loot/file',{method:'POST',body:JSON.stringify({kind,fileName})}); showToast(`Created ${kind} file`); await loadLootFiles(); }
 async function cloneLootFile(){ if(!state.selectedLootPath) return showToast('Select a loot file first',true); const kind=state.selectedLootPath.startsWith('Nodes/')?'nodes':'spawners'; const fileName=prompt('Clone to file name'); if(!fileName) return; await api('/api/loot/clone',{method:'POST',body:JSON.stringify({sourcePath:state.selectedLootPath,kind,fileName})}); showToast('Loot file cloned'); await loadLootFiles(); }
 async function deleteLootFile(){ if(!state.selectedLootPath) return showToast('Select a loot file first',true); if(!confirm(`Delete ${state.selectedLootPath}? Backup first.`)) return; await api(`/api/loot/file?path=${encodeURIComponent(state.selectedLootPath)}`,{method:'DELETE'}); showToast('Loot file deleted'); state.selectedLootPath=''; $('visual-builder').innerHTML=''; $('loot-editor').value=''; await loadLootFiles(); }

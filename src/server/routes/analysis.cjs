@@ -3,6 +3,7 @@ function registerAnalysisRoutes(app, ctx) {
     scanLootWorkspace,
     analyzeOverview,
     buildGraph,
+    buildGraphRefEditPlan,
     searchWorkspace,
     resolvedPaths,
     errorResponse,
@@ -21,6 +22,15 @@ function registerAnalysisRoutes(app, ctx) {
       res.json({ ok: true, ...buildGraph(scanLootWorkspace(), req.query.focus || '') });
     } catch (error) {
       errorResponse(res, 500, error);
+    }
+  });
+
+  app.post('/api/graph/edit-ref', (req, res) => {
+    try {
+      const result = buildGraphRefEditPlan(req.body || {});
+      res.json({ ok: true, ...result });
+    } catch (error) {
+      errorResponse(res, 400, error);
     }
   });
 

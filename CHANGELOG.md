@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5 - 2026-04-21
+
+- Add P2.13 local power-pack polish: EXE launcher fallback build, richer icon-backed item catalog metadata, more built-in loot presets, deterministic simulator rates, and graph reference editing with dry-run/apply support.
+- Expand release coverage for catalog metadata, simulator determinism, graph ref edits, and portable EXE packaging.
+
 ## 1.0.4 - 2026-04-21
 
 - Fix CI package import preview setup for release workflow.

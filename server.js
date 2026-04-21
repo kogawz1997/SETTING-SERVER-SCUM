@@ -127,6 +127,7 @@ const SERVER_PRESETS = {
 };
 
 let iconIndexCache = null;
+let iconCatalogCache = null;
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -494,6 +495,15 @@ function collectTreeRefs(object, relPath) {
   return refs;
 }
 
+function buildRefIndex(refs = []) {
+  const index = new Map();
+  refs.forEach((entry) => {
+    index.set(entry.ref, entry);
+    index.set(normalizeSpawnerRef(entry.ref), { ...entry, ref: normalizeSpawnerRef(entry.ref) });
+  });
+  return index;
+}
+
 function analyzeFlatValidation(object, relPath) {
   const entries = [];
   const items = Array.isArray(object.Items) ? object.Items : [];
@@ -715,6 +725,88 @@ function getIconUrl(name) {
   return index.get(key) || '';
 }
 
+function humanizeItemName(name) {
+  return String(name || '')
+    .replace(/\.[^.]+$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\bAmmobox\b/gi, 'Ammo Box')
+    .replace(/\bGauge\b/g, 'Gauge')
+    .replace(/\b(\d+)x(\d+)\b/g, '$1x$2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function inferItemRarity(name, category) {
+  const value = String(name || '').toLowerCase();
+  if (/(m82|awm|svd|gold|keycard|thermal|nightvision|c4|grenade|rocket|barrett)/.test(value)) return 'very_rare';
+  if (/(ak47|akm|m16|vhs|rpk|sks|kar98|mosin|deagle|tactical|military|car_repair|screwdriver|lockpick)/.test(value)) return 'rare';
+  if (/(ammo|magazine|buckshot|slug|birdshot|bandage|painkiller|mre|fuel|repair|vest|backpack)/.test(value)) return 'uncommon';
+  if (category === 'weapon') return 'rare';
+  if (category === 'ammo' || category === 'medical' || category === 'tool') return 'uncommon';
+  return 'common';
+}
+
+function inferItemTags(name, category) {
+  const value = String(name || '').toLowerCase();
+  const tags = new Set([category || 'other']);
+  if (/(ak|ak47|akm|762)/.test(value)) tags.add('ak');
+  if (/(556|m16|vhs)/.test(value)) tags.add('rifle');
+  if (/(9mm|45acp|pistol|1911|deagle)/.test(value)) tags.add('pistol');
+  if (/(mp5|ump|smg)/.test(value)) tags.add('smg');
+  if (/(shotgun|gauge|buckshot|slug|birdshot)/.test(value)) tags.add('shotgun');
+  if (/(awm|m82|sniper|scope|mosin|kar98|svd)/.test(value)) tags.add('sniper');
+  if (/(military|tactical|bunker)/.test(value)) tags.add('military');
+  if (/(food|water|mre|drink|meat|fish|can|soda)/.test(value)) tags.add('survival');
+  if (/(repair|fuel|vehicle|car|wheel|tire|engine)/.test(value)) tags.add('vehicle');
+  if (/(bandage|pain|antibiotic|medical|med)/.test(value)) tags.add('medical');
+  return [...tags].filter(Boolean).slice(0, 8);
+}
+
+function thaiItemName(name, category) {
+  const english = humanizeItemName(name);
+  const prefixByCategory = {
+    weapon: 'อาวุธ',
+    ammo: 'กระสุน',
+    medical: 'ยา/รักษา',
+    food: 'อาหาร/น้ำ',
+    tool: 'เครื่องมือ',
+    clothing: 'เสื้อผ้า/เกราะ',
+    vehicle: 'ยานพาหนะ',
+    currency: 'เงิน/ของมีค่า',
+    other: 'ไอเท็ม',
+  };
+  return `${prefixByCategory[category] || prefixByCategory.other} ${english}`;
+}
+
+function buildCatalogMetadata(name, source = 'generated') {
+  const category = categoryForItem(name);
+  return {
+    name,
+    displayName: humanizeItemName(name),
+    displayNameEn: humanizeItemName(name),
+    displayNameTh: thaiItemName(name, category),
+    category,
+    rarity: inferItemRarity(name, category),
+    tags: inferItemTags(name, category),
+    source,
+  };
+}
+
+function buildIconCatalogDefaults() {
+  if (iconCatalogCache) return iconCatalogCache;
+  const catalog = new Map();
+  if (fs.existsSync(ITEM_ICON_DIR)) {
+    const images = walkFiles(ITEM_ICON_DIR, (filePath) => /\.(png|webp|jpe?g|gif)$/i.test(filePath), ITEM_ICON_DIR);
+    for (const image of images) {
+      const name = path.basename(image.name, path.extname(image.name));
+      if (!catalog.has(name)) catalog.set(name, buildCatalogMetadata(name, 'icon'));
+    }
+  }
+  iconCatalogCache = catalog;
+  return catalog;
+}
+
 function loadItemCatalogOverrides() {
   const data = loadJson(ITEM_CATALOG_OVERRIDES_FILE, {});
   return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
@@ -727,7 +819,11 @@ function saveItemCatalogOverrides(overrides) {
 function cleanItemCatalogOverride(value = {}) {
   return {
     displayName: String(value.displayName || '').trim(),
+    displayNameEn: String(value.displayNameEn || '').trim(),
+    displayNameTh: String(value.displayNameTh || '').trim(),
     category: String(value.category || '').trim(),
+    rarity: String(value.rarity || '').trim(),
+    tags: Array.isArray(value.tags) ? value.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [],
     favorite: Boolean(value.favorite),
     notes: String(value.notes || '').trim(),
   };
@@ -796,23 +892,29 @@ function buildItemCatalog(scan = scanLootWorkspace(), options = {}) {
       sources.get(name).add(lootFile.relPath);
     }
   }
-  const defaultCatalog = new Map(DEFAULT_ITEM_CATALOG_PACK.map((item) => [item.name, item]));
+  const defaultCatalog = new Map([...buildIconCatalogDefaults(), ...DEFAULT_ITEM_CATALOG_PACK.map((item) => [item.name, item])]);
   const catalogNames = new Set([...counts.keys(), ...defaultCatalog.keys()]);
   let items = [...catalogNames].map((name) => {
     const appearances = counts.get(name) || 0;
     const sampleSources = [...(sources.get(name) || [])];
     const iconUrl = getIconUrl(name);
     const override = cleanItemCatalogOverride(overrides[name] || {});
-    const defaults = defaultCatalog.get(name) || {};
+    const defaults = { ...buildCatalogMetadata(name), ...(defaultCatalog.get(name) || {}) };
     const inferredCategory = categoryForItem(name);
+    const category = override.category || defaults.category || inferredCategory;
+    const displayNameEn = override.displayNameEn || override.displayName || defaults.displayNameEn || defaults.displayName || humanizeItemName(name);
+    const displayNameTh = override.displayNameTh || defaults.displayNameTh || thaiItemName(name, category);
+    const tags = override.tags.length ? override.tags : (Array.isArray(defaults.tags) ? defaults.tags : inferItemTags(name, category));
     return {
       name,
-      displayName: override.displayName || defaults.displayName || name.replace(/_/g, ' '),
-      category: override.category || defaults.category || inferredCategory,
+      displayName: override.displayName || defaults.displayName || displayNameEn,
+      displayNameEn,
+      displayNameTh,
+      category,
       inferredCategory,
       favorite: Boolean(override.favorite),
-      rarity: defaults.rarity || '',
-      tags: Array.isArray(defaults.tags) ? defaults.tags : [],
+      rarity: override.rarity || defaults.rarity || inferItemRarity(name, category),
+      tags,
       notes: override.notes || defaults.notes || '',
       builtIn: Boolean(defaults.name),
       hasOverride: Boolean(overrides[name]),
@@ -829,7 +931,7 @@ function buildItemCatalog(scan = scanLootWorkspace(), options = {}) {
   if (category !== '__all') items = items.filter((item) => item.category === category);
   if (favoritesOnly) items = items.filter((item) => item.favorite);
   if (query) {
-    items = items.filter((item) => `${item.name} ${item.displayName} ${item.category} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes} ${item.sampleSources.join(' ')}`.toLowerCase().includes(query));
+    items = items.filter((item) => `${item.name} ${item.displayName} ${item.displayNameEn || ''} ${item.displayNameTh || ''} ${item.category} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes} ${item.sampleSources.join(' ')}`.toLowerCase().includes(query));
   }
   const categoryIds = [...new Set(items.map((item) => item.category || 'other'))].sort((a, b) => a.localeCompare(b));
   const categories = categoryIds.map((id) => ({ id, count: items.filter((item) => item.category === id).length }));
@@ -895,7 +997,7 @@ function scanLootWorkspace(paths = resolvedPaths()) {
     nodes,
     spawners,
     refs,
-    refIndex: new Map(refs.map((entry) => [entry.ref, entry])),
+    refIndex: buildRefIndex(refs),
   };
 }
 
@@ -917,7 +1019,7 @@ function safeScanLootWorkspace(paths = resolvedPaths()) {
     nodes,
     spawners,
     refs,
-    refIndex: new Map(refs.map((entry) => [entry.ref, entry])),
+    refIndex: buildRefIndex(refs),
     errors,
     listed,
   };
@@ -1283,10 +1385,27 @@ function runRotation(force = false, config = loadConfig(), paths = resolvedPaths
   return { ran: true, activeProfile: result.activeProfile, commandResult: result.commandResult, nextRunAt: nextState.nextRunAt, rotation: nextState };
 }
 
-function randomChoiceWeighted(list, weightOf) {
+function createSeededRandom(seed) {
+  const value = String(seed || '');
+  if (!value) return Math.random;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return () => {
+    hash += 0x6d2b79f5;
+    let t = hash;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomChoiceWeighted(list, weightOf, random = Math.random) {
   const total = list.reduce((sum, entry) => sum + Math.max(0, Number(weightOf(entry) || 0)), 0);
   if (!total) return list[0] || null;
-  let pick = Math.random() * total;
+  let pick = random() * total;
   for (const entry of list) {
     pick -= Math.max(0, Number(weightOf(entry) || 0));
     if (pick <= 0) return entry;
@@ -1294,41 +1413,97 @@ function randomChoiceWeighted(list, weightOf) {
   return list[list.length - 1] || null;
 }
 
-function chooseLeafFromTree(node) {
-  const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
-  if (!children.length) return node?.Name || null;
-  const picked = randomChoiceWeighted(children, (entry) => rarityWeight(entry?.Rarity));
-  return chooseLeafFromTree(picked);
+function weightedEntries(list, weightOf) {
+  const rows = (Array.isArray(list) ? list : []).map((entry) => ({ entry, weight: Math.max(0, Number(weightOf(entry) || 0)) }));
+  const total = rows.reduce((sum, row) => sum + row.weight, 0);
+  if (!total) return rows.map((row, index) => ({ entry: row.entry, rate: index === 0 ? 1 : 0 }));
+  return rows.map((row) => ({ entry: row.entry, rate: row.weight / total }));
 }
 
-function simulateLootObject(object, relPath, count, scan = scanLootWorkspace()) {
+function chooseLeafFromTree(node, random = Math.random) {
+  const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
+  if (!children.length) return node?.Name || null;
+  const picked = randomChoiceWeighted(children, (entry) => rarityWeight(entry?.Rarity), random);
+  return chooseLeafFromTree(picked, random);
+}
+
+function expectedTreeLeafRates(node, multiplier = 1) {
+  const children = Array.isArray(node?.Children) ? node.Children.filter(Boolean) : [];
+  if (!children.length) return [{ name: node?.Name || '', expectedRate: multiplier, rarity: node?.Rarity || '' }].filter((entry) => entry.name);
+  return weightedEntries(children, (entry) => rarityWeight(entry?.Rarity))
+    .flatMap(({ entry, rate }) => expectedTreeLeafRates(entry, multiplier * rate));
+}
+
+function expectedLootRates(object, relPath, scan = scanLootWorkspace()) {
+  const kind = detectLootKind(object);
+  if (kind === 'node') {
+    const items = Array.isArray(object.Items) ? object.Items.filter(Boolean) : [];
+    return weightedEntries(items, (entry) => Number(entry.Probability ?? entry.Chance ?? 0) || 0)
+      .map(({ entry, rate }) => ({ name: itemEntryName(entry), expectedRate: Number(rate.toFixed(6)), category: categoryForItem(itemEntryName(entry)) }))
+      .filter((entry) => entry.name);
+  }
+  if (kind === 'node_tree') {
+    return expectedTreeLeafRates(object).map((entry) => ({ ...entry, expectedRate: Number(entry.expectedRate.toFixed(6)), category: categoryForItem(entry.name) }));
+  }
+  if (kind === 'spawner') {
+    const refs = collectSpawnerRefs(object).map((ref) => scan.refIndex.get(ref)).filter(Boolean);
+    const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
+    const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
+    const averageQuantity = (quantityMin + quantityMax) / 2;
+    const rates = new Map();
+    weightedEntries(refs, (entry) => rarityWeight(entry.rarity)).forEach(({ entry, rate }) => {
+      const treeFile = scan.nodes.find((file) => file.logicalName === entry.node);
+      const refNode = treeFile ? resolveRefNode(treeFile.object, entry.ref) : null;
+      expectedTreeLeafRates(refNode).forEach((leaf) => {
+        rates.set(leaf.name, (rates.get(leaf.name) || 0) + averageQuantity * rate * leaf.expectedRate);
+      });
+    });
+    return [...rates.entries()].map(([name, expectedRate]) => ({ name, expectedRate: Number(expectedRate.toFixed(6)), category: categoryForItem(name) }));
+  }
+  return [];
+}
+
+function summarizeCategoriesFromHits(distinctItems) {
+  const totals = new Map();
+  for (const item of distinctItems) {
+    const category = categoryForItem(item.name);
+    totals.set(category, (totals.get(category) || 0) + Number(item.hits || 0));
+  }
+  return [...totals.entries()]
+    .map(([category, hits]) => ({ category, hits }))
+    .sort((a, b) => b.hits - a.hits || a.category.localeCompare(b.category));
+}
+
+function simulateLootObject(object, relPath, count, scan = scanLootWorkspace(), options = {}) {
   const kind = detectLootKind(object);
   const sampleRuns = [];
   const hitMap = new Map();
   const refLookup = scan.refIndex;
+  const seed = options && typeof options === 'object' ? String(options.seed || '') : '';
+  const random = createSeededRandom(seed);
   let totalItems = 0;
   for (let index = 0; index < count; index += 1) {
     let run = [];
     if (kind === 'node') {
       const items = Array.isArray(object.Items) ? object.Items.filter(Boolean) : [];
-      const picked = randomChoiceWeighted(items, (entry) => Number(entry.Probability ?? entry.Chance ?? 0) || 0);
+      const picked = randomChoiceWeighted(items, (entry) => Number(entry.Probability ?? entry.Chance ?? 0) || 0, random);
       if (picked) run = [itemEntryName(picked)].filter(Boolean);
     } else if (kind === 'node_tree') {
-      const picked = chooseLeafFromTree(object);
+      const picked = chooseLeafFromTree(object, random);
       if (picked) run = [picked];
     } else if (kind === 'spawner') {
       const refs = collectSpawnerRefs(object).map((ref) => refLookup.get(ref)).filter(Boolean);
       const quantityMin = Math.max(0, Number(object.QuantityMin ?? 1));
       const quantityMax = Math.max(quantityMin, Number(object.QuantityMax ?? quantityMin));
-      const quantity = Math.round(quantityMin + Math.random() * Math.max(0, quantityMax - quantityMin));
+      const quantity = Math.round(quantityMin + random() * Math.max(0, quantityMax - quantityMin));
       run = Array.from({ length: quantity }, () => {
-        const ref = randomChoiceWeighted(refs, (entry) => rarityWeight(entry.rarity));
+        const ref = randomChoiceWeighted(refs, (entry) => rarityWeight(entry.rarity), random);
         if (!ref) return null;
         const treeFile = scan.nodes.find((entry) => entry.logicalName === ref.node);
         if (!treeFile) return null;
         const targetNode = collectTreeRefs(treeFile.object, treeFile.relPath).find((entry) => entry.ref === ref.ref);
         if (!targetNode) return null;
-        const resolvedName = targetNode.kind === 'leaf' ? targetNode.ref.split('.').slice(-1)[0] : chooseLeafFromTree(resolveRefNode(treeFile.object, ref.ref));
+        const resolvedName = targetNode.kind === 'leaf' ? targetNode.ref.split('.').slice(-1)[0] : chooseLeafFromTree(resolveRefNode(treeFile.object, ref.ref), random);
         return resolvedName || null;
       }).filter(Boolean);
     }
@@ -1336,18 +1511,24 @@ function simulateLootObject(object, relPath, count, scan = scanLootWorkspace()) 
     run.forEach((name) => hitMap.set(name, (hitMap.get(name) || 0) + 1));
     if (sampleRuns.length < 8) sampleRuns.push(run);
   }
-  const distinctItems = [...hitMap.entries()].map(([name, hits]) => ({ name, hits })).sort((a, b) => b.hits - a.hits || a.name.localeCompare(b.name));
+  const distinctItems = [...hitMap.entries()]
+    .map(([name, hits]) => ({ name, hits, dropRate: Number((hits / Math.max(1, count)).toFixed(6)), category: categoryForItem(name) }))
+    .sort((a, b) => b.hits - a.hits || a.name.localeCompare(b.name));
+  const expectedRates = expectedLootRates(object, relPath, scan).sort((a, b) => b.expectedRate - a.expectedRate || a.name.localeCompare(b.name));
   return {
     count,
+    seed,
     averageItemsPerRun: Number((totalItems / Math.max(1, count)).toFixed(2)),
     distinctItems,
+    expectedRates,
+    categorySummary: summarizeCategoriesFromHits(distinctItems),
     sampleRuns,
   };
 }
 
-function simulateLootFile(relPath, count, scan = scanLootWorkspace()) {
+function simulateLootFile(relPath, count, scan = scanLootWorkspace(), options = {}) {
   const object = readJsonObject(resolveLogicalPath(relPath));
-  return simulateLootObject(object, relPath, count, scan);
+  return simulateLootObject(object, relPath, count, scan, options);
 }
 
 function compareSimulationResults(saved, draft) {
@@ -1372,7 +1553,8 @@ function compareSimulationResults(saved, draft) {
 }
 
 function resolveRefNode(root, ref) {
-  const parts = String(ref || '').split('.').filter(Boolean);
+  const cleanRef = String(ref || '').replace(/^ItemLootTreeNodes\.?/, '');
+  const parts = cleanRef.split('.').filter(Boolean);
   if (!parts.length || root?.Name !== parts[0]) return null;
   let current = root;
   for (const name of parts.slice(1)) {
@@ -2074,8 +2256,9 @@ function buildGraph(scan = scanLootWorkspace(), focus = '') {
     pushNode({ id: nodeFile.relPath, label: nodeFile.logicalName, kind: 'node', path: nodeFile.relPath });
     if (detectLootKind(nodeFile.object) === 'node_tree') {
       collectTreeRefs(nodeFile.object, nodeFile.relPath).forEach((refEntry) => {
-        pushNode({ id: `ref:${refEntry.ref}`, label: refEntry.ref, kind: refEntry.kind === 'leaf' ? 'item' : 'node', path: nodeFile.relPath, rarity: refEntry.rarity || '' });
-        edges.push({ from: nodeFile.relPath, to: `ref:${refEntry.ref}`, kind: refEntry.kind === 'leaf' ? 'contains_item' : 'contains_branch' });
+        const refId = normalizeSpawnerRef(refEntry.ref);
+        pushNode({ id: `ref:${refId}`, label: refId, kind: refEntry.kind === 'leaf' ? 'item' : 'node', path: nodeFile.relPath, rarity: refEntry.rarity || '' });
+        edges.push({ from: nodeFile.relPath, to: `ref:${refId}`, kind: refEntry.kind === 'leaf' ? 'contains_item' : 'contains_branch' });
       });
     }
   });
@@ -2083,8 +2266,9 @@ function buildGraph(scan = scanLootWorkspace(), focus = '') {
     pushNode({ id: spawnerFile.relPath, label: spawnerFile.logicalName, kind: 'spawner', path: spawnerFile.relPath });
     collectSpawnerRefs(spawnerFile.object).forEach((ref) => {
       const refMeta = scan.refIndex.get(ref);
-      pushNode({ id: `ref:${ref}`, label: ref, kind: refMeta ? (refMeta.kind === 'leaf' ? 'item' : 'node') : 'missing_ref', path: refMeta?.path || spawnerFile.relPath, rarity: refMeta?.rarity || '', missing: !refMeta });
-      edges.push({ from: spawnerFile.relPath, to: `ref:${ref}`, kind: refMeta ? 'uses_ref' : 'missing_ref', missing: !refMeta });
+      const refId = normalizeSpawnerRef(ref);
+      pushNode({ id: `ref:${refId}`, label: refId, kind: refMeta ? (refMeta.kind === 'leaf' ? 'item' : 'node') : 'missing_ref', path: refMeta?.path || spawnerFile.relPath, rarity: refMeta?.rarity || '', missing: !refMeta });
+      edges.push({ from: spawnerFile.relPath, to: `ref:${refId}`, kind: refMeta ? 'uses_ref' : 'missing_ref', missing: !refMeta });
     });
   });
   const normalizedFocus = String(focus || '').trim().toLowerCase();
@@ -2101,6 +2285,81 @@ function buildGraph(scan = scanLootWorkspace(), focus = '') {
   });
   const neighborhood = nodes.filter((node) => neighborhoodIds.has(node.id));
   return { nodes, edges, neighborhood, focus, focusIds };
+}
+
+function editSpawnerRefObject(object, options = {}) {
+  const next = clone(object);
+  next.Nodes = Array.isArray(next.Nodes) ? next.Nodes : [];
+  const groupIndex = Math.max(0, Number(options.groupIndex || 0));
+  if (!next.Nodes[groupIndex]) next.Nodes[groupIndex] = { Rarity: 'Uncommon', Ids: [] };
+  const group = next.Nodes[groupIndex];
+  const refs = Array.isArray(group.Ids)
+    ? group.Ids.map((value) => String(value || '').trim()).filter(Boolean)
+    : [group.Node || group.Name || group.Ref].filter(Boolean).map((value) => String(value || '').trim());
+  const action = String(options.action || 'add').trim().toLowerCase();
+  const ref = normalizeSpawnerRef(options.ref || options.newRef || '');
+  const oldRef = normalizeSpawnerRef(options.oldRef || options.fromRef || '');
+  if ((action === 'add' || action === 'remove') && !ref) throw new Error('Node ref is required');
+  if (action === 'replace' && (!oldRef || !ref)) throw new Error('Both oldRef and ref are required for replace');
+
+  let nextRefs = refs;
+  if (action === 'add') {
+    if (!nextRefs.includes(ref)) nextRefs = [...nextRefs, ref];
+  } else if (action === 'remove') {
+    nextRefs = nextRefs.filter((value) => value !== ref);
+  } else if (action === 'replace') {
+    nextRefs = nextRefs.map((value) => (value === oldRef ? ref : value));
+    if (!nextRefs.includes(ref)) nextRefs.push(ref);
+  } else {
+    throw new Error('Unsupported graph ref edit action');
+  }
+
+  group.Ids = [...new Set(nextRefs)];
+  delete group.Node;
+  delete group.Name;
+  delete group.Ref;
+  return next;
+}
+
+function buildGraphRefEditPlan(options = {}) {
+  const logicalPath = posixify(options.path || options.logicalPath || '');
+  if (!logicalPath.startsWith('Spawners/')) throw new Error('Graph ref editor can only edit Spawners files');
+  const apply = Boolean(options.apply);
+  const paths = resolvedPaths(loadConfig());
+  const fullPath = resolveLogicalPath(logicalPath, paths);
+  const before = readText(fullPath);
+  const object = safeParseJson(before);
+  const nextObject = editSpawnerRefObject(object, options);
+  const content = `${JSON.stringify(nextObject, null, 2)}\n`;
+  const patch = createDiff(logicalPath, before, content);
+  const changed = before !== content;
+  const validation = validateContent(logicalPath, content);
+  const plan = {
+    ok: true,
+    dryRun: !apply,
+    logicalPath,
+    groupIndex: Math.max(0, Number(options.groupIndex || 0)),
+    action: String(options.action || 'add'),
+    ref: normalizeSpawnerRef(options.ref || options.newRef || ''),
+    oldRef: normalizeSpawnerRef(options.oldRef || options.fromRef || ''),
+    changed,
+    willWrite: apply && changed,
+    patch,
+    validation,
+  };
+  if (apply && changed) {
+    createBackup(paths, [logicalPath], `graph-ref-edit:${logicalPath}`);
+    writeText(fullPath, content);
+    appendActivity('graph_ref_edit', {
+      path: logicalPath,
+      action: plan.action,
+      ref: plan.ref,
+      oldRef: plan.oldRef,
+      groupIndex: plan.groupIndex,
+    });
+    plan.dryRun = false;
+  }
+  return { plan, content, object: nextObject };
 }
 
 function exactLineMatch(line, term) {
@@ -2241,6 +2500,7 @@ const serverContext = {
   deleteKitTemplate,
   analyzeOverview,
   buildGraph,
+  buildGraphRefEditPlan,
   searchWorkspace,
   createProfileSnapshot,
   applyProfileSnapshot,
@@ -2287,6 +2547,7 @@ module.exports = {
   safeScanLootWorkspace,
   analyzeOverview,
   buildGraph,
+  buildGraphRefEditPlan,
   searchWorkspace,
   buildReadinessReport,
   buildDiagnosticsReport,

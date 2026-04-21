@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 const distRoot = path.join(root, 'dist');
@@ -27,6 +28,7 @@ const dirs = [
   'samples',
   'data',
   'scum_items-main',
+  'launcher',
 ];
 
 const skipNames = new Set([
@@ -38,6 +40,8 @@ const skipNames = new Set([
   'output',
   'test-results',
   '.control-plane-backups',
+  'bin',
+  'obj',
 ]);
 
 const skipDataFiles = new Set([
@@ -76,6 +80,90 @@ function copyDir(src, dest) {
   }
 }
 
+function commandExists(command) {
+  try {
+    execFileSync('where.exe', [command], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function hasDotnetSdk() {
+  if (!commandExists('dotnet.exe')) return false;
+  try {
+    const output = execFileSync('dotnet.exe', ['--list-sdks'], { encoding: 'utf8' }).trim();
+    return output.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function findFrameworkCompiler() {
+  const windir = process.env.WINDIR || 'C:\\Windows';
+  const candidates = [
+    path.join(windir, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe'),
+    path.join(windir, 'Microsoft.NET', 'Framework', 'v4.0.30319', 'csc.exe'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
+function buildLauncherWithCsc() {
+  const compiler = findFrameworkCompiler();
+  const sourcePath = path.join(root, 'launcher', 'SettingServerScumLauncher', 'Program.cs');
+  const exePath = path.join(outDir, 'Start SETTING SERVER SCUM.exe');
+  if (!compiler || !fs.existsSync(sourcePath)) return false;
+  execFileSync(compiler, [
+    '/nologo',
+    '/target:exe',
+    `/out:${exePath}`,
+    sourcePath,
+  ], { stdio: 'inherit' });
+  return fs.existsSync(exePath);
+}
+
+function buildLauncherExe() {
+  const projectPath = path.join(root, 'launcher', 'SettingServerScumLauncher', 'SettingServerScumLauncher.csproj');
+  if (!fs.existsSync(projectPath)) return false;
+  if (!hasDotnetSdk()) {
+    const builtWithCsc = buildLauncherWithCsc();
+    if (!builtWithCsc) {
+      console.warn('No .NET SDK or .NET Framework C# compiler was found; portable package will keep the .cmd launcher fallback only.');
+    }
+    return builtWithCsc;
+  }
+  const publishDir = path.join(distRoot, 'launcher-publish');
+  fs.rmSync(publishDir, { recursive: true, force: true });
+  ensureDir(publishDir);
+  try {
+    execFileSync('dotnet.exe', [
+      'publish',
+      projectPath,
+      '-c',
+      'Release',
+      '-r',
+      'win-x64',
+      '--self-contained',
+      'true',
+      '-p:PublishSingleFile=true',
+      '-p:EnableCompressionInSingleFile=true',
+      '-p:DebugType=None',
+      '-p:DebugSymbols=false',
+      '-o',
+      publishDir,
+    ], { stdio: 'inherit' });
+    const exePath = path.join(publishDir, 'Start SETTING SERVER SCUM.exe');
+    if (!fs.existsSync(exePath)) throw new Error(`Launcher publish did not create ${exePath}`);
+    fs.copyFileSync(exePath, path.join(outDir, 'Start SETTING SERVER SCUM.exe'));
+    return true;
+  } catch (error) {
+    console.warn(`dotnet publish failed, trying .NET Framework compiler fallback: ${error.message}`);
+    return buildLauncherWithCsc();
+  } finally {
+    fs.rmSync(publishDir, { recursive: true, force: true });
+  }
+}
+
 removeExistingOutput();
 ensureDir(outDir);
 
@@ -91,13 +179,18 @@ for (const relPath of dirs) {
   copyDir(path.join(root, relPath), path.join(outDir, relPath));
 }
 
+const launcherBuilt = buildLauncherExe();
+
 fs.writeFileSync(path.join(outDir, 'README_PORTABLE.txt'), [
   'SETTING SERVER SCUM - Portable Local Build',
   '',
   'How to start:',
-  '1. Install Node.js 18 or newer if this computer does not have it.',
-  '2. Double-click "Start SETTING SERVER SCUM.cmd".',
-  '3. The launcher installs missing dependencies, finds a free port, starts the server, and opens the browser.',
+  '1. Double-click "Start SETTING SERVER SCUM.exe" when it is included.',
+  '2. If Windows blocks the EXE or it is not included, double-click "Start SETTING SERVER SCUM.cmd".',
+  '3. Install Node.js 18 or newer if this computer does not have it.',
+  '4. The launcher installs missing dependencies, finds a free port, starts the server, and opens the browser.',
+  '',
+  `EXE launcher included: ${launcherBuilt ? 'yes' : 'no'}`,
   '',
   'Private files are intentionally not included:',
   '- data/config.json',

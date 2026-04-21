@@ -1,10 +1,10 @@
 # SETTING SERVER SCUM
 
-Current local-ready level: `P2.12`. This is the final local polish pass: Loot Studio has clear Builder / Split / Raw editor modes, long-list workbenches, item catalog/icon support, safer copy checks, shareable file links, and Analyzer/Search can open the exact loot file that needs work.
+Current local-ready level: `P2.13`. This local power-pack pass adds a real portable EXE launcher, richer icon-backed item catalog metadata, more built-in loot presets, deterministic simulator rates, and graph reference editing with dry-run/apply support.
 
-Portable launcher update: for a shared/local build, run `npm run package:portable`, open `dist/SETTING-SERVER-SCUM-local`, then double-click `Start SETTING SERVER SCUM.cmd`. The launcher checks Node.js, installs missing runtime dependencies, finds a free port, starts the local server, writes `logs/startup.log`, and opens the browser automatically.
+Portable launcher update: for a shared/local build, run `npm run package:portable`, open `dist/SETTING-SERVER-SCUM-local`, then double-click `Start SETTING SERVER SCUM.exe`. If Windows blocks the EXE, use `Start SETTING SERVER SCUM.cmd` as the fallback. The launcher checks Node.js, installs missing runtime dependencies, finds a free port, starts the local server, writes `logs/startup.log`, and opens the browser automatically.
 
-Latest packaged release notes: `docs/releases/v1.0.4-local.md`
+Latest packaged release notes: `docs/releases/v1.0.5-local.md`
 
 เครื่องมือเว็บสำหรับคนดูแลเซิร์ฟเวอร์ SCUM ที่ไม่อยากนั่งไล่แก้ `INI` / `JSON` ดิบๆ แล้วลุ้นว่าเซิร์ฟจะพังไหมตอนกด save
 
@@ -20,7 +20,7 @@ Latest packaged release notes: `docs/releases/v1.0.4-local.md`
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.12` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.13` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
@@ -35,9 +35,9 @@ Latest packaged release notes: `docs/releases/v1.0.4-local.md`
 - Loot Studio มีตัวกรองไฟล์ `All / Nodes / Spawners`, ตัวนับไฟล์ที่แสดงอยู่ และปุ่มล้าง search เพื่อลดลิสต์ยาวๆ
 - Loot Studio มี Quick access สำหรับไฟล์ที่ปักไว้และไฟล์ที่เพิ่งเปิดล่าสุด
 - Loot Builder ช่วยเพิ่ม/ลบ/clone/reorder item, ปรับ probability, normalize, preset probability และใช้ autocomplete
-- Item Catalog พร้อม icon จาก `scum_items-main` เพื่อช่วยจำชื่อ item/class
+- Item Catalog พร้อม icon จาก `scum_items-main`, ชื่ออ่านง่ายไทย/อังกฤษ, rarity, tag และหมวดหมู่ เพื่อช่วยจำชื่อ item/class
 - Analyzer สำหรับดู missing refs, unused nodes, item ที่ใช้บ่อย, ภาพรวม balance และคำแนะนำที่กดไปยังไฟล์ลูทที่ควรแก้ได้
-- Graph สำหรับดูความสัมพันธ์ `Spawner -> Node -> Item`
+- Graph สำหรับดูความสัมพันธ์ `Spawner -> Node -> Item` และลากเชื่อม/แก้ ref ของ spawner แบบ preview/apply ได้
 - Search ทั้งระบบสำหรับหา item, node, spawner หรือข้อความในไฟล์
 - Auto-Fix preview สำหรับแก้โครง JSON พื้นฐานก่อน apply
 - Backup / Restore พร้อม note, tag, compare และ restore รายไฟล์

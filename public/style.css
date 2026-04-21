@@ -2085,6 +2085,75 @@ input[type="range"] {
   border-color: rgba(118,179,255,.28);
 }
 
+.assist-collapse {
+  display: block;
+  min-width: 0;
+}
+
+.assist-collapse > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.assist-collapse > summary::-webkit-details-marker {
+  display: none;
+}
+
+.assist-collapse > summary h3 {
+  margin: 0 0 4px;
+}
+
+.assist-collapse > summary p {
+  margin: 0;
+}
+
+.assist-collapse-hint {
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.assist-collapse-hint::before {
+  content: attr(data-closed-label);
+}
+
+.assist-collapse[open] .assist-collapse-hint::before {
+  content: attr(data-open-label);
+}
+
+.assist-collapse-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  animation: softReveal .18s ease-out;
+}
+
+@keyframes softReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assist-collapse.good > summary {
+  color: #dffdf4;
+}
+
+.assist-collapse.warn > summary {
+  color: #fff0c9;
+}
+
 .onboarding-steps {
   display: grid;
   gap: 10px;
@@ -2128,5 +2197,9 @@ input[type="range"] {
 
   .topbar h2 {
     font-size: 1.6rem;
+  }
+
+  .assist-collapse > summary {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

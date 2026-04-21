@@ -16,7 +16,8 @@
   state.lootUi.catalogImportMode = state.lootUi.catalogImportMode || 'merge';
   state.kitTemplates = Array.isArray(state.kitTemplates) ? state.kitTemplates : [];
   state.searchUi = state.searchUi || { scope: '__all', match: 'partial', issue: '__all' };
-  state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '' };
+  state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '', connectMode: false, connectFromId: '' };
+  state.graphUi.refEdit = state.graphUi.refEdit || { spawnerPath: '', groupIndex: 0, action: 'add', ref: '', oldRef: '' };
   state.backupUi = state.backupUi || { compareTarget: '', tagFilter: '__all', pathFilter: '' };
   state.packageUi = state.packageUi || { text: '', preview: null, lastExportName: '' };
   state.activityUi = state.activityUi || { type: '__all', term: '', path: '' };
@@ -32,6 +33,11 @@
     { id: 'hardcore_sparse', label: 'Hardcore sparse', weapon: 0.14, ammo: 0.18, medical: 0.2, food: 0.25, tool: 0.12, other: 0.1, quantity: [1, 1], hint: 'ลดของให้หายาก เหมาะกับ survival จริงจัง' },
     { id: 'bunker_rich', label: 'Bunker rich', weapon: 0.72, ammo: 0.72, medical: 0.35, food: 0.12, tool: 0.45, other: 0.3, quantity: [2, 5], hint: 'บังเกอร์คุ้มขึ้น ปืน/กระสุน/เครื่องมือชัดขึ้น' },
     { id: 'medical_relief', label: 'Medical relief', weapon: 0.18, ammo: 0.2, medical: 0.8, food: 0.3, tool: 0.18, other: 0.15, quantity: [1, 3], hint: 'ดันยาและของรักษาใน clinic หรือ safe route' },
+    { id: 'survival_poor', label: 'Survival poor', weapon: 0.08, ammo: 0.1, medical: 0.16, food: 0.2, tool: 0.12, other: 0.08, quantity: [1, 1], hint: 'ของน้อย หายาก เหมาะกับเซิร์ฟ survival หนัก' },
+    { id: 'police_station', label: 'Police station', weapon: 0.28, ammo: 0.5, medical: 0.2, food: 0.12, tool: 0.28, other: 0.18, quantity: [1, 3], hint: 'ปืนพก กระสุน และเครื่องมือสำหรับโซนสถานีตำรวจ' },
+    { id: 'starter_friendly', label: 'Starter friendly', weapon: 0.16, ammo: 0.24, medical: 0.68, food: 0.62, tool: 0.32, other: 0.2, quantity: [1, 2], hint: 'ช่วยผู้เล่นใหม่ มีของพื้นฐานแต่ไม่แจกของแรง' },
+    { id: 'vehicle_support', label: 'Vehicle support', weapon: 0.08, ammo: 0.1, medical: 0.16, food: 0.18, tool: 0.55, vehicle: 0.62, other: 0.2, quantity: [1, 3], hint: 'โซนอู่ รถ น้ำมัน และชุดซ่อม' },
+    { id: 'rare_weapons_low', label: 'Rare weapons low', weapon: 0.22, ammo: 0.34, medical: 0.18, food: 0.12, tool: 0.18, other: 0.12, quantity: [1, 2], hint: 'อาวุธแรงยังมีโอกาสออก แต่ให้ออกน้อยชัดเจน' },
   ];
 
   const baseApplyTranslations = typeof applyTranslations === 'function' ? applyTranslations : null;
@@ -143,7 +149,8 @@
 
   function prettifyCatalogItemName(name = '') {
     const meta = getCatalogItemMeta(name);
-    return meta?.displayName || String(name || '').replace(/_/g, ' ');
+    if (state.lang === 'th') return meta?.displayNameTh || meta?.displayName || meta?.displayNameEn || String(name || '').replace(/_/g, ' ');
+    return meta?.displayNameEn || meta?.displayName || String(name || '').replace(/_/g, ' ');
   }
 
   function renderCatalogItemIdentity(name = '', subtitle = '', options = {}) {
@@ -166,9 +173,11 @@
     if (!normalizedQuery) return 0;
     const nameKey = normalizeCatalogItemKey(item?.name || '');
     const displayKey = normalizeCatalogItemKey(item?.displayName || '');
-    if (nameKey === normalizedQuery || displayKey === normalizedQuery) return 1000;
-    if (nameKey.startsWith(normalizedQuery) || displayKey.startsWith(normalizedQuery)) return 800;
-    if (nameKey.includes(normalizedQuery) || displayKey.includes(normalizedQuery)) return 500;
+    const displayEnKey = normalizeCatalogItemKey(item?.displayNameEn || '');
+    const displayThKey = normalizeCatalogItemKey(item?.displayNameTh || '');
+    if ([nameKey, displayKey, displayEnKey, displayThKey].includes(normalizedQuery)) return 1000;
+    if ([nameKey, displayKey, displayEnKey, displayThKey].some((key) => key.startsWith(normalizedQuery))) return 800;
+    if ([nameKey, displayKey, displayEnKey, displayThKey].some((key) => key.includes(normalizedQuery))) return 500;
     return 0;
   }
 
@@ -774,7 +783,7 @@
       if (category === '__favorites' && !item.favorite) return false;
       if (category !== '__all' && category !== '__favorites' && item.category !== category) return false;
       if (!query) return true;
-      const hay = `${item.name} ${item.displayName || ''} ${item.category || ''} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes || ''} ${(item.sampleSources || []).join(' ')}`.toLowerCase();
+      const hay = `${item.name} ${item.displayName || ''} ${item.displayNameEn || ''} ${item.displayNameTh || ''} ${item.category || ''} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes || ''} ${(item.sampleSources || []).join(' ')}`.toLowerCase();
       return hay.includes(query);
     });
   };
@@ -1147,6 +1156,16 @@
     const requiredReady = checks.slice(0, 6).every((check) => check.ok);
     const missing = inspection?.missing || checks.filter((check, index) => index < 6 && !check.ok).map((check) => check.label);
     host.innerHTML = `<div class="setup-wizard-card ${requiredReady ? 'ready' : ''}"><div class="section-head compact"><div><h3>${escapeHtml(uiText('Setup Wizard', 'Setup Wizard'))}</h3><p class="muted">${escapeHtml(uiText('เช็กทีละขั้นว่า path, loot folders, command และไฟล์หลักพร้อมใช้งานจริงหรือยัง', 'Check paths, loot folders, commands, and required files before using the editor.'))}</p></div><span class="tag ${requiredReady ? 'ok' : 'warning'}">${escapeHtml(`${readyCount}/${checks.length}`)}</span></div><div class="wizard-step-grid"><div class="wizard-step ${setupWizardStatusClass(!!inspection?.rootExists)}"><span>1</span><strong>${escapeHtml(uiText('เลือก Config Root', 'Choose config root'))}</strong><p>${escapeHtml(uiText('ต้องเป็นโฟลเดอร์ที่มี ServerSettings.ini และไฟล์หลัก', 'Must contain ServerSettings.ini and core config files.'))}</p></div><div class="wizard-step ${setupWizardStatusClass(!!inspection?.nodesExists && !!inspection?.spawnersExists)}"><span>2</span><strong>${escapeHtml(uiText('ชี้ Nodes / Spawners', 'Point Nodes / Spawners'))}</strong><p>${escapeHtml(uiText('รองรับ path custom หรือปล่อยว่างเพื่อใช้ default ใต้ config root', 'Supports custom paths or defaults under the config root.'))}</p></div><div class="wizard-step ${setupWizardStatusClass(!!commandHealth.reload?.runnable)}"><span>3</span><strong>${escapeHtml(uiText('ตั้งคำสั่งรีโหลด', 'Wire reload command'))}</strong><p>${escapeHtml(uiText('ใช้ตอน Save + Reload หรือ apply profile', 'Used by Save + Reload and profile apply.'))}</p></div></div><div class="wizard-check-list">${checks.map((check) => `<div class="wizard-check ${setupWizardStatusClass(check.ok)}"><div><strong>${escapeHtml(check.label)}</strong><small>${escapeHtml(check.detail)}</small></div><span>${escapeHtml(setupWizardStatusText(check.ok))}</span></div>`).join('')}</div>${missing.length ? `<div class="warn-card wizard-next"><strong>${escapeHtml(uiText('ยังต้องแก้', 'Needs attention'))}</strong><p class="muted">${escapeHtml(missing.join(', '))}</p></div>` : `<div class="success-card wizard-next">${escapeHtml(uiText('Path หลักพร้อมใช้งานแล้ว เปิด Loot Studio/Analyzer/Graph ได้', 'Core paths are ready. Loot Studio, Analyzer, and Graph can run.'))}</div>`}<div class="actions tight wrap"><button id="wizard-check-now" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Check now'))}</button><button id="wizard-save-config" class="tiny">${escapeHtml(uiText('บันทึกและตรวจใหม่', 'Save and recheck'))}</button><button id="wizard-discover" class="ghost tiny">${escapeHtml(uiText('หาโฟลเดอร์ที่น่าจะใช่', 'Find likely folders'))}</button></div></div>`;
+    const wizardContent = host.innerHTML;
+    host.innerHTML = collapsibleAssistPanel(
+      'settings-setup-wizard',
+      uiText('Setup Wizard', 'Setup Wizard'),
+      uiText('พับเก็บไว้ได้ถ้าตั้งค่าเป็นแล้ว เปิดดูตอนย้ายเครื่องหรือ path มีปัญหา', 'Collapse this once setup is done. Reopen when moving machines or fixing paths.'),
+      `${readyCount}/${checks.length}`,
+      wizardContent,
+      { className: 'setup-wizard-collapse', tone: requiredReady ? 'good' : 'warn' }
+    );
+    bindAssistCollapses(host);
     const checkButton = $('wizard-check-now');
     const saveButton = $('wizard-save-config');
     const discoverButton = $('wizard-discover');
@@ -1227,6 +1246,16 @@
       ? `<div class="health-next-actions"><div class="section-head compact"><div><h4>${escapeHtml(uiText('ควรแก้อะไรก่อน', 'What to fix first'))}</h4><p class="muted">${escapeHtml(uiText('เรียงจากเรื่องที่เสี่ยงทำให้ save/apply พังมากที่สุด', 'Sorted by what is most likely to break save/apply.'))}</p></div></div>${nextActions.map((action) => `<button type="button" class="health-next-action ${escapeHtml(action.severity || action.priority || 'warn')}" data-readiness-next-view="${escapeHtml(action.view || '')}"><strong>${escapeHtml(action.title || '-')}</strong><span>${escapeHtml(action.body || action.detail || '')}</span><small>${escapeHtml(action.action || uiText('เปิดไปแก้', 'Open fix'))}</small></button>`).join('')}</div>`
       : `<div class="health-next-actions ok"><strong>${escapeHtml(uiText('ยังไม่เจอเรื่องด่วน', 'No urgent blockers found'))}</strong><span>${escapeHtml(uiText('ยังควร backup ก่อนแก้ไฟล์จริงทุกครั้ง', 'Still create a backup before editing real files.'))}</span></div>`;
     host.innerHTML = `<div class="readiness-top"><div><div class="eyebrow">${escapeHtml(uiText('WORKSPACE HEALTH CENTER / PRODUCTION READY', 'WORKSPACE HEALTH CENTER / PRODUCTION READY'))}</div><h3>${escapeHtml(uiText('Preflight ศูนย์ตรวจสุขภาพก่อนแก้/เซฟ/รีโหลด', 'Preflight health center before edit/save/reload'))}</h3><p class="muted">${escapeHtml(uiText('รวมผล path, syntax, validation, missing refs, backup และคำสั่ง reload ไว้จุดเดียว', 'One place for paths, syntax, validation, missing refs, backups, and reload command readiness.'))}</p></div><div class="readiness-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมใช้', 'Ready') : uiText('ยังต้องแก้', 'Needs work'))}</span></div></div><div class="readiness-grid"><div><span>${escapeHtml(uiText('ปัญหาหนัก', 'Critical'))}</span><strong>${escapeHtml(String(counts.critical || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warning || 0))}</strong></div><div><span>${escapeHtml(uiText('Missing refs', 'Missing refs'))}</span><strong>${escapeHtml(String(counts.missingRefs || 0))}</strong></div><div><span>${escapeHtml(uiText('ไฟล์ลูท', 'Loot files'))}</span><strong>${escapeHtml(`${counts.nodes || 0}/${counts.spawners || 0}`)}</strong></div><div><span>${escapeHtml(uiText('Backup ล่าสุด', 'Latest backup'))}</span><strong>${escapeHtml(latestBackup)}</strong></div></div>${nextActionsMarkup}<div class="readiness-checks">${visibleChecks.map((check) => `<div class="readiness-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(check.label || '-')}</strong><small>${escapeHtml(check.detail || check.action || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div>${report.validationFiles?.length ? `<div class="readiness-files"><strong>${escapeHtml(uiText('ไฟล์ที่ควรเปิดไปแก้ก่อน', 'Files to fix first'))}</strong>${report.validationFiles.slice(0, 5).map((file) => `<button type="button" class="ghost tiny" data-readiness-file="${escapeHtml(file.path)}">${escapeHtml(`${file.path} · C${file.critical}/W${file.warning}`)}</button>`).join('')}</div>` : ''}<div class="actions tight wrap"><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run preflight'))}</button><button class="ghost tiny" data-readiness-view="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-readiness-view="loot">${escapeHtml(uiText('ไป Loot Studio', 'Open Loot Studio'))}</button><button class="ghost tiny" data-readiness-view="analyzer">${escapeHtml(uiText('ไป Analyzer', 'Open Analyzer'))}</button><button class="ghost tiny" data-readiness-view="backups">${escapeHtml(uiText('ไป Backups', 'Open Backups'))}</button></div>`;
+    const readinessContent = host.innerHTML;
+    host.innerHTML = collapsibleAssistPanel(
+      'dashboard-readiness',
+      uiText('Workspace Health Center', 'Workspace Health Center'),
+      uiText('หน้าแดชบอร์ดจะไม่ยาวตลอดเวลา เปิดรายละเอียดเฉพาะตอนต้องตรวจปัญหาก่อน save/apply', 'Keep the dashboard short. Open details only when checking issues before save/apply.'),
+      `${report.score ?? 0}`,
+      readinessContent,
+      { className: 'readiness-collapse', tone: report.ready ? 'good' : 'warn', badgeClass: `tag ${report.ready ? 'ok' : 'warning'}` }
+    );
+    bindAssistCollapses(host);
     bindReadinessPanel();
   }
 
@@ -1337,7 +1366,16 @@
     if (!host) return;
     const steps = buildQuickStartSteps(report);
     const done = steps.filter((step) => step.status === 'ok').length;
-    host.innerHTML = `<div class="section-head compact"><div><div class="eyebrow">${escapeHtml(uiText('เริ่มใช้งานจริง', 'QUICK START'))}</div><h3>${escapeHtml(uiText('ลำดับใช้งานที่ปลอดภัย', 'Safe workflow order'))}</h3><p class="muted">${escapeHtml(uiText('ทำตามนี้จากบนลงล่าง: ตั้ง path, ตรวจ, backup, แก้ loot, validate, save/reload และรู้ทาง restore', 'Follow this from top to bottom: paths, preflight, backup, edit loot, validate, save/reload, and restore.'))}</p></div><span class="tag ${done === steps.length ? 'ok' : 'warning'}">${escapeHtml(`${done}/${steps.length}`)}</span></div><div class="quick-start-grid">${steps.map((step) => `<div class="quick-start-step ${escapeHtml(step.status)}"><div class="quick-start-index">${escapeHtml(step.index)}</div><div class="quick-start-copy"><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.body)}</p><div class="actions tight wrap"><span class="quick-start-status">${escapeHtml(quickStepLabel(step.status))}</span>${step.view ? `<button type="button" class="ghost tiny" data-quick-view="${escapeHtml(step.view)}">${escapeHtml(step.action)}</button>` : `<button type="button" class="ghost tiny" id="${escapeHtml(step.buttonId)}">${escapeHtml(step.action)}</button>`}</div></div></div>`).join('')}</div>`;
+    const content = `<div class="quick-start-grid">${steps.map((step) => `<div class="quick-start-step ${escapeHtml(step.status)}"><div class="quick-start-index">${escapeHtml(step.index)}</div><div class="quick-start-copy"><strong>${escapeHtml(step.title)}</strong><p>${escapeHtml(step.body)}</p><div class="actions tight wrap"><span class="quick-start-status">${escapeHtml(quickStepLabel(step.status))}</span>${step.view ? `<button type="button" class="ghost tiny" data-quick-view="${escapeHtml(step.view)}">${escapeHtml(step.action)}</button>` : `<button type="button" class="ghost tiny" id="${escapeHtml(step.buttonId)}">${escapeHtml(step.action)}</button>`}</div></div></div>`).join('')}</div>`;
+    host.innerHTML = collapsibleAssistPanel(
+      'dashboard-quick-start',
+      uiText('ลำดับใช้งานที่ปลอดภัย', 'Safe workflow order'),
+      uiText('พับไว้ได้ถ้าจำ flow ได้แล้ว เหลือแค่สรุปความคืบหน้า', 'Collapse this once you know the workflow. The summary still shows progress.'),
+      `${done}/${steps.length}`,
+      content,
+      { className: 'quick-start-collapse', tone: done === steps.length ? 'good' : 'warn', badgeClass: `tag ${done === steps.length ? 'ok' : 'warning'}` }
+    );
+    bindAssistCollapses(host);
     bindQuickStartPanel();
   }
 
@@ -1374,6 +1412,16 @@
     if (!host) return;
     const hasReport = Boolean(state.diagnostics.reportText);
     host.innerHTML = `<div class="section-head compact"><div><div class="eyebrow">${escapeHtml(uiText('ส่งให้คนช่วยดู', 'SUPPORT EXPORT'))}</div><h3>${escapeHtml(uiText('Diagnostics report', 'Diagnostics report'))}</h3><p class="muted">${escapeHtml(uiText('รวมสถานะ path, readiness, validation, backup และ activity โดยไม่แนบเนื้อหาไฟล์ config', 'Exports paths, readiness, validation, backups, and activity status without attaching config file contents.'))}</p></div><span class="tag">${escapeHtml(hasReport ? uiText('พร้อม copy', 'ready') : uiText('ยังไม่สร้าง', 'empty'))}</span></div><label class="checkline diagnostics-privacy"><input id="diagnostics-include-paths" type="checkbox" ${state.diagnostics.includePaths ? 'checked' : ''} /> <span>${escapeHtml(uiText('ใส่ path จริงในรายงาน', 'Include local paths'))}</span></label><div class="actions tight wrap"><button id="generate-diagnostics" class="tiny">${escapeHtml(uiText('สร้างรายงาน', 'Generate report'))}</button><button id="copy-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Copy JSON', 'Copy JSON'))}</button><button id="download-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Download JSON', 'Download JSON'))}</button><button id="download-support-bundle" class="ghost tiny">${escapeHtml(uiText('Download support zip', 'Download support zip'))}</button></div><textarea id="diagnostics-output" class="diagnostics-output code" placeholder="${escapeHtml(uiText('กดสร้างรายงานก่อน', 'Generate a report first.'))}">${escapeHtml(state.diagnostics.reportText || '')}</textarea>`;
+    const diagnosticsContent = host.innerHTML;
+    host.innerHTML = collapsibleAssistPanel(
+      'dashboard-diagnostics',
+      uiText('Diagnostics / Support bundle', 'Diagnostics / Support bundle'),
+      uiText('ใช้เฉพาะตอนต้องส่งข้อมูลให้คนช่วยดู ปกติพับเก็บไว้ได้', 'Use this only when sending diagnostics to someone. It can stay collapsed most of the time.'),
+      hasReport ? uiText('พร้อม copy', 'ready') : uiText('ยังไม่สร้าง', 'empty'),
+      diagnosticsContent,
+      { className: 'diagnostics-collapse', tone: hasReport ? 'good' : 'warn' }
+    );
+    bindAssistCollapses(host);
     bindDiagnosticsPanel();
   }
 
@@ -1941,6 +1989,39 @@
     return nodeMap.get(state.graphUi.selectedId) || null;
   }
 
+  function graphRefValueFromNode(node) {
+    if (!node) return '';
+    const id = String(node.id || '');
+    if (id.startsWith('ref:')) return id.slice(4);
+    if (node.kind === 'node') return String(node.label || id || '').trim();
+    if (node.kind === 'missing_ref') return String(node.label || id || '').replace(/^ref:/, '').trim();
+    return '';
+  }
+
+  function prepareGraphConnection(sourceNode, targetNode) {
+    if (!sourceNode || sourceNode.kind !== 'spawner') {
+      showToast(uiText('เลือก spawner เป็นจุดเริ่มก่อน', 'Choose a spawner as the source first.'), true);
+      return false;
+    }
+    const targetRef = graphRefValueFromNode(targetNode);
+    if (!targetRef) {
+      showToast(uiText('ปลายทางต้องเป็น node/ref ที่ spawner อ้างได้', 'Target must be a node/ref that a spawner can reference.'), true);
+      return false;
+    }
+    state.graphUi.selectedId = sourceNode.id;
+    state.graphUi.connectFromId = sourceNode.id;
+    state.graphUi.refEdit = {
+      spawnerPath: sourceNode.path || sourceNode.id,
+      groupIndex: 0,
+      action: 'add',
+      ref: targetRef,
+      oldRef: '',
+    };
+    renderGraphFocus();
+    showToast(uiText('ลากเส้นสำเร็จ กด Preview diff หรือ Apply with backup เพื่อบันทึก', 'Connection staged. Use Preview diff or Apply with backup to write it.'));
+    return true;
+  }
+
   loadGraph = async function () {
     const focus = $('graph-filter')?.value || '';
     const data = await api(`/api/graph?focus=${encodeURIComponent(focus)}`);
@@ -1954,6 +2035,7 @@
     if (!canvas) return;
     const { nodes, edges, overflowCount } = graphFilteredData();
     const { positions, width, height } = layoutGraphNodes(nodes);
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
     const selectedId = state.graphUi.selectedId || (state.graph?.focusIds || [])[0] || '';
     const neighbors = graphNeighborIds(selectedId, state.graph?.edges || []);
     const edgeMarkup = edges.map((edge) => {
@@ -1967,16 +2049,58 @@
       const pos = positions.get(node.id) || { x: 0, y: 0 };
       const active = node.id === selectedId;
       const related = neighbors.has(node.id);
-      return `<button type="button" class="graph-map-node ${node.kind} ${active ? 'active' : ''} ${related ? 'related' : ''}" data-graph-node-id="${escapeHtml(node.id)}" style="left:${pos.x}px;top:${pos.y}px"><span class="tag ${node.kind}">${escapeHtml(graphKindLabel(node.kind))}</span><strong>${escapeHtml(node.label || node.id)}</strong><small>${escapeHtml(node.path || '')}</small></button>`;
+      const connectSource = state.graphUi.connectMode && node.kind === 'spawner';
+      return `<button type="button" class="graph-map-node ${node.kind} ${active ? 'active' : ''} ${related ? 'related' : ''} ${connectSource ? 'connect-source' : ''}" data-graph-node-id="${escapeHtml(node.id)}" style="left:${pos.x}px;top:${pos.y}px"><span class="tag ${node.kind}">${escapeHtml(graphKindLabel(node.kind))}</span><strong>${escapeHtml(node.label || node.id)}</strong><small>${escapeHtml(node.path || '')}</small></button>`;
     }).join('');
     const kindButtons = ['__all', 'spawner', 'node', 'item', 'missing_ref'].map((kind) => `<button type="button" class="ghost tiny ${state.graphUi.kind === kind ? 'active' : ''}" data-graph-kind="${escapeHtml(kind)}">${escapeHtml(kind === '__all' ? uiText('ทั้งหมด', 'All') : graphKindLabel(kind))}</button>`).join('');
-    const graphHelp = escapeHtml(uiText('คลิก node เพื่อโฟกัส, ลากพื้นหลังเพื่อเลื่อน, ใช้ล้อเมาส์เพื่อ zoom และใช้ filter เพื่อลดกราฟใหญ่', 'Click a node to focus, drag the background to pan, use the mouse wheel to zoom, and use filters to narrow large graphs.'));
-    canvas.innerHTML = `<div class="graph-toolbar"><div class="actions tight wrap">${kindButtons}</div><div class="actions tight wrap"><button type="button" class="ghost tiny" id="graph-zoom-out">-</button><span class="tag">${Math.round((state.graphUi.zoom || 1) * 100)}%</span><button type="button" class="ghost tiny" id="graph-zoom-in">+</button><button type="button" class="ghost tiny" id="graph-reset-view">${escapeHtml(uiText('รีเซ็ตมุมมอง', 'Reset view'))}</button></div></div><div class="graph-help-strip">${graphHelp}</div>${overflowCount ? `<div class="warn-card graph-limit-note">${escapeHtml(uiText(`แสดง 420 จุดแรก ซ่อนอีก ${overflowCount} จุด ใช้ช่องค้นหาเพื่อเจาะลงไป`, `Showing first 420 nodes. ${overflowCount} more hidden; use search to narrow the graph.`))}</div>` : ''}<div class="graph-viewport"><div class="graph-map" style="width:${width}px;height:${height}px;transform:translate(${state.graphUi.panX || 0}px, ${state.graphUi.panY || 0}px) scale(${state.graphUi.zoom || 1})"><svg class="graph-map-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edgeMarkup}</svg>${nodeMarkup}</div></div>`;
+    const graphHelp = escapeHtml(state.graphUi.connectMode
+      ? uiText('โหมดเชื่อมเปิดอยู่: ลากจาก spawner ไปหา node/ref แล้วค่อย Preview diff ก่อนบันทึก', 'Connect mode is on: drag from a spawner to a node/ref, then preview diff before saving.')
+      : uiText('คลิก node เพื่อโฟกัส, ลากพื้นหลังเพื่อเลื่อน, ใช้ล้อเมาส์เพื่อ zoom และใช้ filter เพื่อลดกราฟใหญ่', 'Click a node to focus, drag the background to pan, use the mouse wheel to zoom, and use filters to narrow large graphs.'));
+    canvas.innerHTML = `<div class="graph-toolbar"><div class="actions tight wrap">${kindButtons}</div><div class="actions tight wrap"><button type="button" class="ghost tiny ${state.graphUi.connectMode ? 'active' : ''}" id="graph-connect-mode">${escapeHtml(uiText('ลากเชื่อม ref', 'Drag connect'))}</button><button type="button" class="ghost tiny" id="graph-zoom-out">-</button><span class="tag">${Math.round((state.graphUi.zoom || 1) * 100)}%</span><button type="button" class="ghost tiny" id="graph-zoom-in">+</button><button type="button" class="ghost tiny" id="graph-reset-view">${escapeHtml(uiText('รีเซ็ตมุมมอง', 'Reset view'))}</button></div></div><div class="graph-help-strip">${graphHelp}</div>${overflowCount ? `<div class="warn-card graph-limit-note">${escapeHtml(uiText(`แสดง 420 จุดแรก ซ่อนอีก ${overflowCount} จุด ใช้ช่องค้นหาเพื่อเจาะลงไป`, `Showing first 420 nodes. ${overflowCount} more hidden; use search to narrow the graph.`))}</div>` : ''}<div class="graph-viewport ${state.graphUi.connectMode ? 'connect-mode' : ''}"><div class="graph-map" style="width:${width}px;height:${height}px;transform:translate(${state.graphUi.panX || 0}px, ${state.graphUi.panY || 0}px) scale(${state.graphUi.zoom || 1})"><svg class="graph-map-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edgeMarkup}</svg>${nodeMarkup}</div></div>`;
     canvas.querySelectorAll('[data-graph-kind]').forEach((button) => {
       button.onclick = () => { state.graphUi.kind = button.dataset.graphKind || '__all'; renderGraph(); };
     });
     canvas.querySelectorAll('[data-graph-node-id]').forEach((button) => {
-      button.onclick = () => { state.graphUi.selectedId = button.dataset.graphNodeId || ''; renderGraph(); renderGraphFocus(); };
+      button.onclick = () => {
+        const id = button.dataset.graphNodeId || '';
+        const node = nodeMap.get(id);
+        if (state.graphUi.connectMode) {
+          const source = nodeMap.get(state.graphUi.connectFromId || state.graphUi.selectedId || '');
+          if (source?.kind === 'spawner' && node && node.id !== source.id && prepareGraphConnection(source, node)) return;
+          if (node?.kind === 'spawner') {
+            state.graphUi.connectFromId = node.id;
+            state.graphUi.selectedId = node.id;
+            renderGraph();
+            renderGraphFocus();
+            showToast(uiText('เลือก spawner แล้ว ลากหรือคลิก node/ref ปลายทาง', 'Spawner selected. Drag or click a target node/ref.'));
+            return;
+          }
+        }
+        state.graphUi.selectedId = id;
+        renderGraph();
+        renderGraphFocus();
+      };
+      button.onpointerdown = (event) => {
+        if (!state.graphUi.connectMode) return;
+        const node = nodeMap.get(button.dataset.graphNodeId || '');
+        if (node?.kind !== 'spawner') return;
+        event.preventDefault();
+        event.stopPropagation();
+        state.graphUi.connectFromId = node.id;
+        state.graphUi.selectedId = node.id;
+        button.classList.add('connecting');
+        button.setPointerCapture(event.pointerId);
+      };
+      button.onpointerup = (event) => {
+        if (!state.graphUi.connectMode || !state.graphUi.connectFromId) return;
+        const targetButton = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-graph-node-id]');
+        const source = nodeMap.get(state.graphUi.connectFromId);
+        const target = nodeMap.get(targetButton?.dataset.graphNodeId || '');
+        button.classList.remove('connecting');
+        if (target && target.id !== source?.id && prepareGraphConnection(source, target)) return;
+        renderGraphFocus();
+      };
+      button.onpointercancel = () => button.classList.remove('connecting');
     });
     const zoomBy = (amount) => {
       state.graphUi.zoom = Math.max(0.45, Math.min(1.8, Number(((state.graphUi.zoom || 1) + amount).toFixed(2))));
@@ -1985,6 +2109,8 @@
     const zoomIn = $('graph-zoom-in');
     const zoomOut = $('graph-zoom-out');
     const reset = $('graph-reset-view');
+    const connect = $('graph-connect-mode');
+    if (connect) connect.onclick = () => { state.graphUi.connectMode = !state.graphUi.connectMode; if (!state.graphUi.connectMode) state.graphUi.connectFromId = ''; renderGraph(); };
     if (zoomIn) zoomIn.onclick = () => zoomBy(0.12);
     if (zoomOut) zoomOut.onclick = () => zoomBy(-0.12);
     if (reset) reset.onclick = () => { state.graphUi.zoom = 1; state.graphUi.panX = 0; state.graphUi.panY = 0; renderGraph(); };
@@ -2757,6 +2883,70 @@
     updateLootWorkspaceLayout();
     updateLootWorkspaceCopy();
     refreshLootDirtyState();
+  };
+
+  const baseRenderGraphFocus = typeof renderGraphFocus === 'function' ? renderGraphFocus : null;
+
+  function graphRefOptionsForSpawner(spawnerPath) {
+    return (state.graph?.edges || [])
+      .filter((edge) => edge.from === spawnerPath && String(edge.to || '').startsWith('ref:'))
+      .map((edge) => String(edge.to || '').replace(/^ref:/, ''))
+      .filter(Boolean);
+  }
+
+  async function submitGraphRefEdit(apply = false) {
+    const edit = state.graphUi.refEdit || {};
+    const payload = {
+      path: edit.spawnerPath,
+      action: edit.action || 'add',
+      groupIndex: Number(edit.groupIndex || 0),
+      ref: edit.ref || (edit.action === 'remove' ? edit.oldRef : ''),
+      oldRef: edit.oldRef,
+      apply,
+    };
+    const data = await api('/api/graph/edit-ref', { method: 'POST', body: JSON.stringify(payload) });
+    if (data.plan) renderDiffPlan(data.plan);
+    setView('diff');
+    showToast(apply ? uiText('บันทึก ref จากกราฟแล้ว', 'Graph ref edit saved.') : uiText('พรีวิว diff จากกราฟแล้ว', 'Graph ref diff previewed.'));
+    if (apply) {
+      await loadGraph();
+      await loadAnalyzer();
+      if (state.selectedLootPath === payload.path) await openLootFile(payload.path);
+    }
+  }
+
+  function bindGraphRefEditor() {
+    const edit = state.graphUi.refEdit || {};
+    const spawnerSelect = $('graph-edit-spawner');
+    const actionSelect = $('graph-edit-action');
+    const groupInput = $('graph-edit-group');
+    const refInput = $('graph-edit-ref');
+    const oldRefSelect = $('graph-edit-old-ref');
+    if (spawnerSelect) spawnerSelect.onchange = (event) => { edit.spawnerPath = event.target.value; edit.oldRef = ''; renderGraphFocus(); };
+    if (actionSelect) actionSelect.onchange = (event) => { edit.action = event.target.value; renderGraphFocus(); };
+    if (groupInput) groupInput.oninput = (event) => { edit.groupIndex = Math.max(0, Number(event.target.value || 0)); };
+    if (refInput) refInput.oninput = (event) => { edit.ref = event.target.value; };
+    if (oldRefSelect) oldRefSelect.onchange = (event) => { edit.oldRef = event.target.value; };
+    const preview = $('graph-edit-preview');
+    const apply = $('graph-edit-apply');
+    if (preview) preview.onclick = () => submitGraphRefEdit(false).catch((error) => showToast(error.message, true));
+    if (apply) apply.onclick = () => submitGraphRefEdit(true).catch((error) => showToast(error.message, true));
+  }
+
+  renderGraphFocus = function () {
+    if (baseRenderGraphFocus) baseRenderGraphFocus();
+    const host = $('graph-focus-summary');
+    if (!host) return;
+    const neighborhood = state.graph?.neighborhood || [];
+    const spawners = neighborhood.filter((node) => node.kind === 'spawner');
+    if (!spawners.length) return;
+    const edit = state.graphUi.refEdit;
+    if (!edit.spawnerPath || !spawners.some((node) => node.path === edit.spawnerPath)) edit.spawnerPath = spawners[0].path;
+    const currentRefs = graphRefOptionsForSpawner(edit.spawnerPath);
+    const spawnerOptions = spawners.map((node) => `<option value="${escapeHtml(node.path)}"${node.path === edit.spawnerPath ? ' selected' : ''}>${escapeHtml(node.label)}</option>`).join('');
+    const oldRefOptions = currentRefs.map((ref) => `<option value="${escapeHtml(ref)}"${ref === edit.oldRef ? ' selected' : ''}>${escapeHtml(ref)}</option>`).join('');
+    host.insertAdjacentHTML('beforeend', `<div class="graph-ref-editor result-card"><div class="section-head compact"><div><h4>${escapeHtml(uiText('แก้ ref จากกราฟ', 'Edit refs from graph'))}</h4><p class="muted">${escapeHtml(uiText('ใช้กับ spawner เท่านั้น และจะพาไปหน้า diff ก่อนบันทึกจริง', 'Spawner-only editor. Preview diff before writing.'))}</p></div></div><div class="loot-inline-grid"><label><span>${escapeHtml(uiText('Spawner', 'Spawner'))}</span><select id="graph-edit-spawner">${spawnerOptions}</select></label><label><span>${escapeHtml(uiText('Action', 'Action'))}</span><select id="graph-edit-action"><option value="add"${edit.action === 'add' ? ' selected' : ''}>Add</option><option value="remove"${edit.action === 'remove' ? ' selected' : ''}>Remove</option><option value="replace"${edit.action === 'replace' ? ' selected' : ''}>Replace</option></select></label><label><span>${escapeHtml(uiText('Group index', 'Group index'))}</span><input id="graph-edit-group" type="number" min="0" value="${escapeHtml(String(edit.groupIndex || 0))}" /></label><label><span>${escapeHtml(uiText('Old ref', 'Old ref'))}</span><select id="graph-edit-old-ref"><option value="">${escapeHtml(uiText('เลือกเมื่อ replace/remove', 'Choose for replace/remove'))}</option>${oldRefOptions}</select></label><label class="span-two"><span>${escapeHtml(uiText('New / target ref', 'New / target ref'))}</span><input id="graph-edit-ref" value="${escapeHtml(edit.ref || '')}" placeholder="ItemLootTreeNodes.SampleWeapons.Rifle" /></label></div><div class="actions tight wrap"><button id="graph-edit-preview" class="ghost tiny">${escapeHtml(uiText('Preview diff', 'Preview diff'))}</button><button id="graph-edit-apply" class="tiny">${escapeHtml(uiText('Apply with backup', 'Apply with backup'))}</button></div></div>`);
+    bindGraphRefEditor();
   };
 
   mountGlobalSearchControls();

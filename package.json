@@ -1,6 +1,6 @@
 {
   "name": "scum-local-control",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "Local-first SCUM config control panel for personal use.",
   "author": "KOGA.EXE",

@@ -71,7 +71,7 @@ function registerLootRoutes(app, ctx) {
       const count = Math.max(1, Math.min(10000, Number(req.body?.count || 100)));
       const pathValue = String(req.body?.path || '');
       const scan = scanLootWorkspace();
-      res.json({ ok: true, result: simulateLootFile(pathValue, count, scan) });
+      res.json({ ok: true, result: simulateLootFile(pathValue, count, scan, { seed: req.body?.seed }) });
     } catch (error) {
       errorResponse(res, 400, error);
     }
@@ -83,9 +83,9 @@ function registerLootRoutes(app, ctx) {
       const pathValue = String(req.body?.path || '');
       const content = String(req.body?.content || '{}');
       const scan = scanLootWorkspace();
-      const saved = simulateLootFile(pathValue, count, scan);
+      const saved = simulateLootFile(pathValue, count, scan, { seed: req.body?.seed });
       const draftObject = JSON.parse(content);
-      const draft = simulateLootObject(draftObject, pathValue, count, scan);
+      const draft = simulateLootObject(draftObject, pathValue, count, scan, { seed: req.body?.seed });
       res.json({ ok: true, saved, draft, comparison: compareSimulationResults(saved, draft) });
     } catch (error) {
       errorResponse(res, 400, error);
