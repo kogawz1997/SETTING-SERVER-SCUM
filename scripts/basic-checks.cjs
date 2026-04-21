@@ -32,6 +32,7 @@ function assertSingleFunction(source, name) {
   'scripts/basic-checks.cjs',
   'scripts/changelog-check.cjs',
   'scripts/config-roundtrip-check.cjs',
+  'scripts/create-portable-package.cjs',
   'scripts/docs-link-check.cjs',
   'scripts/performance-smoke.cjs',
   'scripts/release-quality.cjs',

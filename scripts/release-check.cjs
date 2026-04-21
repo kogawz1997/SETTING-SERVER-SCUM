@@ -69,6 +69,8 @@ function assertPackageScript(name) {
   'data/loot-advisory-ignore.json',
   'start-local.cmd',
   'start-local.ps1',
+  'Start SETTING SERVER SCUM.cmd',
+  'Start SETTING SERVER SCUM.ps1',
   'public/index.html',
   'public/app.js',
   'public/style.css',
@@ -90,6 +92,7 @@ function assertPackageScript(name) {
   'docs/SAAS_TENANT_ARCHITECTURE.md',
   'scripts/changelog-check.cjs',
   'scripts/config-roundtrip-check.cjs',
+  'scripts/create-portable-package.cjs',
   'scripts/docs-link-check.cjs',
   'scripts/performance-smoke.cjs',
   'scripts/release-quality.cjs',
@@ -131,6 +134,7 @@ function assertPackageScript(name) {
   'docs:check',
   'changelog:check',
   'version:bump',
+  'package:portable',
   'repair:loot-refs',
   'test',
   'test:unit',
@@ -143,6 +147,8 @@ function assertPackageScript(name) {
 
 assertIncludes('start-local.cmd', ['where node', 'node_modules\\express', 'node server.js']);
 assertIncludes('start-local.ps1', ['Get-Command node', 'node_modules\\express', 'node server.js']);
+assertIncludes('Start SETTING SERVER SCUM.cmd', ['Portable Launcher', 'Start SETTING SERVER SCUM.ps1']);
+assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000..3010', 'Start-Process $TargetUrl']);
 assertIncludes('public/index.html', ['/loot-overrides.css', '/app.js', '/loot-overrides.js']);
 assertIncludes('server.js', [
   'registerRoutes(app, serverContext)',
@@ -152,11 +158,13 @@ assertIncludes('src/server/routes/system.cjs', [
   '/api/bootstrap',
   '/api/readiness',
   '/api/diagnostics',
+  '/api/support/bundle',
   '/api/schemas/loot',
 ]);
 assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
   '/api/loot/files',
+  '/api/loot/presets',
 ]);
 assertIncludes('src/server/routes/backups-package.cjs', [
   '/api/backups',
@@ -170,19 +178,21 @@ assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบ
 assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
 assertIncludes('README.md', ['P2.12', 'docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
 assertIncludes('README.md', ['docs/QUICK_START.md', 'npm run release:quality', 'CHANGELOG.md']);
+assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.cmd']);
 assertIncludes('CHANGELOG.md', ['## 1.0.0']);
 assertIncludes('docs/RELEASE_QUALITY.md', ['npm run release:quality', 'config/package roundtrip']);
 assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
-assertIncludes('scripts/release-quality.cjs', ['performance:smoke']);
+assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable']);
+assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.12', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.12 final local polish']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);
-assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts']);
+assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/app.js', ['normalizeLootEditorMode', 'applyLootEditorModeDom', 'refreshSplitRawPreview']);
-assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'graph-help-strip', 'loot-setup-wizard', 'downloadSupportBundle']);
 assertIncludes('public/style.css', ['loot-stage-split', 'readonly-preview']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'graph-help-strip', 'loot-wizard-grid']);
 [
   'README.md',
   'docs/P2_3_STATUS.md',

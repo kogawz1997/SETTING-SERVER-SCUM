@@ -15,6 +15,7 @@ function registerSystemRoutes(app, ctx) {
     buildReadinessReport,
     buildDiagnosticsReport,
     buildLootSchemaReport,
+    buildSupportBundle,
     safeScanLootWorkspace,
     SERVER_PRESETS,
     errorResponse,
@@ -83,6 +84,29 @@ function registerSystemRoutes(app, ctx) {
   app.get('/api/diagnostics', (req, res) => {
     try {
       res.json({ ok: true, report: buildDiagnosticsReport({ includePaths: req.query.includePaths }) });
+    } catch (error) {
+      errorResponse(res, 500, error);
+    }
+  });
+
+  app.get('/api/support/bundle', (req, res) => {
+    try {
+      const includePaths = String(req.query.includePaths || 'false') === 'true';
+      const config = loadConfig();
+      const logs = [];
+      const startupLog = path.join(ROOT, 'logs', 'startup.log');
+      if (fs.existsSync(startupLog)) {
+        logs.push({ name: 'startup.log', content: fs.readFileSync(startupLog, 'utf8').split(/\r?\n/).slice(-300).join('\n') });
+      }
+      const bundle = buildSupportBundle({
+        config,
+        diagnostics: buildDiagnosticsReport({ includePaths }),
+        readiness: buildReadinessReport(),
+        activity: readActivity(120),
+        logs,
+      });
+      appendActivity('support_bundle_export', { fileCount: bundle.files.length, includePaths });
+      res.json({ ok: true, fileName: bundle.fileName, mime: bundle.mime, base64: bundle.base64, files: bundle.files });
     } catch (error) {
       errorResponse(res, 500, error);
     }

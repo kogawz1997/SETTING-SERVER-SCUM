@@ -14,9 +14,25 @@ npm run release:quality
 - release file checks
 - config/package roundtrip แบบ portable
 - sample workspace smoke test
+- large generated workspace performance smoke test
 - docs broken-link check
 - changelog/version check
 - full test suite
+- portable package smoke via `npm run package:portable`
+
+Portable package command:
+
+```bash
+npm run package:portable
+```
+
+Output folder:
+
+```text
+dist/SETTING-SERVER-SCUM-local
+```
+
+Give users the folder and tell them to double-click `Start SETTING SERVER SCUM.cmd`.
 
 ถ้าอยาก bump version:
 

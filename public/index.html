@@ -171,6 +171,7 @@
               </select>
               <input id="server-field-filter" placeholder="Filter keys..." />
               <button id="reload-server-parsed" class="ghost">Reload</button>
+              <button id="server-undo" class="ghost">Undo</button>
               <button id="save-server-parsed">Save</button>
               <button id="save-server-parsed-reload" class="ghost">Save + Reload</button>
             </div>
@@ -185,7 +186,7 @@
         <div class="grid three top-align core-grid">
           <div class="card"><div class="section-head compact"><div><h4>Files</h4><p class="muted">Raw editor for GameUser and Economy.</p></div></div><div id="core-file-list" class="file-list tall"></div></div>
           <div class="card"><div class="section-head compact"><div><h4>Meta</h4><p class="muted">Validation and stats.</p></div></div><div id="core-file-meta"></div><div class="divider"></div><div id="core-file-validation"></div></div>
-          <div class="card"><div class="section-head compact"><div><h4 id="core-file-title">No file selected</h4><p class="muted">Preview diff before saving.</p></div><div class="actions tight"><button id="core-preview-diff" class="ghost">Preview Diff</button><button id="core-save">Save</button></div></div><textarea id="core-editor" class="editor code"></textarea></div>
+          <div class="card"><div class="section-head compact"><div><h4 id="core-file-title">No file selected</h4><p class="muted">Preview diff before saving.</p></div><div class="actions tight"><button id="core-preview-diff" class="ghost">Preview Diff</button><button id="core-undo" class="ghost">Undo</button><button id="core-save">Save</button></div></div><textarea id="core-editor" class="editor code"></textarea></div>
         </div>
       </section>
 
@@ -252,7 +253,7 @@
           </div>
           <div class="loot-main-column">
             <div class="card loot-editor-card">
-              <div class="section-head compact loot-editor-head"><div><h4 id="loot-editor-title">No loot file selected</h4><p id="loot-editor-hint" class="muted">Visual builder and raw JSON stay in sync.</p></div><div class="actions tight wrap"><button id="loot-preview-diff" class="ghost">Preview Diff</button><button id="loot-save">Save</button><button id="loot-save-reload" class="ghost">Save + Reload</button></div></div>
+              <div class="section-head compact loot-editor-head"><div><h4 id="loot-editor-title">No loot file selected</h4><p id="loot-editor-hint" class="muted">Visual builder and raw JSON stay in sync.</p></div><div class="actions tight wrap"><button id="loot-preview-diff" class="ghost">Preview Diff</button><button id="loot-undo" class="ghost">Undo</button><button id="loot-save">Save</button><button id="loot-save-reload" class="ghost">Save + Reload</button></div></div>
               <div class="loot-editor-toolbar">
                 <div class="actions tight wrap loot-mode-actions"><button id="toggle-visual" class="ghost">Visual Builder</button><button id="toggle-split" class="ghost">Split View</button><button id="toggle-raw" class="ghost">Raw JSON</button></div>
                 <div class="actions tight wrap loot-file-actions"><button id="clone-loot" class="ghost">Clone</button><button id="delete-loot" class="danger-outline">Delete</button></div>
@@ -396,7 +397,7 @@
           <div id="help-settings-guide" class="card help-card"></div>
         </div>
       </section>
-      <section id="view-diff" class="view"><div class="card"><div class="section-head"><div><h3>Diff Preview</h3><p class="muted">Preview before you commit damage.</p></div></div><pre id="diff-output" class="console tall-console"></pre></div></section>
+      <section id="view-diff" class="view"><div class="card"><div class="section-head"><div><h3>Diff Preview</h3><p class="muted">Preview before you commit damage.</p></div><div class="actions tight wrap"><button id="diff-confirm-save" class="hidden">Confirm Save</button></div></div><div id="diff-summary"></div><pre id="diff-output" class="console tall-console"></pre></div></section>
     </main>
   </div>
 

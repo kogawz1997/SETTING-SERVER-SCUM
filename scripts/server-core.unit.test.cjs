@@ -158,3 +158,54 @@ test('portable package config sanitizes machine paths and remaps on import', () 
   assert.equal(remapped.backupDir, 'E:\\SCUMBackups');
   assert.equal(remapped.reloadLootCommand, '');
 });
+
+test('local polish utilities summarize risky saves and build sanitized support zip', () => {
+  const {
+    summarizeSafeApplyPlan,
+    buildSupportBundle,
+    sanitizeSupportConfig,
+    DEFAULT_ITEM_CATALOG_PACK,
+    DEFAULT_KIT_TEMPLATE_LIBRARY,
+  } = require('../src/server/local-polish.cjs');
+
+  const summary = summarizeSafeApplyPlan({
+    logicalPath: 'Nodes/Bunker.json',
+    changed: true,
+    willWrite: true,
+    validation: { counts: { critical: 1, warning: 2, info: 0 } },
+    blockers: [{ severity: 'critical', message: 'Missing item name' }],
+    patch: '@@\n-old\n+new\n',
+  });
+
+  assert.equal(summary.risk, 'critical');
+  assert.equal(summary.changedLines, 2);
+  assert.equal(summary.requiresConfirmation, true);
+  assert.equal(summary.humanAction.includes('แก้ critical'), true);
+
+  const sanitized = sanitizeSupportConfig({
+    scumConfigDir: 'C:\\Users\\IT\\Server',
+    nodesDir: 'C:\\Users\\IT\\Server\\Loot\\Nodes',
+    backupDir: 'D:\\Backups',
+    reloadLootCommand: 'cmd /c C:\\secret\\reload.cmd',
+    autoBackupCoreOnStart: true,
+  });
+  assert.equal(sanitized.scumConfigDir, '');
+  assert.equal(sanitized.reloadLootCommand, '');
+  assert.equal(sanitized.autoBackupCoreOnStart, true);
+
+  const bundle = buildSupportBundle({
+    config: sanitized,
+    diagnostics: { ok: true, localPath: 'C:\\ShouldNotLeak' },
+    readiness: { score: 88 },
+    activity: [{ type: 'backup', path: 'Nodes/Test.json' }],
+    logs: [{ name: 'startup.log', content: 'SCUM control plane listening' }],
+    now: () => '2026-04-21T00:00:00.000Z',
+  });
+
+  assert.equal(bundle.fileName, 'scum-support-bundle-2026-04-21T00-00-00-000Z.zip');
+  assert.equal(bundle.buffer.subarray(0, 2).toString('utf8'), 'PK');
+  assert.equal(bundle.files.includes('support/diagnostics.json'), true);
+  assert.equal(bundle.files.includes('logs/startup.log'), true);
+  assert.equal(DEFAULT_ITEM_CATALOG_PACK.some((item) => item.tags.includes('weapon')), true);
+  assert.equal(DEFAULT_KIT_TEMPLATE_LIBRARY.some((kit) => kit.locked && /solo/i.test(kit.id)), true);
+});

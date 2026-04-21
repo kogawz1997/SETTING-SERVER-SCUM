@@ -6,6 +6,7 @@ node_modules/
 artifacts/
 test-results/
 output/
+dist/
 
 # Machine-specific config and logs
 data/config.json

@@ -24,6 +24,15 @@
   state.quickStart = state.quickStart || {};
   state.diagnostics = state.diagnostics || { includePaths: true, reportText: '' };
   state.itemCatalogLookup = state.itemCatalogLookup instanceof Map ? state.itemCatalogLookup : new Map();
+  state.lootUi.wizardPreset = state.lootUi.wizardPreset || 'solo_balanced';
+
+  const LOOT_WIZARD_PRESETS = [
+    { id: 'solo_balanced', label: 'Solo balanced', weapon: 0.35, ammo: 0.45, medical: 0.45, food: 0.45, tool: 0.25, other: 0.3, quantity: [1, 2], hint: 'ของจำเป็นครบ ไม่แจกปืนหนักเกินไป' },
+    { id: 'pvp_hot', label: 'PvP hot zone', weapon: 0.65, ammo: 0.75, medical: 0.25, food: 0.15, tool: 0.35, other: 0.25, quantity: [2, 4], hint: 'เพิ่มปืนและกระสุนสำหรับโซนปะทะ' },
+    { id: 'hardcore_sparse', label: 'Hardcore sparse', weapon: 0.14, ammo: 0.18, medical: 0.2, food: 0.25, tool: 0.12, other: 0.1, quantity: [1, 1], hint: 'ลดของให้หายาก เหมาะกับ survival จริงจัง' },
+    { id: 'bunker_rich', label: 'Bunker rich', weapon: 0.72, ammo: 0.72, medical: 0.35, food: 0.12, tool: 0.45, other: 0.3, quantity: [2, 5], hint: 'บังเกอร์คุ้มขึ้น ปืน/กระสุน/เครื่องมือชัดขึ้น' },
+    { id: 'medical_relief', label: 'Medical relief', weapon: 0.18, ammo: 0.2, medical: 0.8, food: 0.3, tool: 0.18, other: 0.15, quantity: [1, 3], hint: 'ดันยาและของรักษาใน clinic หรือ safe route' },
+  ];
 
   const baseApplyTranslations = typeof applyTranslations === 'function' ? applyTranslations : null;
   const baseUpdateLootWorkspaceCopy = typeof updateLootWorkspaceCopy === 'function' ? updateLootWorkspaceCopy : null;
@@ -64,6 +73,74 @@
     return state.itemCatalogLookup.get(key) || null;
   }
 
+  function itemCategoryForWizard(name = '') {
+    const meta = getCatalogItemMeta(name);
+    if (meta?.category) return meta.category;
+    const value = String(name || '').toLowerCase();
+    if (/weapon|rifle|pistol|smg|shotgun|sniper|ak47|m16|mp5|deagle/.test(value)) return 'weapon';
+    if (/ammo|magazine|bullet|762|556|9mm|45acp/.test(value)) return 'ammo';
+    if (/bandage|painkiller|antibiotic|medical|med|syringe/.test(value)) return 'medical';
+    if (/food|water|mre|drink|can|meat|fish/.test(value)) return 'food';
+    if (/tool|screwdriver|lockpick|repair|duct|tape/.test(value)) return 'tool';
+    return 'other';
+  }
+
+  function selectedLootWizardPreset() {
+    return LOOT_WIZARD_PRESETS.find((preset) => preset.id === state.lootUi.wizardPreset) || LOOT_WIZARD_PRESETS[0];
+  }
+
+  function renderLootSetupWizard(kind = 'node') {
+    const preset = selectedLootWizardPreset();
+    return `<div class="loot-setup-wizard"><div class="section-head compact"><div><h4>${escapeHtml(uiText('ตัวช่วยตั้งค่า Loot แบบถามตอบ', 'Loot setup wizard'))}</h4><p class="muted">${escapeHtml(uiText('เลือกเป้าหมาย แล้วให้ระบบปรับน้ำหนักพื้นฐานให้ก่อน จากนั้นค่อยละเอียดทีละแถว', 'Pick a goal and let the app rough-tune the weights first, then fine tune rows later.'))}</p></div><span class="tag">${escapeHtml(kind === 'spawner' ? 'Spawner' : 'Node')}</span></div><div class="loot-inline-grid wizard-grid"><label><span>${escapeHtml(uiText('เป้าหมาย', 'Goal'))}</span><select id="loot-wizard-preset">${LOOT_WIZARD_PRESETS.map((entry) => `<option value="${escapeHtml(entry.id)}" ${entry.id === preset.id ? 'selected' : ''}>${escapeHtml(entry.label)}</option>`).join('')}</select></label><div class="wizard-hint"><strong>${escapeHtml(preset.label)}</strong><p>${escapeHtml(preset.hint)}</p></div></div><div class="actions tight wrap"><button type="button" id="loot-wizard-apply" class="tiny">${escapeHtml(uiText('ปรับตามเป้าหมายนี้', 'Apply this goal'))}</button><button type="button" id="loot-wizard-add-kit" class="ghost tiny">${escapeHtml(uiText('เพิ่มของตัวอย่างถ้าไฟล์ว่าง', 'Add starter items if empty'))}</button></div></div>`;
+  }
+
+  function starterItemsForPreset(presetId) {
+    if (presetId === 'pvp_hot') return ['Weapon_AK47', 'AK47_Magazine', 'Ammo_762x39', 'Bandage'];
+    if (presetId === 'hardcore_sparse') return ['Bandage', 'Water_Bottle', 'MRE', 'Screwdriver'];
+    if (presetId === 'bunker_rich') return ['Weapon_M16A4', 'M16_Magazine', 'Ammo_556x45', 'Emergency_Bandage', 'Tactical_Vest'];
+    if (presetId === 'medical_relief') return ['Bandage', 'Emergency_Bandage', 'Painkillers', 'Antibiotics'];
+    return ['Weapon_1911', 'Ammo_9mm', 'Bandage', 'Water_Bottle', 'MRE'];
+  }
+
+  function applyLootWizardToFlatList(list, addIfEmpty = false) {
+    const preset = selectedLootWizardPreset();
+    if (!Array.isArray(list)) return;
+    captureEditHistory('loot', getLootDraftContent(), 'before-loot-wizard');
+    if (addIfEmpty && !list.length) {
+      starterItemsForPreset(preset.id).forEach((name) => list.push({ ClassName: name, Probability: Number((preset[itemCategoryForWizard(name)] || preset.other || 0.2).toFixed(4)) }));
+    }
+    list.forEach((entry) => {
+      const category = itemCategoryForWizard(itemEntryName(entry));
+      const value = preset[category] ?? preset.other ?? itemEntryProbability(entry);
+      setEntryProbability(entry, Number(Math.max(0, Math.min(1, value)).toFixed(4)));
+    });
+    markLootDirty(true);
+    renderVisualBuilder();
+    showToast(uiText('ปรับ loot ตามเป้าหมายแล้ว ตรวจ diff ก่อน save', 'Loot goal applied. Preview diff before saving.'));
+  }
+
+  function applyLootWizardToSpawner(obj) {
+    const preset = selectedLootWizardPreset();
+    captureEditHistory('loot', getLootDraftContent(), 'before-spawner-wizard');
+    obj.Probability = Number(Math.max(0, Math.min(1, preset.weapon || 0.3)).toFixed(4));
+    obj.QuantityMin = preset.quantity?.[0] ?? obj.QuantityMin ?? 1;
+    obj.QuantityMax = preset.quantity?.[1] ?? obj.QuantityMax ?? Math.max(1, obj.QuantityMin || 1);
+    if (preset.id === 'hardcore_sparse') obj.AllowDuplicates = false;
+    if (preset.id === 'bunker_rich') obj.ShouldFilterItemsByZone = true;
+    markLootDirty(true);
+    renderVisualBuilder();
+    showToast(uiText('ปรับ spawner ตามเป้าหมายแล้ว', 'Spawner goal applied.'));
+  }
+
+  function bindLootSetupWizard(target, kind = 'node') {
+    const select = $('loot-wizard-preset');
+    if (select) select.onchange = (event) => { state.lootUi.wizardPreset = event.target.value; renderVisualBuilder(); };
+    const apply = $('loot-wizard-apply');
+    if (apply) apply.onclick = () => kind === 'spawner' ? applyLootWizardToSpawner(target) : applyLootWizardToFlatList(target, false);
+    const add = $('loot-wizard-add-kit');
+    if (add) add.onclick = () => kind === 'spawner' ? applyLootWizardToSpawner(target) : applyLootWizardToFlatList(target, true);
+  }
+
   function prettifyCatalogItemName(name = '') {
     const meta = getCatalogItemMeta(name);
     return meta?.displayName || String(name || '').replace(/_/g, ' ');
@@ -75,7 +152,9 @@
     const title = options.title || prettifyCatalogItemName(name) || name || uiText('ยังไม่ตั้งชื่อ', 'Unnamed');
     const code = meta?.name || name || '';
     const favorite = meta?.favorite ? '★ ' : '';
-    const subtitleText = subtitle || (meta ? `${favorite}${meta.category} · ${meta.appearances} ${uiText('ครั้ง', 'hits')}` : '');
+    const tagText = Array.isArray(meta?.tags) && meta.tags.length ? ` · ${meta.tags.slice(0, 3).join(', ')}` : '';
+    const rarityText = meta?.rarity ? ` · ${meta.rarity}` : '';
+    const subtitleText = subtitle || (meta ? `${favorite}${meta.category}${rarityText}${tagText} · ${meta.appearances} ${uiText('ครั้ง', 'hits')}` : '');
     const icon = meta?.iconUrl
       ? `<img src="${escapeHtml(meta.iconUrl)}" alt="${escapeHtml(title)}" class="catalog-item-icon${compact ? ' compact' : ''}" loading="lazy" />`
       : `<span class="catalog-item-fallback${compact ? ' compact' : ''}">${escapeHtml((title || '?').slice(0, 1).toUpperCase())}</span>`;
@@ -695,7 +774,7 @@
       if (category === '__favorites' && !item.favorite) return false;
       if (category !== '__all' && category !== '__favorites' && item.category !== category) return false;
       if (!query) return true;
-      const hay = `${item.name} ${item.displayName || ''} ${item.category || ''} ${item.notes || ''} ${(item.sampleSources || []).join(' ')}`.toLowerCase();
+      const hay = `${item.name} ${item.displayName || ''} ${item.category || ''} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes || ''} ${(item.sampleSources || []).join(' ')}`.toLowerCase();
       return hay.includes(query);
     });
   };
@@ -726,7 +805,9 @@
   }
 
   function renderCatalogResultCard(item) {
-    const subtitle = `${item.favorite ? '★ ' : ''}${catalogCategoryLabel(item.category)} · ${item.appearances} ${uiText('ครั้ง', 'hits')}`;
+    const tags = Array.isArray(item.tags) && item.tags.length ? ` · ${item.tags.slice(0, 3).join(', ')}` : '';
+    const rarity = item.rarity ? ` · ${item.rarity}` : '';
+    const subtitle = `${item.favorite ? '★ ' : ''}${catalogCategoryLabel(item.category)}${rarity}${tags} · ${item.appearances} ${uiText('ครั้ง', 'hits')}`;
     return `<div class="result-card catalog-pick-card catalog-editable-card ${item.favorite ? 'favorite' : ''}"><button type="button" class="catalog-pick-main" data-catalog-pick="${escapeHtml(item.name)}">${renderCatalogItemIdentity(item.name, subtitle)}</button><div class="actions tight wrap catalog-card-actions"><button type="button" class="ghost tiny" data-catalog-edit="${escapeHtml(item.name)}">${escapeHtml(uiText('ตั้งชื่อ', 'Edit label'))}</button>${item.hasOverride ? `<span class="tag ok">${escapeHtml(uiText('ปรับแล้ว', 'custom'))}</span>` : ''}</div></div>`;
   }
 
@@ -1141,7 +1222,11 @@
     const latestBackup = report.latestBackup
       ? `${report.latestBackup.name} · ${new Date(report.latestBackup.updatedAt).toLocaleString()}`
       : uiText('ยังไม่มี backup', 'No backup yet');
-    host.innerHTML = `<div class="readiness-top"><div><div class="eyebrow">${escapeHtml(uiText('WORKSPACE HEALTH CENTER / PRODUCTION READY', 'WORKSPACE HEALTH CENTER / PRODUCTION READY'))}</div><h3>${escapeHtml(uiText('Preflight ศูนย์ตรวจสุขภาพก่อนแก้/เซฟ/รีโหลด', 'Preflight health center before edit/save/reload'))}</h3><p class="muted">${escapeHtml(uiText('รวมผล path, syntax, validation, missing refs, backup และคำสั่ง reload ไว้จุดเดียว', 'One place for paths, syntax, validation, missing refs, backups, and reload command readiness.'))}</p></div><div class="readiness-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมใช้', 'Ready') : uiText('ยังต้องแก้', 'Needs work'))}</span></div></div><div class="readiness-grid"><div><span>${escapeHtml(uiText('ปัญหาหนัก', 'Critical'))}</span><strong>${escapeHtml(String(counts.critical || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warning || 0))}</strong></div><div><span>${escapeHtml(uiText('Missing refs', 'Missing refs'))}</span><strong>${escapeHtml(String(counts.missingRefs || 0))}</strong></div><div><span>${escapeHtml(uiText('ไฟล์ลูท', 'Loot files'))}</span><strong>${escapeHtml(`${counts.nodes || 0}/${counts.spawners || 0}`)}</strong></div><div><span>${escapeHtml(uiText('Backup ล่าสุด', 'Latest backup'))}</span><strong>${escapeHtml(latestBackup)}</strong></div></div><div class="readiness-checks">${visibleChecks.map((check) => `<div class="readiness-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(check.label || '-')}</strong><small>${escapeHtml(check.detail || check.action || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div>${report.validationFiles?.length ? `<div class="readiness-files"><strong>${escapeHtml(uiText('ไฟล์ที่ควรเปิดไปแก้ก่อน', 'Files to fix first'))}</strong>${report.validationFiles.slice(0, 5).map((file) => `<button type="button" class="ghost tiny" data-readiness-file="${escapeHtml(file.path)}">${escapeHtml(`${file.path} · C${file.critical}/W${file.warning}`)}</button>`).join('')}</div>` : ''}<div class="actions tight wrap"><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run preflight'))}</button><button class="ghost tiny" data-readiness-view="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-readiness-view="loot">${escapeHtml(uiText('ไป Loot Studio', 'Open Loot Studio'))}</button><button class="ghost tiny" data-readiness-view="analyzer">${escapeHtml(uiText('ไป Analyzer', 'Open Analyzer'))}</button><button class="ghost tiny" data-readiness-view="backups">${escapeHtml(uiText('ไป Backups', 'Open Backups'))}</button></div>`;
+    const nextActions = Array.isArray(report.nextActions) ? report.nextActions.slice(0, 4) : [];
+    const nextActionsMarkup = nextActions.length
+      ? `<div class="health-next-actions"><div class="section-head compact"><div><h4>${escapeHtml(uiText('ควรแก้อะไรก่อน', 'What to fix first'))}</h4><p class="muted">${escapeHtml(uiText('เรียงจากเรื่องที่เสี่ยงทำให้ save/apply พังมากที่สุด', 'Sorted by what is most likely to break save/apply.'))}</p></div></div>${nextActions.map((action) => `<button type="button" class="health-next-action ${escapeHtml(action.severity || action.priority || 'warn')}" data-readiness-next-view="${escapeHtml(action.view || '')}"><strong>${escapeHtml(action.title || '-')}</strong><span>${escapeHtml(action.body || action.detail || '')}</span><small>${escapeHtml(action.action || uiText('เปิดไปแก้', 'Open fix'))}</small></button>`).join('')}</div>`
+      : `<div class="health-next-actions ok"><strong>${escapeHtml(uiText('ยังไม่เจอเรื่องด่วน', 'No urgent blockers found'))}</strong><span>${escapeHtml(uiText('ยังควร backup ก่อนแก้ไฟล์จริงทุกครั้ง', 'Still create a backup before editing real files.'))}</span></div>`;
+    host.innerHTML = `<div class="readiness-top"><div><div class="eyebrow">${escapeHtml(uiText('WORKSPACE HEALTH CENTER / PRODUCTION READY', 'WORKSPACE HEALTH CENTER / PRODUCTION READY'))}</div><h3>${escapeHtml(uiText('Preflight ศูนย์ตรวจสุขภาพก่อนแก้/เซฟ/รีโหลด', 'Preflight health center before edit/save/reload'))}</h3><p class="muted">${escapeHtml(uiText('รวมผล path, syntax, validation, missing refs, backup และคำสั่ง reload ไว้จุดเดียว', 'One place for paths, syntax, validation, missing refs, backups, and reload command readiness.'))}</p></div><div class="readiness-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมใช้', 'Ready') : uiText('ยังต้องแก้', 'Needs work'))}</span></div></div><div class="readiness-grid"><div><span>${escapeHtml(uiText('ปัญหาหนัก', 'Critical'))}</span><strong>${escapeHtml(String(counts.critical || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warning || 0))}</strong></div><div><span>${escapeHtml(uiText('Missing refs', 'Missing refs'))}</span><strong>${escapeHtml(String(counts.missingRefs || 0))}</strong></div><div><span>${escapeHtml(uiText('ไฟล์ลูท', 'Loot files'))}</span><strong>${escapeHtml(`${counts.nodes || 0}/${counts.spawners || 0}`)}</strong></div><div><span>${escapeHtml(uiText('Backup ล่าสุด', 'Latest backup'))}</span><strong>${escapeHtml(latestBackup)}</strong></div></div>${nextActionsMarkup}<div class="readiness-checks">${visibleChecks.map((check) => `<div class="readiness-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(check.label || '-')}</strong><small>${escapeHtml(check.detail || check.action || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div>${report.validationFiles?.length ? `<div class="readiness-files"><strong>${escapeHtml(uiText('ไฟล์ที่ควรเปิดไปแก้ก่อน', 'Files to fix first'))}</strong>${report.validationFiles.slice(0, 5).map((file) => `<button type="button" class="ghost tiny" data-readiness-file="${escapeHtml(file.path)}">${escapeHtml(`${file.path} · C${file.critical}/W${file.warning}`)}</button>`).join('')}</div>` : ''}<div class="actions tight wrap"><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run preflight'))}</button><button class="ghost tiny" data-readiness-view="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-readiness-view="loot">${escapeHtml(uiText('ไป Loot Studio', 'Open Loot Studio'))}</button><button class="ghost tiny" data-readiness-view="analyzer">${escapeHtml(uiText('ไป Analyzer', 'Open Analyzer'))}</button><button class="ghost tiny" data-readiness-view="backups">${escapeHtml(uiText('ไป Backups', 'Open Backups'))}</button></div>`;
     bindReadinessPanel();
   }
 
@@ -1288,7 +1373,7 @@
     const host = $('diagnostics-panel');
     if (!host) return;
     const hasReport = Boolean(state.diagnostics.reportText);
-    host.innerHTML = `<div class="section-head compact"><div><div class="eyebrow">${escapeHtml(uiText('ส่งให้คนช่วยดู', 'SUPPORT EXPORT'))}</div><h3>${escapeHtml(uiText('Diagnostics report', 'Diagnostics report'))}</h3><p class="muted">${escapeHtml(uiText('รวมสถานะ path, readiness, validation, backup และ activity โดยไม่แนบเนื้อหาไฟล์ config', 'Exports paths, readiness, validation, backups, and activity status without attaching config file contents.'))}</p></div><span class="tag">${escapeHtml(hasReport ? uiText('พร้อม copy', 'ready') : uiText('ยังไม่สร้าง', 'empty'))}</span></div><label class="checkline diagnostics-privacy"><input id="diagnostics-include-paths" type="checkbox" ${state.diagnostics.includePaths ? 'checked' : ''} /> <span>${escapeHtml(uiText('ใส่ path จริงในรายงาน', 'Include local paths'))}</span></label><div class="actions tight wrap"><button id="generate-diagnostics" class="tiny">${escapeHtml(uiText('สร้างรายงาน', 'Generate report'))}</button><button id="copy-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Copy JSON', 'Copy JSON'))}</button><button id="download-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Download JSON', 'Download JSON'))}</button></div><textarea id="diagnostics-output" class="diagnostics-output code" placeholder="${escapeHtml(uiText('กดสร้างรายงานก่อน', 'Generate a report first.'))}">${escapeHtml(state.diagnostics.reportText || '')}</textarea>`;
+    host.innerHTML = `<div class="section-head compact"><div><div class="eyebrow">${escapeHtml(uiText('ส่งให้คนช่วยดู', 'SUPPORT EXPORT'))}</div><h3>${escapeHtml(uiText('Diagnostics report', 'Diagnostics report'))}</h3><p class="muted">${escapeHtml(uiText('รวมสถานะ path, readiness, validation, backup และ activity โดยไม่แนบเนื้อหาไฟล์ config', 'Exports paths, readiness, validation, backups, and activity status without attaching config file contents.'))}</p></div><span class="tag">${escapeHtml(hasReport ? uiText('พร้อม copy', 'ready') : uiText('ยังไม่สร้าง', 'empty'))}</span></div><label class="checkline diagnostics-privacy"><input id="diagnostics-include-paths" type="checkbox" ${state.diagnostics.includePaths ? 'checked' : ''} /> <span>${escapeHtml(uiText('ใส่ path จริงในรายงาน', 'Include local paths'))}</span></label><div class="actions tight wrap"><button id="generate-diagnostics" class="tiny">${escapeHtml(uiText('สร้างรายงาน', 'Generate report'))}</button><button id="copy-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Copy JSON', 'Copy JSON'))}</button><button id="download-diagnostics" class="ghost tiny" ${hasReport ? '' : 'disabled'}>${escapeHtml(uiText('Download JSON', 'Download JSON'))}</button><button id="download-support-bundle" class="ghost tiny">${escapeHtml(uiText('Download support zip', 'Download support zip'))}</button></div><textarea id="diagnostics-output" class="diagnostics-output code" placeholder="${escapeHtml(uiText('กดสร้างรายงานก่อน', 'Generate a report first.'))}">${escapeHtml(state.diagnostics.reportText || '')}</textarea>`;
     bindDiagnosticsPanel();
   }
 
@@ -1346,6 +1431,24 @@
     URL.revokeObjectURL(url);
   }
 
+  async function downloadSupportBundle() {
+    const includePaths = Boolean($('diagnostics-include-paths')?.checked);
+    const data = await api(`/api/support/bundle?includePaths=${includePaths ? 'true' : 'false'}`);
+    const binary = atob(data.base64 || '');
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const blob = new Blob([bytes], { type: data.mime || 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = data.fileName || `scum-support-bundle-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast(uiText('สร้าง support bundle แล้ว', 'Support bundle exported'));
+  }
+
   function bindDiagnosticsPanel() {
     const includePaths = $('diagnostics-include-paths');
     if (includePaths) includePaths.onchange = (event) => { state.diagnostics.includePaths = event.target.checked; };
@@ -1355,6 +1458,8 @@
     if (copy) copy.onclick = () => copyDiagnosticsReport().catch((error) => showToast(error.message, true));
     const download = $('download-diagnostics');
     if (download) download.onclick = downloadDiagnosticsReport;
+    const bundle = $('download-support-bundle');
+    if (bundle) bundle.onclick = () => downloadSupportBundle().catch((error) => showToast(error.message, true));
   }
 
   async function loadReadiness() {
@@ -1378,6 +1483,15 @@
       button.onclick = () => {
         const view = button.dataset.readinessView;
         if (typeof setView === 'function') setView(view);
+        if (view === 'analyzer' && typeof loadAnalyzer === 'function') loadAnalyzer().catch((error) => showToast(error.message, true));
+        if (view === 'backups' && typeof loadBackups === 'function') loadBackups().catch((error) => showToast(error.message, true));
+      };
+    });
+    document.querySelectorAll('[data-readiness-next-view]').forEach((button) => {
+      button.onclick = () => {
+        const view = button.dataset.readinessNextView;
+        if (!view || typeof setView !== 'function') return;
+        setView(view);
         if (view === 'analyzer' && typeof loadAnalyzer === 'function') loadAnalyzer().catch((error) => showToast(error.message, true));
         if (view === 'backups' && typeof loadBackups === 'function') loadBackups().catch((error) => showToast(error.message, true));
       };
@@ -1641,15 +1755,36 @@
     const query = `base=${encodeURIComponent(state.backupUi.compareTarget)}&target=${encodeURIComponent(state.selectedBackup)}${path ? `&path=${encodeURIComponent(path)}` : ''}`;
     const data = await api(`/api/backup/compare?${query}`);
     if (data.mode === 'file') {
-      $('backup-file-preview').textContent = data.patch || '';
+      $('backup-file-preview').textContent = [
+        uiText('COMPARE ไฟล์ที่เลือก', 'SELECTED FILE COMPARE'),
+        `${uiText('จาก backup', 'From backup')}: ${state.backupUi.compareTarget}`,
+        `${uiText('ไป backup', 'To backup')}: ${state.selectedBackup}`,
+        `${uiText('ไฟล์', 'File')}: ${path}`,
+        '',
+        data.patch || uiText('ไฟล์นี้ไม่ต่างกัน', 'No differences in this file.'),
+      ].join('\n');
       return;
     }
     const changed = (data.files || []).filter((file) => file.status !== 'same');
+    const priority = changed.filter((file) => /\.(json|ini)$/i.test(file.relPath)).slice(0, 12);
     $('backup-file-preview').textContent = [
-      `${uiText('Compare backup', 'Backup compare')}: ${state.backupUi.compareTarget} -> ${state.selectedBackup}`,
-      `added=${data.counts?.added || 0} removed=${data.counts?.removed || 0} changed=${data.counts?.changed || 0} same=${data.counts?.same || 0}`,
+      uiText('COMPARE BACKUP ทั้งชุด', 'FULL BACKUP COMPARE'),
+      `Backup compare: ${state.backupUi.compareTarget} -> ${state.selectedBackup}`,
+      `${uiText('จาก backup', 'From backup')}: ${state.backupUi.compareTarget}`,
+      `${uiText('ไป backup', 'To backup')}: ${state.selectedBackup}`,
       '',
-      ...changed.slice(0, 120).map((file) => `${file.status.toUpperCase()} ${file.relPath} (${file.baseSize} -> ${file.targetSize} bytes)`),
+      uiText('สรุปที่ต้องดู', 'Summary to review'),
+      `added=${data.counts?.added || 0} removed=${data.counts?.removed || 0} changed=${data.counts?.changed || 0} same=${data.counts?.same || 0}`,
+      `${uiText('เพิ่มใหม่', 'Added')}: ${data.counts?.added || 0}`,
+      `${uiText('ถูกลบ', 'Removed')}: ${data.counts?.removed || 0}`,
+      `${uiText('มีการเปลี่ยน', 'Changed')}: ${data.counts?.changed || 0}`,
+      `${uiText('เหมือนเดิม', 'Same')}: ${data.counts?.same || 0}`,
+      '',
+      priority.length ? uiText('ไฟล์ config/loot ที่ควรเปิดเทียบก่อน', 'Config/loot files to inspect first') : uiText('ยังไม่เจอไฟล์ config/loot ที่ต่างกัน', 'No changed config/loot files found.'),
+      ...priority.map((file) => `- ${file.status.toUpperCase()} ${file.relPath} (${file.baseSize} -> ${file.targetSize} bytes)`),
+      '',
+      uiText('รายการที่ต่างทั้งหมด', 'All changed files'),
+      ...changed.slice(0, 120).map((file) => `- ${file.status.toUpperCase()} ${file.relPath} (${file.baseSize} -> ${file.targetSize} bytes)`),
     ].join('\n');
   }
 
@@ -2465,8 +2600,9 @@
       return `<details class="builder-row-card loot-row-card ${selectedSet.has(index) ? 'selected' : ''}" data-drag-row="${index}" draggable="true" ${open ? 'open' : ''}><summary class="row-head row-summary"><span class="drag-handle" title="${escapeHtml(uiText('ลากเพื่อเรียงแถว', 'Drag to reorder'))}">drag</span><label class="row-select-pill" onclick="event.stopPropagation()"><input type="checkbox" data-row-select="${index}" ${selectedSet.has(index) ? 'checked' : ''} />${escapeHtml(uiText('เลือก', 'Select'))}</label><strong>${escapeHtml(uiText(`แถวไอเท็ม ${index + 1}`, `Item row ${index + 1}`))}</strong><div class="row-meta row-meta-rich">${renderCatalogItemIdentity(itemName, `${uiText('ค่า', 'value')} ${probability}`, { compact: true })}<span class="tag">${escapeHtml(`${uiText('ค่า', 'value')} ${probability}`)}</span></div></summary><div class="loot-inline-grid"><label class="item-suggest-field"><span>${escapeHtml(uiText('Class name', 'Class name'))}</span><input data-entry-name="${index}" list="loot-item-options" autocomplete="off" value="${escapeHtml(itemName)}" placeholder="Weapon_AK47" />${state.lootUi.compact ? '' : `<small class="field-help">${escapeHtml(uiText('พิมพ์บางส่วนแล้วเลือกรายการที่คล้ายกันพร้อมไอคอนได้เลย', 'Type a partial name and pick a matching item with an icon.'))}</small>`}<div class="inline-item-suggestions"></div></label><label><span>${escapeHtml(uiText('น้ำหนัก / Probability', 'Weight / Probability'))}</span><input data-entry-prob="${index}" value="${probability}" type="number" step="0.01" min="0" max="1" />${state.lootUi.compact ? '' : `<small class="field-help">${escapeHtml(uiText('ค่าสูงออกบ่อยกว่า', 'Higher values appear more often.'))}</small>`}</label><label><span>${escapeHtml(uiText('ปรับเร็ว', 'Quick slider'))}</span><input data-entry-range="${index}" value="${probability}" type="range" step="0.01" min="0" max="1" /></label></div><div class="actions tight wrap"><button data-dup-row="${index}" class="ghost tiny">${escapeHtml(t('duplicate'))}</button><button data-up-row="${index}" class="ghost tiny">${escapeHtml(t('moveUp'))}</button><button data-down-row="${index}" class="ghost tiny">${escapeHtml(t('moveDown'))}</button><button data-remove-row="${index}" class="danger-outline tiny">${escapeHtml(uiText('ลบแถว', 'Remove row'))}</button></div></details>`;
     }).join('');
 
-    $('visual-builder').innerHTML = `<div class="loot-builder-shell ${state.lootUi.compact ? 'compact' : ''}">${renderBuilderCoach(summary)}${renderLootFieldCheatsheet(summary)}<div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Node info', 'Node info'))}</h4><p class="muted">${escapeHtml(uiText('ตั้งบริบทของ node ก่อน แล้วค่อยแก้ไอเท็มด้านล่าง', 'Set the node context first, then tune the item rows below.'))}</p></div><div class="actions tight wrap"><span class="tag node">${escapeHtml(lootKindLabel('node'))}</span><button id="sync-visual-to-raw" class="tiny">${escapeHtml(uiText('อัปเดต JSON ดิบ', 'Update Raw JSON'))}</button></div></div><div class="loot-inline-grid"><label><span>${escapeHtml(uiText('ชื่อโหนด', 'Node name'))}</span><input id="visual-name" value="${escapeHtml(obj.Name || '')}" /></label><label><span>${escapeHtml(uiText('โน้ต', 'Notes'))}</span><input id="visual-notes" value="${escapeHtml(obj.Notes || '')}" /></label></div></div><div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('รายการไอเท็ม', 'Item rows'))}</h4><p class="muted">${escapeHtml(uiText('แต่ละแถวคือ 1 ไอเท็ม กางเฉพาะแถวที่กำลังแก้ก็พอ ลากคำว่า drag เพื่อเรียงลำดับใหม่ได้', 'Each row is one item. Open only the row you are working on, or drag rows to reorder them.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${visibleRows.length}/${list.length} ${uiText('แถวที่เห็น', 'visible rows')}`)}</span><button id="add-visual-row" class="ghost tiny">${escapeHtml(uiText('เพิ่มไอเท็ม', 'Add item'))}</button><button id="normalize-visual" class="ghost tiny">${escapeHtml(t('normalize'))}</button><button id="quick-add-ak" class="ghost tiny">${escapeHtml(uiText('ใส่ชุด AK เร็ว ๆ', 'Quick AK pack'))}</button></div></div><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('ค้นหาแถวไอเท็ม', 'Search item rows'))}</span><input id="flat-row-search" value="${escapeHtml(state.lootUi.flatRowSearch || '')}" placeholder="${escapeHtml(uiText('พิมพ์ชื่อไอเท็มหรือ class', 'Type an item or class name'))}" /></label></div>${rowWorkbench}<div class="mini-stat-grid"><div class="mini-stat"><span>${escapeHtml(uiText('จำนวนแถว', 'Rows'))}</span><strong>${escapeHtml(list.length)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('ผลรวม probability', 'Total probability'))}</span><strong>${escapeHtml(totalProbability)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('โหมด', 'Mode'))}</span><strong>${escapeHtml(state.lootUi.compact ? uiText('กระชับ', 'Compact') : uiText('ปกติ', 'Standard'))}</strong></div></div>${bulkPanel}${kitPanel}<div class="visual-table">${rows || `<div class="muted builder-empty">${escapeHtml(rowSearch ? uiText('ไม่เจอแถวไอเท็มที่ตรงกับคำค้นนี้', 'No item rows matched this search.') : uiText('ยังไม่มีรายการไอเท็ม', 'No item rows yet.'))}</div>`}</div></div>${renderItemCatalogSection('flat')}</div>`;
+    $('visual-builder').innerHTML = `<div class="loot-builder-shell ${state.lootUi.compact ? 'compact' : ''}">${renderBuilderCoach(summary)}${renderLootSetupWizard('node')}${renderLootFieldCheatsheet(summary)}<div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Node info', 'Node info'))}</h4><p class="muted">${escapeHtml(uiText('ตั้งบริบทของ node ก่อน แล้วค่อยแก้ไอเท็มด้านล่าง', 'Set the node context first, then tune the item rows below.'))}</p></div><div class="actions tight wrap"><span class="tag node">${escapeHtml(lootKindLabel('node'))}</span><button id="sync-visual-to-raw" class="tiny">${escapeHtml(uiText('อัปเดต JSON ดิบ', 'Update Raw JSON'))}</button></div></div><div class="loot-inline-grid"><label><span>${escapeHtml(uiText('ชื่อโหนด', 'Node name'))}</span><input id="visual-name" value="${escapeHtml(obj.Name || '')}" /></label><label><span>${escapeHtml(uiText('โน้ต', 'Notes'))}</span><input id="visual-notes" value="${escapeHtml(obj.Notes || '')}" /></label></div></div><div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('รายการไอเท็ม', 'Item rows'))}</h4><p class="muted">${escapeHtml(uiText('แต่ละแถวคือ 1 ไอเท็ม กางเฉพาะแถวที่กำลังแก้ก็พอ ลากคำว่า drag เพื่อเรียงลำดับใหม่ได้', 'Each row is one item. Open only the row you are working on, or drag rows to reorder them.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${visibleRows.length}/${list.length} ${uiText('แถวที่เห็น', 'visible rows')}`)}</span><button id="add-visual-row" class="ghost tiny">${escapeHtml(uiText('เพิ่มไอเท็ม', 'Add item'))}</button><button id="normalize-visual" class="ghost tiny">${escapeHtml(t('normalize'))}</button><button id="quick-add-ak" class="ghost tiny">${escapeHtml(uiText('ใส่ชุด AK เร็ว ๆ', 'Quick AK pack'))}</button></div></div><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('ค้นหาแถวไอเท็ม', 'Search item rows'))}</span><input id="flat-row-search" value="${escapeHtml(state.lootUi.flatRowSearch || '')}" placeholder="${escapeHtml(uiText('พิมพ์ชื่อไอเท็มหรือ class', 'Type an item or class name'))}" /></label></div>${rowWorkbench}<div class="mini-stat-grid"><div class="mini-stat"><span>${escapeHtml(uiText('จำนวนแถว', 'Rows'))}</span><strong>${escapeHtml(list.length)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('ผลรวม probability', 'Total probability'))}</span><strong>${escapeHtml(totalProbability)}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('โหมด', 'Mode'))}</span><strong>${escapeHtml(state.lootUi.compact ? uiText('กระชับ', 'Compact') : uiText('ปกติ', 'Standard'))}</strong></div></div>${bulkPanel}${kitPanel}<div class="visual-table">${rows || `<div class="muted builder-empty">${escapeHtml(rowSearch ? uiText('ไม่เจอแถวไอเท็มที่ตรงกับคำค้นนี้', 'No item rows matched this search.') : uiText('ยังไม่มีรายการไอเท็ม', 'No item rows yet.'))}</div>`}</div></div>${renderItemCatalogSection('flat')}</div>`;
 
+    bindLootSetupWizard(list, 'node');
     $('visual-name').oninput = (e) => obj.Name = e.target.value;
     $('visual-notes').oninput = (e) => obj.Notes = e.target.value;
     $('sync-visual-to-raw').onclick = syncVisualBuilderToRaw;
@@ -2591,8 +2727,9 @@
       return `<details class="builder-row-card spawner-entry" ${open ? 'open' : ''}><summary class="spawner-group-header"><div><strong>${escapeHtml(uiText(`Group ${index + 1}`, `Group ${index + 1}`))}</strong><div class="muted">${escapeHtml(`${ids.length} ${uiText('refs', 'refs')}`)}</div></div><span class="tag">${escapeHtml(entry.Rarity || uiText('ไม่ตั้งค่า', 'Unset'))}</span></summary><div class="loot-inline-grid spawner-entry-grid"><label><span>${escapeHtml(uiText('Group rarity', 'Group rarity'))}</span><select data-group-rarity="${index}">${buildRarityOptions(entry.Rarity || '')}</select></label><label class="span-two"><span>${escapeHtml(uiText('Tree ids', 'Tree ids'))}</span><textarea data-group-ids="${index}" class="ids-editor" placeholder="${escapeHtml(uiText('หนึ่ง ref ต่อหนึ่งบรรทัด', 'One ref per line'))}">${escapeHtml(ids.join('\n'))}</textarea>${state.lootUi.compact ? '' : `<small class="field-help">${escapeHtml(uiText('คลิกในช่องนี้ก่อน แล้วใช้ Node ref catalog ด้านล่างช่วยเติม', 'Focus here first, then use the Node ref catalog below to append refs quickly.'))}</small>`}</label></div><div class="actions tight wrap"><button data-group-dup="${index}" class="ghost tiny">${escapeHtml(t('duplicate'))}</button><button data-group-up="${index}" class="ghost tiny">${escapeHtml(t('moveUp'))}</button><button data-group-down="${index}" class="ghost tiny">${escapeHtml(t('moveDown'))}</button><button data-group-remove="${index}" class="danger-outline tiny">${escapeHtml(uiText('ลบกลุ่ม', 'Remove group'))}</button></div></details>`;
     }).join('');
 
-    $('visual-builder').innerHTML = `<div class="loot-builder-shell ${state.lootUi.compact ? 'compact' : ''}">${renderBuilderCoach(summary)}${renderLootFieldCheatsheet(summary)}<div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Spawner settings', 'Spawner settings'))}</h4><p class="muted">${escapeHtml(uiText('เริ่มจากกลุ่มแรกก่อน ถ้าปรับโอกาสดรอปกับจำนวนได้ตรงแล้ว ค่อยไปแตะตัวกรองขั้นสูง', 'Start with the first group. If drop chance and quantity feel right, then move on to the advanced filters only when needed.'))}</p></div><div class="actions tight wrap"><span class="tag spawner">${escapeHtml(lootKindLabel('spawner'))}</span><button id="sync-visual-to-raw" class="tiny">${escapeHtml(uiText('อัปเดต JSON ดิบ', 'Update Raw JSON'))}</button></div></div><div class="spawner-field-groups">${fieldSections}</div></div><div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Node groups', 'Node groups'))}</h4><p class="muted">${escapeHtml(uiText('แต่ละกลุ่มคือชุด ref ที่ spawner นี้สุ่มใช้ แก้กลุ่มละอันจะอ่านง่ายสุด', 'Each group is a set of refs this spawner can use. Edit one group at a time to keep the page readable.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${visibleEntries.length}/${allEntries.length} ${uiText('กลุ่มที่เห็น', 'visible groups')}`)}</span><button id="spawner-add-group" class="ghost tiny">${escapeHtml(uiText('เพิ่มกลุ่ม', 'Add group'))}</button></div></div><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('ค้นหา Node groups', 'Search node groups'))}</span><input id="spawner-group-search" value="${escapeHtml(state.lootUi.spawnerGroupSearch || '')}" placeholder="${escapeHtml(uiText('พิมพ์ ref, rarity, หรือชื่อกิ่ง', 'Type a ref, rarity, or branch name'))}" /></label></div>${groupWorkbench}<div class="visual-table">${groups || `<div class="muted builder-empty">${escapeHtml(groupSearch ? uiText('ไม่เจอ Node group ที่ตรงกับคำค้นนี้', 'No node groups matched this search.') : uiText('ยังไม่มี node group', 'No node groups yet.'))}</div>`}</div></div>${renderNodeRefCatalogSection()}</div>`;
+    $('visual-builder').innerHTML = `<div class="loot-builder-shell ${state.lootUi.compact ? 'compact' : ''}">${renderBuilderCoach(summary)}${renderLootSetupWizard('spawner')}${renderLootFieldCheatsheet(summary)}<div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Spawner settings', 'Spawner settings'))}</h4><p class="muted">${escapeHtml(uiText('เริ่มจากกลุ่มแรกก่อน ถ้าปรับโอกาสดรอปกับจำนวนได้ตรงแล้ว ค่อยไปแตะตัวกรองขั้นสูง', 'Start with the first group. If drop chance and quantity feel right, then move on to the advanced filters only when needed.'))}</p></div><div class="actions tight wrap"><span class="tag spawner">${escapeHtml(lootKindLabel('spawner'))}</span><button id="sync-visual-to-raw" class="tiny">${escapeHtml(uiText('อัปเดต JSON ดิบ', 'Update Raw JSON'))}</button></div></div><div class="spawner-field-groups">${fieldSections}</div></div><div class="builder-section"><div class="section-head compact"><div><h4>${escapeHtml(uiText('Node groups', 'Node groups'))}</h4><p class="muted">${escapeHtml(uiText('แต่ละกลุ่มคือชุด ref ที่ spawner นี้สุ่มใช้ แก้กลุ่มละอันจะอ่านง่ายสุด', 'Each group is a set of refs this spawner can use. Edit one group at a time to keep the page readable.'))}</p></div><div class="actions tight wrap"><span class="tag item">${escapeHtml(`${visibleEntries.length}/${allEntries.length} ${uiText('กลุ่มที่เห็น', 'visible groups')}`)}</span><button id="spawner-add-group" class="ghost tiny">${escapeHtml(uiText('เพิ่มกลุ่ม', 'Add group'))}</button></div></div><div class="loot-inline-grid catalog-filter-grid"><label><span>${escapeHtml(uiText('ค้นหา Node groups', 'Search node groups'))}</span><input id="spawner-group-search" value="${escapeHtml(state.lootUi.spawnerGroupSearch || '')}" placeholder="${escapeHtml(uiText('พิมพ์ ref, rarity, หรือชื่อกิ่ง', 'Type a ref, rarity, or branch name'))}" /></label></div>${groupWorkbench}<div class="visual-table">${groups || `<div class="muted builder-empty">${escapeHtml(groupSearch ? uiText('ไม่เจอ Node group ที่ตรงกับคำค้นนี้', 'No node groups matched this search.') : uiText('ยังไม่มี node group', 'No node groups yet.'))}</div>`}</div></div>${renderNodeRefCatalogSection()}</div>`;
 
+    bindLootSetupWizard(obj, 'spawner');
     $('sync-visual-to-raw').onclick = syncVisualBuilderToRaw;
     $('spawner-add-group').onclick = () => { obj.Nodes.push({ Rarity: 'Uncommon', Ids: ['ItemLootTreeNodes.NewGroup'] }); renderVisualBuilder(); };
     if ($('spawner-group-search')) $('spawner-group-search').oninput = (e) => { state.lootUi.spawnerGroupSearch = e.target.value; renderVisualBuilder(); };

@@ -1048,6 +1048,42 @@
   z-index: 35;
 }
 
+.loot-setup-wizard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(126, 228, 178, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(126, 228, 178, 0.16), transparent 36%),
+    rgba(8, 15, 24, 0.7);
+}
+
+.loot-wizard-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.loot-wizard-hint {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.loot-wizard-hint strong {
+  color: var(--text);
+}
+
+.loot-wizard-hint span,
+.loot-wizard-hint small {
+  color: var(--muted);
+}
+
 .inline-item-suggestions {
   position: absolute;
   top: calc(100% + 8px);
@@ -1495,6 +1531,10 @@
   }
 
   .wizard-step-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loot-wizard-grid {
     grid-template-columns: 1fr;
   }
 

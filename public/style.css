@@ -183,6 +183,90 @@ code {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
+.diff-trust-card,
+.health-next-actions {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(136, 194, 255, 0.18);
+  border-radius: 20px;
+  background: rgba(8, 15, 24, 0.72);
+}
+
+.diff-trust-card.critical,
+.health-next-action.critical {
+  border-color: rgba(255, 139, 135, 0.48);
+  background: rgba(255, 139, 135, 0.08);
+}
+
+.diff-trust-card.warning,
+.health-next-action.warning,
+.health-next-action.warn {
+  border-color: rgba(255, 203, 107, 0.42);
+  background: rgba(255, 203, 107, 0.08);
+}
+
+.diff-trust-card.safe,
+.health-next-actions.ok,
+.health-next-action.ok {
+  border-color: rgba(126, 228, 178, 0.34);
+  background: rgba(126, 228, 178, 0.08);
+}
+
+.diff-trust-head,
+.diff-trust-meta,
+.health-next-actions.ok {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.diff-trust-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.diff-trust-stat-grid > div,
+.diff-risk-note {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.diff-trust-stat-grid span,
+.health-next-action span,
+.health-next-action small {
+  display: block;
+  color: var(--muted);
+}
+
+.diff-trust-stat-grid strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.health-next-actions {
+  margin-top: 14px;
+}
+
+.health-next-action {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+
 .shell,
 .app-shell {
   min-height: 100vh;

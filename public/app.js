@@ -60,6 +60,10 @@ const state = {
     fileScope: 'all',
     dirty: false
   },
+  editHistory: { core: [], loot: [], server: [] },
+  diffPlan: null,
+  saveIntent: null,
+  saveIntentPayload: null,
 };
 
 const lootRecentStorageKey = 'scum_loot_recent';
@@ -408,6 +412,75 @@ function refreshCoreDirtyState(){
     preview.textContent = state.coreDirty ? uiText('Dry run / พรีวิวก่อนบันทึก', 'Dry run / Preview') : t('previewDiff');
   }
   return state.coreDirty;
+}
+function historyKey(kind){
+  if(kind === 'core') return state.selectedCorePath || 'core';
+  if(kind === 'loot') return state.selectedLootPath || 'loot';
+  return 'ServerSettings.ini';
+}
+function captureEditHistory(kind, content, label=''){
+  const key = historyKey(kind);
+  const list = state.editHistory[kind] || [];
+  const text = String(content ?? '');
+  if(!key || (list.length && list[list.length - 1].content === text)) return;
+  list.push({ key, content: text, label, at: new Date().toISOString() });
+  state.editHistory[kind] = list.slice(-5);
+  updateUndoButtons();
+}
+function updateUndoButtons(){
+  const set=(id, kind)=>{ const el=$(id); if(el) el.disabled = !(state.editHistory[kind] || []).length; };
+  set('core-undo', 'core'); set('loot-undo', 'loot'); set('server-undo', 'server');
+}
+function restoreEditHistory(kind){
+  const list = state.editHistory[kind] || [];
+  const snapshot = list.pop();
+  state.editHistory[kind] = list;
+  if(!snapshot) return showToast(uiText('ยังไม่มีประวัติให้ย้อน', 'No local edit history to undo.'), true);
+  if(kind === 'core'){
+    $('core-editor').value = snapshot.content;
+    refreshCoreDirtyState();
+  } else if(kind === 'loot'){
+    try {
+      state.currentLootObject = JSON.parse(snapshot.content || '{}');
+      $('loot-editor').value = snapshot.content;
+      renderVisualBuilder();
+      refreshLootDirtyState();
+    } catch {
+      $('loot-editor').value = snapshot.content;
+      setLootEditorMode('raw');
+      refreshLootDirtyState();
+    }
+  } else if(kind === 'server'){
+    state.parsedServer = JSON.parse(snapshot.content || '{}');
+    renderParsedServerGrid();
+    refreshServerDirtyState();
+  }
+  updateUndoButtons();
+  showToast(uiText('ย้อนกลับจาก history แล้ว', 'Restored from local history.'));
+}
+function diffRiskLabel(risk){
+  if(risk === 'critical') return uiText('เสี่ยงสูง ห้ามเซฟ', 'Critical risk');
+  if(risk === 'warning') return uiText('มีคำเตือน', 'Warnings');
+  if(risk === 'changed') return uiText('มีการเปลี่ยนแปลง', 'Changed');
+  return uiText('ปลอดภัย', 'Safe');
+}
+function renderDiffPlan(plan = state.diffPlan){
+  state.diffPlan = plan || null;
+  const summary = plan?.summary || {};
+  const host = $('diff-summary');
+  if(host){
+    if(!plan){
+      host.innerHTML = '';
+    } else {
+      host.innerHTML = `<div class="diff-trust-card ${escapeHtml(summary.risk || 'safe')}"><div><div class="eyebrow">${escapeHtml(uiText('สรุปก่อน Save', 'SAVE TRUST SUMMARY'))}</div><h3>${escapeHtml(diffRiskLabel(summary.risk))}</h3><p class="muted">${escapeHtml(summary.humanAction || '')}</p></div><div class="mini-stat-grid"><div class="mini-stat"><span>${escapeHtml(uiText('ไฟล์', 'File'))}</span><strong>${escapeHtml(summary.path || plan.logicalPath || '-')}</strong></div><div class="mini-stat"><span>${escapeHtml('Critical')}</span><strong>${escapeHtml(String(summary.critical || 0))}</strong></div><div class="mini-stat"><span>${escapeHtml('Warning')}</span><strong>${escapeHtml(String(summary.warning || 0))}</strong></div><div class="mini-stat"><span>${escapeHtml(uiText('บรรทัดที่เปลี่ยน', 'Changed lines'))}</span><strong>${escapeHtml(String(summary.changedLines || 0))}</strong></div></div></div>`;
+    }
+  }
+  if($('diff-output')) $('diff-output').textContent = plan ? dryRunText(plan) : '';
+  const confirmButton = $('diff-confirm-save');
+  if(confirmButton){
+    confirmButton.classList.toggle('hidden', !state.saveIntent || !plan?.changed || (summary.critical || 0) > 0);
+    confirmButton.textContent = uiText('ยืนยันบันทึกตาม diff นี้', 'Confirm Save');
+  }
 }
 function dryRunText(plan = {}){
   const validation = plan.validation || {};
@@ -1044,6 +1117,7 @@ async function loadParsedServerSettings(){
     const data=await api('/api/server-settings/parsed');
     state.parsedServer=data.parsed;
     state.serverOriginalSnapshot = serverSnapshot(state.parsedServer);
+    state.editHistory.server = [];
     state.serverDirty = false;
     state.presets=data.presets||{};
     renderPresets();
@@ -1444,6 +1518,7 @@ function renderParsedServerGrid(){
     return `<details class="section-card server-section-card"${open}><summary class="section-toggle"><div><h4>${escapeHtml(serverSectionLabel(section))}</h4><p class="muted">${sectionCount} ${escapeHtml('ฟิลด์')}</p></div><span class="tag">${groups.length} ${escapeHtml('กลุ่ม')}</span></summary><div class="server-group-grid">${groupCards}</div></details>`;
   }).join('') : `<div class="section-card"><div class="muted">${escapeHtml(uiText('ไม่มีค่าตั้งค่าที่ตรงกับคำค้น', 'No settings matched the current filter.'))}</div></div>`;
   document.querySelectorAll('[data-server-key]').forEach((input)=>{
+    input.onfocus = () => captureEditHistory('server', serverSnapshot(state.parsedServer), 'before-server-edit');
     const handler = (event)=>{
       state.parsedServer[event.target.dataset.serverSection][event.target.dataset.serverKey]=event.target.value;
       refreshServerDirtyState();
@@ -1454,10 +1529,20 @@ function renderParsedServerGrid(){
   refreshServerDirtyState();
 }
 async function saveParsedServer(reloadAfter=false){
+  if(!arguments[1]){
+    const data = await api('/api/server-settings/dry-run',{method:'POST',body:JSON.stringify({parsed:state.parsedServer})});
+    state.saveIntent = 'server';
+    state.saveIntentPayload = { reloadAfter };
+    renderDiffPlan(data.plan);
+    setView('diff');
+    showToast(uiText('ตรวจ diff ก่อน ถ้าถูกต้องค่อยกดยืนยันบันทึก', 'Review the diff first, then confirm save.'));
+    return;
+  }
+  captureEditHistory('server', state.serverOriginalSnapshot || serverSnapshot(state.parsedServer), 'before-server-save');
   const data = await api('/api/server-settings/parsed',{method:'PUT',body:JSON.stringify({parsed:state.parsedServer,reloadAfter})});
   state.serverOriginalSnapshot = serverSnapshot(state.parsedServer);
   refreshServerDirtyState();
-  if(data.plan?.validation) $('diff-output').textContent = dryRunText(data.plan);
+  if(data.plan?.validation) renderDiffPlan(data.plan);
   showToast(reloadAfter?t('serverSettingsSavedReload'):t('serverSettingsSaved'));
 }
 async function applyPreset(id, apply){ const data=await api('/api/server-settings/preset',{method:'POST',body:JSON.stringify({presetId:id,apply,reloadAfter:apply})}); $('diff-output').textContent=data.patch||''; if(apply){ showToast(t('presetApplied')); await loadParsedServerSettings(); } setView('diff'); }
@@ -1467,6 +1552,7 @@ async function openCoreFile(path){
   try {
     const data=await api(`/api/file?path=${encodeURIComponent(path)}`);
     state.currentCoreContent=data.content;
+    state.editHistory.core = [];
     state.coreDirty=false;
     $('core-editor').value=data.content;
     $('core-file-title').textContent=path;
@@ -1488,28 +1574,43 @@ async function openCoreFile(path){
 function renderCoreFileList(){ const files=['GameUserSettings.ini','EconomyOverride.json']; $('core-file-list').innerHTML=files.map((p)=>`<button class="file-item ${p===state.selectedCorePath?'active':''}" data-core-path="${p}"><strong>${p}</strong></button>`).join(''); document.querySelectorAll('[data-core-path]').forEach((b)=>b.onclick=()=>openCoreFile(b.dataset.corePath)); }
 async function saveCoreFile(){
   const content=$('core-editor').value;
+  if(!arguments[0]){
+    await previewDiff(state.selectedCorePath, content, { intent: 'core' });
+    showToast(uiText('ตรวจ diff ก่อน ถ้าถูกต้องค่อยกดยืนยันบันทึก', 'Review the diff first, then confirm save.'));
+    return;
+  }
+  captureEditHistory('core', state.currentCoreContent || '', 'before-core-save');
   const data = await api('/api/file/safe-apply',{method:'POST',body:JSON.stringify({path:state.selectedCorePath,content})});
   showToast(t('coreSaved'));
   state.currentCoreContent=content;
   state.coreDirty=false;
   refreshCoreDirtyState();
-  if(data.plan) $('diff-output').textContent = dryRunText(data.plan);
+  if(data.plan) renderDiffPlan(data.plan);
   await openCoreFile(state.selectedCorePath);
 }
-async function previewDiff(path, content){
+async function previewDiff(path, content, options = {}){
   const data=await api('/api/file/dry-run',{method:'POST',body:JSON.stringify({path,content})});
-  $('diff-output').textContent=dryRunText(data.plan);
+  state.saveIntent = options.intent || (path === state.selectedLootPath ? 'loot' : path === state.selectedCorePath ? 'core' : null);
+  state.saveIntentPayload = options.payload || {};
+  renderDiffPlan(data.plan);
   setView('diff');
 }
 
 async function saveLoot(reloadAfter=false){
   if(!state.selectedLootPath) return showToast(uiText('เลือกไฟล์ลูทก่อน', 'Select a loot file first'), true);
+  if(!arguments[1]){
+    await previewDiff(state.selectedLootPath, getLootDraftContent(), { intent: 'loot', payload: { reloadAfter } });
+    showToast(uiText('ตรวจ diff ก่อน ถ้าถูกต้องค่อยกดยืนยันบันทึก', 'Review the diff first, then confirm save.'));
+    return;
+  }
   setLootSaveBusy(true);
   try {
     const content = getLootDraftContent();
+    captureEditHistory('loot', state.currentLootContent || '', 'before-loot-save');
     const data = await api('/api/file/safe-apply', { method:'POST', body: JSON.stringify({ path: state.selectedLootPath, content, reloadAfter }) });
     state.currentLootContent = content;
     state.lootUi.dirty = false;
+    if(data.plan) renderDiffPlan(data.plan);
     updateLootWorkspaceCopy();
     if(data.commandResult?.output) writeConsole(data.commandResult.output);
     showToast(reloadAfter ? uiText('บันทึกลูทและสั่งรีโหลดแล้ว', 'Loot saved and reload sent.') : uiText('บันทึกลูทแล้ว', 'Loot saved.'));
@@ -1568,7 +1669,7 @@ function makeKit(type){ if(type==='sniper') return { Name:'Sniper_KIT', Notes:'G
 function applyKit(type){ state.currentLootObject = makeKit(type); $('loot-editor').value = fmtJson(state.currentLootObject); renderVisualBuilder(); showToast(`${type.toUpperCase()} kit loaded into editor`); }
 
 function fileButton(file, active){ return `<button class="file-item ${active?'active':''}" data-loot-path="${file.relPath}"><strong>${escapeHtml(file.logicalName||file.name)}</strong><span class="item-sub">${escapeHtml(file.relPath)}</span><span class="item-sub">${escapeHtml(lootFileBlurb(file.summary))}</span></button>`; }
-async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); rememberLootPath(path); renderVisualBuilder(); setLootEditorMode('visual'); $('loot-editor-title').textContent=path; renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
+async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; state.editHistory.loot = []; $('loot-editor').value=data.content; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); rememberLootPath(path); renderVisualBuilder(); setLootEditorMode('visual'); $('loot-editor-title').textContent=path; renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); updateUndoButtons(); }
 function syncVisualBuilderToRaw(){ $('loot-editor').value=fmtJson(state.currentLootObject || {}); state.currentLootContent=$('loot-editor').value; showToast(uiText('อัปเดต JSON ดิบแล้ว','Raw JSON updated')); }
 
 function refreshLootItemDatalist(){
@@ -2094,14 +2195,15 @@ function bindEvents(){
   document.querySelectorAll('.nav').forEach((b)=>b.onclick=()=>setView(b.dataset.view));
   $('global-refresh').onclick=refreshAll; $('global-backup').onclick=backupCore; $('global-reload').onclick=()=>runAction('/api/action/reload-loot'); $('global-restart').onclick=()=>runAction('/api/action/restart-server'); $('clear-console').onclick=()=>writeConsole('');
   $('save-config-btn').onclick=saveConfig; $('check-config-btn').onclick=()=>checkConfigFolder(); $('discover-config-btn').onclick=()=>discoverConfigFolders().catch((error)=>showToast(error.message, true)); if($('cfg-reload-cmd')) $('cfg-reload-cmd').addEventListener('input', ()=>{ state.commandDraftHealth.reload = null; renderCommandAssist(); }); if($('cfg-restart-cmd')) $('cfg-restart-cmd').addEventListener('input', ()=>{ state.commandDraftHealth.restart = null; renderCommandAssist(); }); $('global-search-btn').onclick=globalSearch; $('global-search-term').addEventListener('keydown',(e)=>{ if(e.key==='Enter') globalSearch(); });
-  $('server-field-filter').oninput=renderParsedServerGrid; $('server-section-filter').onchange=renderParsedServerGrid; $('server-group-filter').onchange=renderParsedServerGrid; $('reload-server-parsed').onclick=loadParsedServerSettings; $('save-server-parsed').onclick=()=>saveParsedServer(false); $('save-server-parsed-reload').onclick=()=>saveParsedServer(true);
-  $('core-preview-diff').onclick=()=>previewDiff(state.selectedCorePath, $('core-editor').value); $('core-save').onclick=saveCoreFile; $('core-editor').oninput=refreshCoreDirtyState;
+  $('server-field-filter').oninput=renderParsedServerGrid; $('server-section-filter').onchange=renderParsedServerGrid; $('server-group-filter').onchange=renderParsedServerGrid; $('reload-server-parsed').onclick=loadParsedServerSettings; $('server-undo').onclick=()=>restoreEditHistory('server'); $('save-server-parsed').onclick=()=>saveParsedServer(false); $('save-server-parsed-reload').onclick=()=>saveParsedServer(true);
+  $('core-preview-diff').onclick=()=>previewDiff(state.selectedCorePath, $('core-editor').value); $('core-undo').onclick=()=>restoreEditHistory('core'); $('core-save').onclick=saveCoreFile; $('core-editor').onbeforeinput=()=>captureEditHistory('core', $('core-editor').value, 'before-core-edit'); $('core-editor').oninput=refreshCoreDirtyState;
   $('loot-search').oninput=renderLootLists;
   if($('loot-file-scope')) $('loot-file-scope').onchange=renderLootLists;
   if($('loot-clear-search')) $('loot-clear-search').onclick=()=>{ $('loot-search').value=''; renderLootLists(); };
   $('new-node-btn').onclick=()=>createLootFile('nodes');
   $('new-spawner-btn').onclick=()=>createLootFile('spawners');
   $('loot-preview-diff').onclick=()=>previewDiff(state.selectedLootPath, getLootDraftContent());
+  $('loot-undo').onclick=()=>restoreEditHistory('loot');
   $('loot-save').onclick=()=>saveLoot(false);
   $('loot-save-reload').onclick=()=>saveLoot(true);
   $('simulate-btn').onclick=simulateLoot;
@@ -2114,13 +2216,18 @@ function bindEvents(){
   $('loot-inspector-toggle').onclick=()=>{ if(state.lootUi.focusMode) state.lootUi.focusMode = false; state.lootUi.showInspector = !state.lootUi.showInspector; updateLootWorkspaceLayout(); };
   $('loot-focus-toggle').onclick=()=>{ state.lootUi.focusMode = !state.lootUi.focusMode; if(!state.lootUi.focusMode){ state.lootUi.showFiles = true; state.lootUi.showInspector = true; } updateLootWorkspaceLayout(); };
   $('loot-reset-layout').onclick=()=>{ state.lootUi.focusMode = false; state.lootUi.showFiles = true; state.lootUi.showInspector = true; updateLootWorkspaceLayout(); };
+  $('loot-editor').onbeforeinput=()=>captureEditHistory('loot', getLootDraftContent(), 'before-raw-edit');
   $('loot-editor').oninput=()=>refreshLootDirtyState();
+  $('visual-builder').addEventListener('focusin', ()=>{ if(state.selectedLootPath) captureEditHistory('loot', getLootDraftContent(), 'before-visual-edit'); });
+  $('visual-builder').addEventListener('click', (event)=>{ if(event.target.closest('button') && state.selectedLootPath) captureEditHistory('loot', getLootDraftContent(), 'before-visual-action'); }, true);
   $('visual-builder').addEventListener('input', ()=>{ refreshSplitRawPreview(); refreshLootDirtyState(); });
   $('visual-builder').addEventListener('change', ()=>{ refreshSplitRawPreview(); refreshLootDirtyState(); });
   document.querySelectorAll('[data-kit]').forEach((b)=>b.onclick=()=>applyKit(b.dataset.kit));
   $('refresh-analyzer').onclick=loadAnalyzer; $('refresh-graph').onclick=loadGraph; $('graph-filter').oninput=()=>loadGraph().catch(err=>showToast(err.message,true)); $('loot-autofix-preview').onclick=()=>lootAutoFix(false); $('loot-autofix-apply').onclick=()=>lootAutoFix(true);
   $('profile-create').onclick=createProfile; $('refresh-profiles').onclick=async()=>{ await loadProfiles(); await loadRotation(); }; $('profile-apply').onclick=applySelectedProfile; $('profile-delete').onclick=deleteSelectedProfile; $('rotation-save').onclick=saveRotation; $('rotation-run').onclick=runRotationNow;
   $('refresh-backups').onclick=loadBackups; $('restore-backup-file').onclick=restoreBackupFile; $('refresh-activity').onclick=loadActivity; $('diff-output').ondblclick=applyAutoFixDraftToEditor;
+  if($('diff-confirm-save')) $('diff-confirm-save').onclick=()=>{ const intent = state.saveIntent; const payload = state.saveIntentPayload || {}; state.saveIntent = null; state.saveIntentPayload = null; renderDiffPlan(state.diffPlan); if(intent === 'loot') return saveLoot(Boolean(payload.reloadAfter), true); if(intent === 'core') return saveCoreFile(true); if(intent === 'server') return saveParsedServer(Boolean(payload.reloadAfter), true); };
+  updateUndoButtons();
   document.addEventListener('keydown', (event)=>{
     const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
     if(!isSave) return;

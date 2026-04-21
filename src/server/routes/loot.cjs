@@ -20,6 +20,7 @@ function registerLootRoutes(app, ctx) {
     createDiff,
     runShellCommand,
     buildItemCatalog,
+    LOOT_TUNING_PRESETS,
     upsertItemCatalogOverride,
     loadItemCatalogOverrides,
     importItemCatalogOverrides,
@@ -163,6 +164,14 @@ function registerLootRoutes(app, ctx) {
     try {
       const catalog = buildItemCatalog(scanLootWorkspace(), req.query);
       res.json({ ok: true, ...catalog });
+    } catch (error) {
+      errorResponse(res, 500, error);
+    }
+  });
+
+  app.get('/api/loot/presets', (req, res) => {
+    try {
+      res.json({ ok: true, presets: LOOT_TUNING_PRESETS });
     } catch (error) {
       errorResponse(res, 500, error);
     }

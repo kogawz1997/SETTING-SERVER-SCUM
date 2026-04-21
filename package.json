@@ -17,6 +17,7 @@
     "docs:check": "node scripts/docs-link-check.cjs",
     "changelog:check": "node scripts/changelog-check.cjs",
     "version:bump": "node scripts/version-bump.cjs",
+    "package:portable": "node scripts/create-portable-package.cjs",
     "repair:loot-refs": "node scripts/repair-loot-refs.cjs",
     "test": "npm run check && npm run release:check && npm run test:unit && npm run test:integration && npm run test:ui-smoke && npm run test:loot-regression && npm run test:settings-regression && npm run test:backup-activity",
     "test:unit": "node --test scripts/server-core.unit.test.cjs",

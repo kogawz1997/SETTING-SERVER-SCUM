@@ -78,3 +78,22 @@ test('package import preview returns dry-run plans without applying files', asyn
     server.close();
   }
 });
+
+test('support bundle and loot preset APIs return local-safe release helpers', async () => {
+  const server = await listen();
+  try {
+    const support = await request(server, '/api/support/bundle?includePaths=false');
+    assert.equal(support.response.status, 200);
+    assert.equal(support.body.ok, true);
+    assert.equal(support.body.fileName.endsWith('.zip'), true);
+    assert.equal(support.body.mime, 'application/zip');
+    assert.equal(support.body.files.includes('support/diagnostics.json'), true);
+
+    const presets = await request(server, '/api/loot/presets');
+    assert.equal(presets.response.status, 200);
+    assert.equal(presets.body.ok, true);
+    assert.equal(presets.body.presets.some((preset) => preset.id === 'solo_balanced'), true);
+  } finally {
+    server.close();
+  }
+});

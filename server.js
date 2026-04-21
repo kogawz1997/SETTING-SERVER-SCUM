@@ -8,6 +8,14 @@ const commandSandbox = require('./src/server/command-sandbox.cjs');
 const { validateServerSettingsLogic, validateLootLogic } = require('./src/server/validation.cjs');
 const { buildSafeApplyPlan, applySafePlan } = require('./src/server/safe-apply.cjs');
 const { createWorkspacePackage, parseWorkspacePackage } = require('./src/server/package-manager.cjs');
+const {
+  DEFAULT_ITEM_CATALOG_PACK,
+  DEFAULT_KIT_TEMPLATE_LIBRARY,
+  LOOT_TUNING_PRESETS,
+  buildSupportBundle,
+  buildHealthNextActions,
+  summarizeSafeApplyPlan,
+} = require('./src/server/local-polish.cjs');
 const registerRoutes = require('./src/server/routes/index.cjs');
 
 const ROOT = __dirname;
@@ -788,18 +796,25 @@ function buildItemCatalog(scan = scanLootWorkspace(), options = {}) {
       sources.get(name).add(lootFile.relPath);
     }
   }
-  let items = [...counts.entries()].map(([name, appearances]) => {
+  const defaultCatalog = new Map(DEFAULT_ITEM_CATALOG_PACK.map((item) => [item.name, item]));
+  const catalogNames = new Set([...counts.keys(), ...defaultCatalog.keys()]);
+  let items = [...catalogNames].map((name) => {
+    const appearances = counts.get(name) || 0;
     const sampleSources = [...(sources.get(name) || [])];
     const iconUrl = getIconUrl(name);
     const override = cleanItemCatalogOverride(overrides[name] || {});
+    const defaults = defaultCatalog.get(name) || {};
     const inferredCategory = categoryForItem(name);
     return {
       name,
-      displayName: override.displayName || name.replace(/_/g, ' '),
-      category: override.category || inferredCategory,
+      displayName: override.displayName || defaults.displayName || name.replace(/_/g, ' '),
+      category: override.category || defaults.category || inferredCategory,
       inferredCategory,
       favorite: Boolean(override.favorite),
-      notes: override.notes,
+      rarity: defaults.rarity || '',
+      tags: Array.isArray(defaults.tags) ? defaults.tags : [],
+      notes: override.notes || defaults.notes || '',
+      builtIn: Boolean(defaults.name),
       hasOverride: Boolean(overrides[name]),
       appearances,
       sourceCount: sampleSources.length,
@@ -814,7 +829,7 @@ function buildItemCatalog(scan = scanLootWorkspace(), options = {}) {
   if (category !== '__all') items = items.filter((item) => item.category === category);
   if (favoritesOnly) items = items.filter((item) => item.favorite);
   if (query) {
-    items = items.filter((item) => `${item.name} ${item.displayName} ${item.category} ${item.notes} ${item.sampleSources.join(' ')}`.toLowerCase().includes(query));
+    items = items.filter((item) => `${item.name} ${item.displayName} ${item.category} ${item.rarity || ''} ${(item.tags || []).join(' ')} ${item.notes} ${item.sampleSources.join(' ')}`.toLowerCase().includes(query));
   }
   const categoryIds = [...new Set(items.map((item) => item.category || 'other'))].sort((a, b) => a.localeCompare(b));
   const categories = categoryIds.map((id) => ({ id, count: items.filter((item) => item.category === id).length }));
@@ -1141,9 +1156,15 @@ function workspacePackageFiles(paths = resolvedPaths(), requestedPaths = []) {
     .map((logicalPath) => ({ path: logicalPath, content: readText(resolveLogicalPath(logicalPath, paths)) }));
 }
 
-function loadKitTemplates() {
+function loadUserKitTemplates() {
   const data = loadJson(KIT_TEMPLATES_FILE, []);
   return Array.isArray(data) ? data : [];
+}
+
+function loadKitTemplates() {
+  const userTemplates = loadUserKitTemplates();
+  const userIds = new Set(userTemplates.map((entry) => entry.id));
+  return [...userTemplates, ...DEFAULT_KIT_TEMPLATE_LIBRARY.filter((entry) => !userIds.has(entry.id))];
 }
 
 function saveKitTemplates(templates) {
@@ -1178,7 +1199,7 @@ function createKitTemplate(name, notes, items) {
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
-  const templates = loadKitTemplates();
+  const templates = loadUserKitTemplates();
   saveKitTemplates([template, ...templates.filter((entry) => entry.id !== template.id)]);
   appendActivity('kit_create', { id: template.id, name: template.name, itemCount: template.itemCount });
   return template;
@@ -1186,7 +1207,8 @@ function createKitTemplate(name, notes, items) {
 
 function deleteKitTemplate(id) {
   const cleanId = String(id || '').trim();
-  const templates = loadKitTemplates();
+  if (DEFAULT_KIT_TEMPLATE_LIBRARY.some((entry) => entry.id === cleanId)) throw new Error('Built-in kit templates cannot be deleted');
+  const templates = loadUserKitTemplates();
   const target = templates.find((entry) => entry.id === cleanId);
   if (!target) throw new Error('Kit template was not found');
   saveKitTemplates(templates.filter((entry) => entry.id !== cleanId));
@@ -1916,13 +1938,16 @@ function buildReadinessReport(config = loadConfig(), paths = resolvedPaths(confi
     - Math.min(12, counts.validationWarning)
     - Math.min(18, counts.missingRefs * 3)));
   const blockers = checks.filter((check) => check.status === 'bad');
+  const ready = blockers.length === 0 && counts.validationCritical === 0 && counts.parseErrors === 0 && counts.missingRefs === 0;
+  const reportCore = { ready, score, counts, checks, blockers, latestBackup: backups[0] || null };
   return {
-    ready: blockers.length === 0 && counts.validationCritical === 0 && counts.parseErrors === 0 && counts.missingRefs === 0,
+    ready,
     score,
     generatedAt: nowIso(),
     counts,
     checks,
     blockers,
+    nextActions: buildHealthNextActions(reportCore),
     validationFiles: validationFiles.sort((a, b) => b.critical - a.critical || b.warning - a.warning || a.path.localeCompare(b.path)).slice(0, 30),
     latestBackup: backups[0] || null,
     backupError,
@@ -2189,6 +2214,7 @@ const serverContext = {
   validateServerSettingsLogic,
   buildSafeApplyPlan,
   applySafePlan,
+  summarizeSafeApplyPlan,
   createDiff,
   readText,
   writeText,
@@ -2205,6 +2231,7 @@ const serverContext = {
   simulateLootObject,
   compareSimulationResults,
   buildItemCatalog,
+  LOOT_TUNING_PRESETS,
   upsertItemCatalogOverride,
   loadItemCatalogOverrides,
   importItemCatalogOverrides,
@@ -2231,6 +2258,7 @@ const serverContext = {
   workspacePackageFiles,
   createWorkspacePackage,
   parseWorkspacePackage,
+  buildSupportBundle,
   buildReadinessReport,
   buildDiagnosticsReport,
   buildLootSchemaReport,
@@ -2265,5 +2293,7 @@ module.exports = {
   buildSafeApplyPlan,
   createWorkspacePackage,
   parseWorkspacePackage,
+  buildSupportBundle,
+  summarizeSafeApplyPlan,
 };
 

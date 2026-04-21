@@ -10,6 +10,7 @@ function registerSettingsFilesRoutes(app, ctx) {
     validateContent,
     buildSafeApplyPlan,
     applySafePlan,
+    summarizeSafeApplyPlan,
     resolveLogicalPath,
     createDiff,
     readText,
@@ -43,7 +44,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         createDiff,
         readText,
       });
-      res.json({ ok: true, plan });
+      res.json({ ok: true, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
       errorResponse(res, 400, error);
     }
@@ -70,7 +71,7 @@ function registerSettingsFilesRoutes(app, ctx) {
       });
       const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
       appendActivity('server_settings_save', { reloadAfter: !!req.body?.reloadAfter, changed: plan.changed });
-      res.json({ ok: true, commandResult, plan });
+      res.json({ ok: true, commandResult, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
       errorResponse(res, 400, error);
     }
@@ -128,7 +129,7 @@ function registerSettingsFilesRoutes(app, ctx) {
       });
       appendActivity('file_save', { path: logicalPath, reloadAfter: !!req.body?.reloadAfter, changed: plan.changed });
       const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
-      res.json({ ok: true, commandResult, plan });
+      res.json({ ok: true, commandResult, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
       errorResponse(res, 400, error);
     }
@@ -147,7 +148,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         createDiff,
         readText,
       });
-      res.json({ ok: true, plan });
+      res.json({ ok: true, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) } });
     } catch (error) {
       errorResponse(res, 400, error);
     }
@@ -173,7 +174,7 @@ function registerSettingsFilesRoutes(app, ctx) {
         backupNote: `safe-apply:${logicalPath}`,
       });
       const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
-      res.json({ ok: true, plan, commandResult });
+      res.json({ ok: true, plan: { ...plan, summary: summarizeSafeApplyPlan(plan) }, commandResult });
     } catch (error) {
       errorResponse(res, 400, error);
     }

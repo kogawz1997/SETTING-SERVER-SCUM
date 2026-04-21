@@ -12,6 +12,7 @@ const steps = [
   ['performance smoke test', ['run', 'performance:smoke']],
   ['docs link check', ['run', 'docs:check']],
   ['changelog check', ['run', 'changelog:check']],
+  ['portable package build', ['run', 'package:portable']],
   ['full test suite', ['test']],
 ];
 
