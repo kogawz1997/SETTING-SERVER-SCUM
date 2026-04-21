@@ -1,6 +1,6 @@
-# P2.8 Local Status
+# P2.9 Local Status
 
-This project is now in a practical local-ready P2.8 state.
+This project is now in a practical local-ready P2.9 state.
 
 ## Done
 - Local web UI and Express backend.
@@ -8,7 +8,7 @@ This project is now in a practical local-ready P2.8 state.
 - Dashboard readiness, Quick Start, diagnostics export, and command health.
 - Parsed Server Settings editor with grouped filters, field-level explanations, and boolean controls that show enabled/disabled choices instead of raw typing.
 - Core file editor with validation and diff preview.
-- Loot Studio with cleaner workspace, file scope filters, visible file counts, visual editing, quick access for recent/pinned files, beginner cheat sheets, probability presets for selected item rows, shareable file deep links, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
+- Loot Studio with cleaner workspace, item row workbench, file scope filters, visible file counts, visual editing, quick access for recent/pinned files, beginner cheat sheets, probability presets for selected item rows, shareable file deep links, raw JSON fallback, validation, quick fixes, simulator, kit templates, catalog search, and icon-backed item suggestions.
 - Item Catalog with discovered items, icons from `scum_items-main`, friendly names, categories, favorites, notes, import, and export.
 - Analyzer with missing refs, unused nodes, repeated items, category distribution, balance score, node power score, spawner coverage, human-readable next actions, and direct open-file buttons on result cards.
 - Graph with focus/filter, zoom/pan style controls in the UI layer, and dependency inspection.

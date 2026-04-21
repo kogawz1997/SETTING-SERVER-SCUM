@@ -129,6 +129,33 @@ test('flat item simple mode offers probability presets for selected rows', async
   await expect(page.locator('[data-entry-prob="0"]')).toHaveValue('0.05');
 });
 
+test('flat item row workbench collapses expands and clears row search', async ({ page }) => {
+  await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
+
+  const rows = page.locator('.loot-row-card');
+  await expect(rows.first()).toBeVisible();
+  const initialCount = await rows.count();
+  expect(initialCount).toBeGreaterThan(1);
+  await expect(page.locator('#flat-row-workbench')).toBeVisible();
+  await expect(page.locator('#flat-row-count')).toContainText(/\d+\/\d+/);
+
+  await page.locator('#flat-row-collapse-all').click();
+  await expect(page.locator('.loot-row-card[open]')).toHaveCount(0);
+
+  await page.locator('#flat-row-expand-all').click();
+  await expect(page.locator('.loot-row-card[open]')).toHaveCount(initialCount);
+
+  await page.locator('#flat-row-search').fill('Boar_Back_Leg');
+  await expect(page.locator('#flat-row-clear-search')).toBeEnabled();
+  await expect(page.locator('#flat-row-count')).toContainText(/\d+\/\d+/);
+  const filteredCount = await rows.count();
+  expect(filteredCount).toBeLessThan(initialCount);
+
+  await page.locator('#flat-row-clear-search').click();
+  await expect(page.locator('#flat-row-search')).toHaveValue('');
+  await expect(rows).toHaveCount(initialCount);
+});
+
 test('loot studio keeps recent and pinned files in quick access', async ({ page }) => {
   const firstPath = 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json';
   const secondPath = 'Nodes/Airfield.json';
