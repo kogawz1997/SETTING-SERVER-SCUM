@@ -295,6 +295,13 @@
   flex-wrap: wrap;
 }
 
+.spawner-group-workbench {
+  border-color: rgba(255, 205, 112, 0.16);
+  background:
+    linear-gradient(135deg, rgba(255, 205, 112, 0.08), transparent 48%),
+    rgba(255, 255, 255, 0.035);
+}
+
 .bulk-edit-grid {
   display: grid;
   grid-template-columns: minmax(120px, 0.45fr) minmax(160px, 0.7fr) minmax(260px, 2fr);

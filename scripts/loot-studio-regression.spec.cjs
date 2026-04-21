@@ -27,6 +27,37 @@ test('spawner simple mode keeps advanced fields hidden until requested', async (
   expect(after).toBeGreaterThan(before);
 });
 
+test('spawner node group workbench collapses expands and clears group search', async ({ page }) => {
+  await openLootFileFromRail(page, 'Spawners/Buildings-Airfield_Hangar-Examine_CardBox.json');
+
+  const groups = page.locator('.spawner-entry');
+  await expect(groups.first()).toBeVisible();
+  const initialCount = await groups.count();
+  expect(initialCount).toBeGreaterThan(0);
+  await expect(page.locator('#spawner-group-workbench')).toBeVisible();
+  await expect(page.locator('#spawner-group-count')).toContainText(/\d+\/\d+/);
+
+  await page.locator('#spawner-group-collapse-all').click();
+  await expect(page.locator('.spawner-entry[open]')).toHaveCount(0);
+
+  await page.locator('#spawner-group-expand-all').click();
+  await expect(page.locator('.spawner-entry[open]')).toHaveCount(initialCount);
+
+  const firstIds = await page.locator('[data-group-ids]').first().inputValue();
+  const firstRef = firstIds.split(/\r?\n/).find(Boolean) || firstIds;
+  const searchTerm = firstRef.split('.').pop() || firstRef.slice(0, 8);
+  await page.locator('#spawner-group-search').fill(searchTerm);
+  await expect(page.locator('#spawner-group-clear-search')).toBeEnabled();
+  await expect(page.locator('#spawner-group-count')).toContainText(/\d+\/\d+/);
+  const filteredCount = await groups.count();
+  expect(filteredCount).toBeGreaterThan(0);
+  expect(filteredCount).toBeLessThanOrEqual(initialCount);
+
+  await page.locator('#spawner-group-clear-search').click();
+  await expect(page.locator('#spawner-group-search')).toHaveValue('');
+  await expect(groups).toHaveCount(initialCount);
+});
+
 test('tree nodes show beginner guidance without breaking the editor', async ({ page }) => {
   await openLootFileFromRail(page, 'Nodes/Airfield.json');
 
