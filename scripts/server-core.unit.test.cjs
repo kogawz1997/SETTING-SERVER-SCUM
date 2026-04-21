@@ -156,6 +156,73 @@ test('loot graph service builds graph refs and previews spawner ref edits', () =
   assert.equal(writes.length, 0);
 });
 
+test('workspace search service filters scopes, exact matches, and issue views', () => {
+  const { createWorkspaceSearchService } = require('../src/server/services/workspace-search-service.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-search-service-'));
+  const nodesDir = path.join(root, 'Nodes');
+  const spawnersDir = path.join(root, 'Spawners');
+  fs.mkdirSync(nodesDir, { recursive: true });
+  fs.mkdirSync(spawnersDir, { recursive: true });
+  fs.writeFileSync(path.join(root, 'ServerSettings.ini'), 'MaxPlayers=64\n', 'utf8');
+  fs.writeFileSync(path.join(nodesDir, 'Loot.json'), '{"Name":"AK47"}\n', 'utf8');
+  fs.writeFileSync(path.join(spawnersDir, 'Military.json'), '{"Ref":"MissingNode"}\n', 'utf8');
+  const service = createWorkspaceSearchService({
+    resolvedPaths: () => ({}),
+    allWorkspaceLogicalPaths: () => ['ServerSettings.ini', 'Nodes/Loot.json', 'Spawners/Military.json'],
+    resolveLogicalPath: (logicalPath) => path.join(root, logicalPath.replace(/\//g, path.sep)),
+    readText: (target) => fs.readFileSync(target, 'utf8'),
+    scanLootWorkspace: () => ({ spawners: [{ logicalName: 'Military', relPath: 'Spawners/Military.json' }] }),
+    analyzeOverview: () => ({
+      missingRefs: [{ nodeName: 'MissingNode', spawner: 'Military' }],
+      unusedNodes: [{ nodeName: 'UnusedNode', path: 'Nodes/Unused.json' }],
+    }),
+  });
+
+  const nodeMatches = service.searchWorkspace('AK47', undefined, { scope: 'nodes', match: 'exact' });
+  const issueMatches = service.searchWorkspace('MissingNode', undefined, { issue: 'missing_refs' });
+
+  assert.deepEqual(nodeMatches.map((entry) => entry.path), ['Nodes/Loot.json']);
+  assert.equal(nodeMatches[0].scope, 'nodes');
+  assert.equal(service.searchWorkspace('AK47', undefined, { scope: 'ini' }).length, 0);
+  assert.equal(issueMatches[0].path, 'Spawners/Military.json');
+  assert.equal(issueMatches[0].type, 'missing_ref');
+});
+
+test('loot autofix service normalizes flat item probabilities and converts legacy fields', () => {
+  const { createLootAutofixService } = require('../src/server/services/loot-autofix-service.cjs');
+  const service = createLootAutofixService({
+    clone: (value) => JSON.parse(JSON.stringify(value)),
+    path,
+    posixify: (value) => String(value || '').replace(/\\/g, '/'),
+    detectLootKind: (object) => (Array.isArray(object.Items) ? 'node' : 'unknown'),
+    itemEntryName: (entry) => entry?.Name || entry?.Item || '',
+    itemEntryProbability: (entry) => Number(entry?.Probability ?? entry?.Chance ?? 0) || 0,
+    itemEntryIdentityKey: (entry) => entry?.Name || '',
+    cloneWithoutProbability: (entry) => JSON.stringify({ Name: entry?.Name || '', Extra: entry?.Extra || '' }),
+    parseBooleanLike: (value) => String(value).toLowerCase() === 'true',
+    normalizeSpawnerRef: (value) => `ItemLootTreeNodes.${String(value || '').replace(/^ItemLootTreeNodes\.?/, '')}`,
+    LOOT_RARITIES: ['Common', 'Uncommon', 'Rare'],
+    analyzeLootObject: () => ({ validation: { entries: [], counts: { critical: 0, warning: 0, info: 0 } } }),
+    scanLootWorkspace: () => ({ refIndex: new Map() }),
+  });
+  const result = service.autoFixLootObject({
+    Items: [
+      { Name: 'AK47', Chance: 0.2 },
+      { Name: 'AK47', Probability: 0.3 },
+      { Name: 'Bandage', Probability: 0.5 },
+      {},
+    ],
+    AllowDuplicates: 'false',
+  }, 'Nodes/Test.json', { refIndex: new Map() });
+
+  assert.match(result.content, /"Name": "Test"/);
+  assert.equal(result.object.Name, 'Test');
+  assert.equal(result.object.Items.length, 2);
+  assert.equal(result.object.Items[0].Probability, 0.5);
+  assert.equal(result.object.Items[0].Chance, undefined);
+  assert.equal(result.changes.some((entry) => entry.includes('Merged duplicate item row')), true);
+});
+
 test('AppError serializes safe Thai-friendly API errors', () => {
   const { AppError, toHttpError } = require('../src/server/errors.cjs');
   const error = new AppError('เลือกไฟล์ไม่ถูกต้อง', {

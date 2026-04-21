@@ -125,11 +125,13 @@ function assertPackageScript(name) {
   'src/server/services/command-runner.cjs',
   'src/server/services/item-catalog-service.cjs',
   'src/server/services/kit-template-service.cjs',
+  'src/server/services/loot-autofix-service.cjs',
   'src/server/services/loot-graph-service.cjs',
   'src/server/services/loot-simulator-service.cjs',
   'src/server/services/profile-service.cjs',
   'src/server/services/startup-doctor.cjs',
   'src/server/services/workspace-domain.cjs',
+  'src/server/services/workspace-search-service.cjs',
   'src/server/services/workspace-utils.cjs',
   'src/server/safe-apply.cjs',
   'src/server/package-manager.cjs',
@@ -209,13 +211,15 @@ assertIncludes('src/server/services/command-runner.cjs', ['createCommandRunner',
 assertIncludes('src/server/services/backup-service.cjs', ['createBackupService', 'restoreBackupFile', 'workspacePackageFiles']);
 assertIncludes('src/server/services/item-catalog-service.cjs', ['createItemCatalogService', 'buildItemCatalog', 'upsertItemCatalogOverride', 'categoryForItem']);
 assertIncludes('src/server/services/kit-template-service.cjs', ['createKitTemplateService', 'sanitizeKitItems']);
+assertIncludes('src/server/services/loot-autofix-service.cjs', ['createLootAutofixService', 'autoFixLootObject', 'normalizeFlatProbabilities']);
 assertIncludes('src/server/services/loot-graph-service.cjs', ['createLootGraphService', 'buildGraph', 'buildGraphRefEditPlan']);
 assertIncludes('src/server/services/loot-simulator-service.cjs', ['createLootSimulatorService', 'simulateLootObject', 'compareSimulationResults']);
 assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
 assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'workspace-utils.cjs', 'buildGraphRefEditPlan', 'buildReadinessReport']);
-assertLineCountAtMost('src/server/services/workspace-domain.cjs', 1450);
-assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(']);
+assertLineCountAtMost('src/server/services/workspace-domain.cjs', 1235);
+assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(', 'function simulateLootObject(', 'function compareSimulationResults(', 'function buildGraph(', 'function buildGraphRefEditPlan(', 'function searchWorkspace(', 'function autoFixLootObject(']);
+assertIncludes('src/server/services/workspace-search-service.cjs', ['createWorkspaceSearchService', 'searchWorkspace', 'matchesSearchScope']);
 assertIncludes('src/server/services/workspace-utils.cjs', ['normalizeKey', 'posixify', 'sortByName', 'walkFiles']);
 assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
