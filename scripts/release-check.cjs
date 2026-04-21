@@ -107,6 +107,7 @@ function assertPackageScript(name) {
   'scripts/config-roundtrip-check.cjs',
   'scripts/create-portable-package.cjs',
   'scripts/docs-link-check.cjs',
+  'scripts/portable-zip-smoke.cjs',
   'scripts/portable-package-smoke.cjs',
   'scripts/performance-smoke.cjs',
   'scripts/release-quality.cjs',
@@ -171,6 +172,7 @@ function assertPackageScript(name) {
   'version:bump',
   'package:portable',
   'package:portable:smoke',
+  'package:portable:zip-smoke',
   'repair:loot-refs',
   'test',
   'test:unit',
@@ -184,7 +186,7 @@ function assertPackageScript(name) {
 assertIncludes('start-local.cmd', ['where node', 'node_modules\\express', 'node server.js']);
 assertIncludes('start-local.ps1', ['Get-Command node', 'node_modules\\express', 'node server.js']);
 assertIncludes('Start SETTING SERVER SCUM.cmd', ['Portable Launcher', 'Start SETTING SERVER SCUM.ps1']);
-assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000..3010', 'Start-Process $TargetUrl', 'portable-manifest.json', '$requiredFiles', 'Missing required portable files', 'startup.log']);
+assertIncludes('Start SETTING SERVER SCUM.ps1', ['node_modules\\express', '3000..3010', 'Start-Process $TargetUrl', 'portable-manifest.json', '$requiredFiles', 'Missing required portable files', 'startup.log', 'How to fix:', 'Checking portable files', 'Checking Node.js', 'Opening browser']);
 assertIncludes('public/index.html', ['/loot-overrides.css', '/app.js', '/loot-overrides.js']);
 assertIncludes('server.js', [
   'registerRoutes(app, serverContext)',
@@ -254,7 +256,7 @@ assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.exe'
 assertIncludes('CHANGELOG.md', ['## 1.0.0']);
 assertIncludes('docs/RELEASE_QUALITY.md', ['npm run release:quality', 'config/package roundtrip']);
 assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
-assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable', 'package:portable:smoke']);
+assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable', 'package:portable:smoke', 'package:portable:zip-smoke']);
 assertIncludes('scripts/run-playwright-with-server.cjs', ['BASE_URL', 'server.js', '/api/startup-doctor']);
 assertIncludes('package.json', ['run-playwright-with-server.cjs scripts/ui-smoke.spec.cjs', 'run-playwright-with-server.cjs scripts/loot-studio-regression.spec.cjs']);
 assertIncludes('.github/workflows/local-portable-release.yml', [
@@ -264,6 +266,7 @@ assertIncludes('.github/workflows/local-portable-release.yml', [
   'gh release create',
   'GH_TOKEN: ${{ github.token }}',
   'npm run package:portable:smoke',
+  'npm run package:portable:zip-smoke',
 ]);
 assertNotIncludes('.github/workflows/local-portable-release.yml', [
   'actions/checkout@v4',
@@ -273,15 +276,16 @@ assertNotIncludes('.github/workflows/local-portable-release.yml', [
 ]);
 assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt', 'portable-manifest.json', 'requiredFiles', 'launcherBuilt']);
 assertIncludes('scripts/portable-package-smoke.cjs', ['portable-manifest.json', 'requiredFiles', 'privateFilesExcluded', 'Portable package smoke passed']);
+assertIncludes('scripts/portable-zip-smoke.cjs', ['Expand-Archive', 'portable-manifest.json', 'requiredFiles', 'privateFilesExcluded', 'Portable zip smoke passed']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'customer-ready-panel', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);
 assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', '/customer-ready', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts', 'diff-summary', 'loot-undo']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/app.js', ['normalizeLootEditorMode', 'applyLootEditorModeDom', 'refreshSplitRawPreview']);
-assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'sim-roll-plan', 'sim-expected-category-card', 'expectedCategorySummary', 'graph-help-strip', 'graph-connect-mode', 'graph-edit-mode', 'graph-relationship-manager', 'data-graph-stage-remove', 'customer-ready-panel', 'loot-setup-wizard', 'downloadSupportBundle', 'startup-doctor-panel', '/api/startup-doctor']);
+assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file', 'flat-row-workbench', 'flatRowOpenMode', 'spawner-group-workbench', 'spawnerGroupOpenMode', 'simulator-note', 'sim-roll-plan', 'sim-expected-category-card', 'expectedCategorySummary', 'graph-help-strip', 'graph-connect-mode', 'graph-edit-mode', 'graph-relationship-manager', 'data-graph-stage-remove', 'graph-connect-preview-line', 'graph-connect-preview-label', 'graph-staged-edit-summary', 'customer-ready-panel', 'loot-setup-wizard', 'downloadSupportBundle', 'startup-doctor-panel', '/api/startup-doctor']);
 assertIncludes('public/style.css', ['loot-stage-split', 'readonly-preview']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'sim-category-row', 'sim-unresolved-list', 'graph-help-strip', 'connect-mode', 'edit-mode', 'graph-relationship-manager', 'graph-relationship-row', 'release-check-grid', 'loot-wizard-grid', 'startup-doctor-check']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools', 'flat-row-workbench', 'spawner-group-workbench', 'simulator-note', 'sim-category-row', 'sim-unresolved-list', 'graph-help-strip', 'connect-mode', 'edit-mode', 'graph-relationship-manager', 'graph-relationship-row', 'graph-connect-preview-line', 'graph-connect-preview-label', 'graph-staged-edit-summary', 'release-check-grid', 'loot-wizard-grid', 'startup-doctor-check']);
 [
   'README.md',
   'docs/P2_3_STATUS.md',

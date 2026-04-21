@@ -753,6 +753,60 @@
   color: var(--muted);
 }
 
+.graph-editor-strip > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 220px;
+}
+
+.graph-staged-edit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: min(100%, 320px);
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 205, 112, 0.22);
+  border-radius: 12px;
+  background: rgba(12, 17, 27, 0.62);
+}
+
+.graph-staged-edit-summary small {
+  color: #b8c7dd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-connect-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.graph-connect-preview-line {
+  position: absolute;
+  height: 3px;
+  border-radius: 999px;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgba(255, 205, 112, 0.9), rgba(95, 224, 191, 0.82));
+  box-shadow: 0 0 16px rgba(95, 224, 191, 0.28);
+}
+
+.graph-connect-preview-label {
+  position: absolute;
+  max-width: 180px;
+  padding: 7px 9px;
+  border: 1px solid rgba(95, 224, 191, 0.28);
+  border-radius: 999px;
+  background: rgba(9, 15, 24, 0.92);
+  color: #d6fff2;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+}
+
 .graph-relationship-manager {
   display: grid;
   gap: 12px;

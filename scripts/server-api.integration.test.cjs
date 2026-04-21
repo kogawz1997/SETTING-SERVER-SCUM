@@ -186,6 +186,14 @@ test('curated item catalog applies human Thai names, category, rarity, and tags'
       'Gold_Bar',
       'FuelCan',
       'Absinthe',
+      'Weapon_AK47',
+      'Weapon_M82A1',
+      'Weapon_SVD_Dragunov',
+      'Weapon_Block21',
+      'Adrenaline_Shot',
+      'Canteen',
+      'Car_Battery',
+      'Cal_5_56x45mm_Ammobox',
     ];
     const catalog = new Map();
     for (const name of names) {
@@ -224,6 +232,19 @@ test('curated item catalog applies human Thai names, category, rarity, and tags'
     assert.equal(catalog.get('FuelCan').displayNameTh, 'ถังน้ำมัน');
     assert.equal(catalog.get('Absinthe').category, 'food');
     assert.equal(catalog.get('Absinthe').displayNameTh, 'แอ็บซินธ์');
+    assert.equal(catalog.get('Weapon_AK47').category, 'weapon');
+    assert.equal(catalog.get('Weapon_AK47').rarity, 'rare');
+    assert.equal(catalog.get('Weapon_AK47').displayNameTh, 'ปืน AK-47');
+    assert.equal(catalog.get('Weapon_AK47').tags.includes('rifle'), true);
+    assert.equal(catalog.get('Weapon_M82A1').rarity, 'very_rare');
+    assert.equal(catalog.get('Weapon_M82A1').tags.includes('sniper'), true);
+    assert.equal(catalog.get('Weapon_SVD_Dragunov').displayNameTh, 'ปืนซุ่มยิง SVD Dragunov');
+    assert.equal(catalog.get('Weapon_Block21').tags.includes('pistol'), true);
+    assert.equal(catalog.get('Adrenaline_Shot').category, 'medical');
+    assert.equal(catalog.get('Adrenaline_Shot').displayNameTh, 'เข็มอะดรีนาลีน');
+    assert.equal(catalog.get('Canteen').displayNameTh, 'กระติกน้ำ');
+    assert.equal(catalog.get('Car_Battery').category, 'vehicle');
+    assert.equal(catalog.get('Cal_5_56x45mm_Ammobox').tags.includes('rifle-ammo'), true);
   } finally {
     restoreConfig();
     server.close();

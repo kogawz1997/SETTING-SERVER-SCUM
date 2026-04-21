@@ -75,6 +75,7 @@ jobs:
         run: npm run package:portable:smoke
 
       - name: Zip portable package
+        id: zip_portable
         shell: pwsh
         run: |
           $zip = "${{ steps.release_meta.outputs.zip }}"
@@ -83,6 +84,9 @@ jobs:
           }
           Compress-Archive -Path "dist/SETTING-SERVER-SCUM-local/*" -DestinationPath $zip -Force
           Get-Item $zip
+
+      - name: Smoke test release zip
+        run: npm run package:portable:zip-smoke -- --zip "${{ steps.release_meta.outputs.zip }}"
 
       - name: Publish GitHub Release
         shell: pwsh

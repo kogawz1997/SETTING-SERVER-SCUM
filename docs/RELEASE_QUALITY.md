@@ -20,6 +20,7 @@ npm run release:quality
 - full test suite
 - portable package build via `npm run package:portable`
 - portable package manifest/private-file smoke via `npm run package:portable:smoke`
+- release zip extract smoke via `npm run package:portable:zip-smoke`
 
 Portable package command:
 

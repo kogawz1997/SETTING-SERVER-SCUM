@@ -1,6 +1,6 @@
 {
   "name": "scum-local-control",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "description": "Local-first SCUM config control panel for personal use.",
   "author": "KOGA.EXE",
@@ -19,6 +19,7 @@
     "version:bump": "node scripts/version-bump.cjs",
     "package:portable": "node scripts/create-portable-package.cjs",
     "package:portable:smoke": "node scripts/portable-package-smoke.cjs",
+    "package:portable:zip-smoke": "node scripts/portable-zip-smoke.cjs",
     "repair:loot-refs": "node scripts/repair-loot-refs.cjs",
     "test": "npm run check && npm run release:check && npm run test:unit && npm run test:integration && npm run test:ui-smoke && npm run test:loot-regression && npm run test:settings-regression && npm run test:backup-activity",
     "test:unit": "node --test scripts/server-core.unit.test.cjs",

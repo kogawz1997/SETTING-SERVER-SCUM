@@ -2237,6 +2237,44 @@
     return '';
   }
 
+  function clearGraphConnectPreview() {
+    document.querySelectorAll('.graph-connect-preview').forEach((entry) => entry.remove());
+  }
+
+  function updateGraphConnectPreview(event, sourceButton) {
+    const viewport = $('graph-canvas')?.querySelector('.graph-viewport');
+    if (!viewport || !sourceButton) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const sourceRect = sourceButton.getBoundingClientRect();
+    const x1 = sourceRect.left + sourceRect.width / 2 - viewportRect.left;
+    const y1 = sourceRect.top + sourceRect.height / 2 - viewportRect.top;
+    const x2 = event.clientX - viewportRect.left;
+    const y2 = event.clientY - viewportRect.top;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.max(8, Math.sqrt(dx * dx + dy * dy));
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    let preview = viewport.querySelector('.graph-connect-preview');
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.className = 'graph-connect-preview';
+      viewport.appendChild(preview);
+    }
+    preview.innerHTML = `<div class="graph-connect-preview-line" style="left:${x1}px;top:${y1}px;width:${length}px;transform:rotate(${angle}deg)"></div><div class="graph-connect-preview-label" style="left:${Math.min(Math.max(x2 + 10, 8), Math.max(8, viewportRect.width - 170))}px;top:${Math.min(Math.max(y2 + 10, 8), Math.max(8, viewportRect.height - 42))}px">${escapeHtml(uiText('ปล่อยเพื่อเชื่อม ref', 'Release to connect ref'))}</div>`;
+  }
+
+  function renderGraphStagedEditSummary() {
+    const edit = state.graphUi.refEdit || {};
+    if (!edit.spawnerPath || (!edit.ref && !edit.oldRef)) return '';
+    const actionLabel = {
+      add: uiText('เพิ่ม ref', 'Add ref'),
+      remove: uiText('ลบ ref', 'Remove ref'),
+      replace: uiText('แทนที่ ref', 'Replace ref'),
+    }[edit.action || 'add'];
+    const refCopy = edit.action === 'remove' ? edit.oldRef || edit.ref : edit.ref;
+    return `<div class="graph-staged-edit-summary"><span class="tag warn">${escapeHtml(uiText('รอ Preview', 'Staged'))}</span><strong>${escapeHtml(actionLabel)}</strong><small>${escapeHtml(`${edit.spawnerPath} · group ${Number(edit.groupIndex || 0)} · ${refCopy || '-'}`)}</small></div>`;
+  }
+
   function prepareGraphConnection(sourceNode, targetNode) {
     if (!sourceNode || sourceNode.kind !== 'spawner') {
       showToast(uiText('เลือก spawner เป็นจุดเริ่มก่อน', 'Choose a spawner as the source first.'), true);
@@ -2256,6 +2294,10 @@
       ref: targetRef,
       oldRef: '',
     };
+    state.graphUi.editMode = true;
+    state.graphUi.connectMode = false;
+    clearGraphConnectPreview();
+    renderGraph();
     renderGraphFocus();
     showToast(uiText('ลากเส้นสำเร็จ กด Preview diff หรือ Apply with backup เพื่อบันทึก', 'Connection staged. Use Preview diff or Apply with backup to write it.'));
     return true;
@@ -2325,7 +2367,7 @@
       : state.graphUi.connectMode
       ? uiText('โหมดเชื่อมเปิดอยู่: ลากจาก spawner ไปหา node/ref แล้วค่อย Preview diff ก่อนบันทึก', 'Connect mode is on: drag from a spawner to a node/ref, then preview diff before saving.')
       : uiText('คลิก node เพื่อโฟกัส, ลากพื้นหลังเพื่อเลื่อน, ใช้ล้อเมาส์เพื่อ zoom และใช้ filter เพื่อลดกราฟใหญ่', 'Click a node to focus, drag the background to pan, use the mouse wheel to zoom, and use filters to narrow large graphs.'));
-    const editorStrip = state.graphUi.editMode ? `<div class="graph-editor-strip"><strong>${escapeHtml(uiText('Relationship editor', 'Relationship editor'))}</strong><span>${escapeHtml(uiText('รองรับ Spawner -> Ref ก่อน เพื่อไม่แก้ tree item ผิดโครง', 'Supports Spawner -> Ref first so item trees are not rewritten incorrectly.'))}</span></div>` : '';
+    const editorStrip = state.graphUi.editMode ? `<div class="graph-editor-strip"><div><strong>${escapeHtml(uiText('Relationship editor', 'Relationship editor'))}</strong><span>${escapeHtml(uiText('รองรับ Spawner -> Ref ก่อน เพื่อไม่แก้ tree item ผิดโครง', 'Supports Spawner -> Ref first so item trees are not rewritten incorrectly.'))}</span></div>${renderGraphStagedEditSummary()}</div>` : '';
     canvas.innerHTML = `<div class="graph-toolbar"><div class="actions tight wrap">${kindButtons}</div><div class="actions tight wrap"><button type="button" class="ghost tiny ${state.graphUi.editMode ? 'active' : ''}" id="graph-edit-mode">${escapeHtml(uiText('โหมดแก้เส้น', 'Edit relationships'))}</button><button type="button" class="ghost tiny ${state.graphUi.connectMode ? 'active' : ''}" id="graph-connect-mode">${escapeHtml(uiText('ลากเชื่อม ref', 'Drag connect'))}</button><button type="button" class="ghost tiny" id="graph-zoom-out">-</button><span class="tag">${Math.round((state.graphUi.zoom || 1) * 100)}%</span><button type="button" class="ghost tiny" id="graph-zoom-in">+</button><button type="button" class="ghost tiny" id="graph-reset-view">${escapeHtml(uiText('รีเซ็ตมุมมอง', 'Reset view'))}</button></div></div><div class="graph-help-strip">${graphHelp}</div>${editorStrip}${overflowCount ? `<div class="warn-card graph-limit-note">${escapeHtml(uiText(`แสดง 420 จุดแรก ซ่อนอีก ${overflowCount} จุด ใช้ช่องค้นหาเพื่อเจาะลงไป`, `Showing first 420 nodes. ${overflowCount} more hidden; use search to narrow the graph.`))}</div>` : ''}<div class="graph-viewport ${state.graphUi.connectMode ? 'connect-mode' : ''} ${state.graphUi.editMode ? 'edit-mode' : ''}"><div class="graph-map" style="width:${width}px;height:${height}px;transform:translate(${state.graphUi.panX || 0}px, ${state.graphUi.panY || 0}px) scale(${state.graphUi.zoom || 1})"><svg class="graph-map-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${edgeMarkup}</svg>${edgeActionMarkup}${nodeMarkup}</div></div>`;
     canvas.querySelectorAll('[data-graph-kind]').forEach((button) => {
       button.onclick = () => { state.graphUi.kind = button.dataset.graphKind || '__all'; renderGraph(); };
@@ -2359,7 +2401,12 @@
         state.graphUi.connectFromId = node.id;
         state.graphUi.selectedId = node.id;
         button.classList.add('connecting');
+        updateGraphConnectPreview(event, button);
         button.setPointerCapture(event.pointerId);
+      };
+      button.onpointermove = (event) => {
+        if (!state.graphUi.connectMode || state.graphUi.connectFromId !== button.dataset.graphNodeId) return;
+        updateGraphConnectPreview(event, button);
       };
       button.onpointerup = (event) => {
         if (!state.graphUi.connectMode || !state.graphUi.connectFromId) return;
@@ -2367,10 +2414,11 @@
         const source = nodeMap.get(state.graphUi.connectFromId);
         const target = nodeMap.get(targetButton?.dataset.graphNodeId || '');
         button.classList.remove('connecting');
+        clearGraphConnectPreview();
         if (target && target.id !== source?.id && prepareGraphConnection(source, target)) return;
         renderGraphFocus();
       };
-      button.onpointercancel = () => button.classList.remove('connecting');
+      button.onpointercancel = () => { button.classList.remove('connecting'); clearGraphConnectPreview(); };
     });
     const zoomBy = (amount) => {
       state.graphUi.zoom = Math.max(0.45, Math.min(1.8, Number(((state.graphUi.zoom || 1) + amount).toFixed(2))));
@@ -2381,7 +2429,7 @@
     const reset = $('graph-reset-view');
     const connect = $('graph-connect-mode');
     const edit = $('graph-edit-mode');
-    if (connect) connect.onclick = () => { state.graphUi.connectMode = !state.graphUi.connectMode; if (!state.graphUi.connectMode) state.graphUi.connectFromId = ''; renderGraph(); };
+    if (connect) connect.onclick = () => { state.graphUi.connectMode = !state.graphUi.connectMode; if (!state.graphUi.connectMode) { state.graphUi.connectFromId = ''; clearGraphConnectPreview(); } renderGraph(); };
     if (edit) edit.onclick = () => { state.graphUi.editMode = !state.graphUi.editMode; renderGraph(); };
     if (zoomIn) zoomIn.onclick = () => zoomBy(0.12);
     if (zoomOut) zoomOut.onclick = () => zoomBy(-0.12);

@@ -14,6 +14,7 @@ const steps = [
   ['changelog check', ['run', 'changelog:check']],
   ['portable package build', ['run', 'package:portable']],
   ['portable package smoke check', ['run', 'package:portable:smoke']],
+  ['portable zip smoke check', ['run', 'package:portable:zip-smoke']],
   ['full test suite', ['test']],
 ];
 
