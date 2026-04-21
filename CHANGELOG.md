@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.10 - 2026-04-22
+
+- Production navigation cleanup for real-use builds, with internal test utility pages removed from the public sidebar and release guards updated.
+
 ## 1.0.9 - 2026-04-21
 
 - Add release zip smoke validation, clearer portable launcher diagnostics, expanded curated item metadata, and graph drag-edit preview polish.
