@@ -11,6 +11,8 @@ function registerSystemRoutes(app, ctx) {
     runShellCommand,
     appendActivity,
     readActivity,
+    readOperationLogs,
+    operationsLogFile,
     loadRotation,
     buildReadinessReport,
     buildDiagnosticsReport,
@@ -109,6 +111,13 @@ function registerSystemRoutes(app, ctx) {
       if (fs.existsSync(startupLog)) {
         logs.push({ name: 'startup.log', content: fs.readFileSync(startupLog, 'utf8').split(/\r?\n/).slice(-300).join('\n') });
       }
+      const operationRows = typeof readOperationLogs === 'function' ? readOperationLogs(300).reverse() : [];
+      logs.push({
+        name: 'operations.jsonl',
+        content: operationRows.length
+          ? operationRows.map((entry) => JSON.stringify(entry)).join('\n')
+          : (operationsLogFile && fs.existsSync(operationsLogFile) ? fs.readFileSync(operationsLogFile, 'utf8').split(/\r?\n/).slice(-300).join('\n') : ''),
+      });
       const bundle = buildSupportBundle({
         config,
         diagnostics: buildDiagnosticsReport({ includePaths }),

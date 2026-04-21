@@ -11,6 +11,7 @@
   state.lootUi.selectedFlatRows = Array.isArray(state.lootUi.selectedFlatRows) ? state.lootUi.selectedFlatRows : [];
   state.lootUi.dragFlatRow = Number.isInteger(state.lootUi.dragFlatRow) ? state.lootUi.dragFlatRow : null;
   state.lootUi.kitTemplatesLoaded = !!state.lootUi.kitTemplatesLoaded;
+  state.lootUi.kitTemplatesRevision = Number.isInteger(state.lootUi.kitTemplatesRevision) ? state.lootUi.kitTemplatesRevision : 0;
   state.lootUi.catalogEditName = state.lootUi.catalogEditName || '';
   state.lootUi.catalogImportText = state.lootUi.catalogImportText || '';
   state.lootUi.catalogImportMode = state.lootUi.catalogImportMode || 'merge';
@@ -23,6 +24,7 @@
   state.packageUi = state.packageUi || { text: '', preview: null, lastExportName: '' };
   state.activityUi = state.activityUi || { type: '__all', term: '', path: '' };
   state.readiness = state.readiness || null;
+  state.startupDoctor = state.startupDoctor || null;
   state.quickStart = state.quickStart || {};
   state.diagnostics = state.diagnostics || { includePaths: true, reportText: '' };
   state.itemCatalogLookup = state.itemCatalogLookup instanceof Map ? state.itemCatalogLookup : new Map();
@@ -283,8 +285,10 @@
   function ensureKitTemplatesLoaded() {
     if (state.lootUi.kitTemplatesLoaded || state.lootUi.kitTemplatesLoading) return;
     state.lootUi.kitTemplatesLoading = true;
+    const revision = state.lootUi.kitTemplatesRevision || 0;
     api('/api/kits')
       .then((data) => {
+        if ((state.lootUi.kitTemplatesRevision || 0) !== revision) return;
         state.kitTemplates = data.kits || [];
         state.lootUi.kitTemplatesLoaded = true;
         if (state.view === 'loot' && state.selectedLootPath) renderVisualBuilder();
@@ -331,6 +335,7 @@
     if (!name) return showToast(uiText('ใส่ชื่อ template ก่อน', 'Enter a template name first.'), true);
     if (!items.length) return showToast(uiText('ไม่มี item ให้บันทึกเป็น template', 'There are no items to save as a template.'), true);
     const data = await api('/api/kits', { method: 'POST', body: JSON.stringify({ name, notes, items }) });
+    state.lootUi.kitTemplatesRevision = (state.lootUi.kitTemplatesRevision || 0) + 1;
     state.kitTemplates = [data.kit, ...(state.kitTemplates || []).filter((kit) => kit.id !== data.kit.id)];
     state.lootUi.kitTemplatesLoaded = true;
     state.lootUi.kitTemplateName = '';
@@ -357,6 +362,7 @@
     if (!kit) return;
     if (!confirm(uiText(`ลบ template "${kit.name}"?`, `Delete template "${kit.name}"?`))) return;
     await api(`/api/kits?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    state.lootUi.kitTemplatesRevision = (state.lootUi.kitTemplatesRevision || 0) + 1;
     state.kitTemplates = (state.kitTemplates || []).filter((entry) => entry.id !== id);
     showToast(uiText('ลบ template แล้ว', 'Template deleted.'));
     renderVisualBuilder();
@@ -1275,6 +1281,130 @@
     renderReadinessPanel(state.readiness);
   }
 
+  function startupDoctorCheckLabel(check) {
+    const labels = {
+      'paths.configRoot': uiText('โฟลเดอร์คอนฟิก SCUM', 'SCUM config folder'),
+      'paths.nodes': uiText('โฟลเดอร์ Nodes', 'Nodes folder'),
+      'paths.spawners': uiText('โฟลเดอร์ Spawners', 'Spawners folder'),
+      'permissions.backup': uiText('สิทธิ์เขียน Backup', 'Backup write permission'),
+      'permissions.configRoot': uiText('สิทธิ์เขียนคอนฟิก', 'Config write permission'),
+      'commands.reload': uiText('คำสั่ง Reload', 'Reload command'),
+      'commands.restart': uiText('คำสั่ง Restart', 'Restart command'),
+      'core.ServerSettings.ini': 'ServerSettings.ini',
+      'core.GameUserSettings.ini': 'GameUserSettings.ini',
+      'core.EconomyOverride.json': 'EconomyOverride.json',
+    };
+    return labels[check?.id] || check?.label || '-';
+  }
+
+  function startupDoctorActionText(action = '') {
+    if (action === 'open-settings') return uiText('ไปแก้ path / สิทธิ์ใน Settings', 'Open Settings to fix paths or permissions');
+    if (action === 'open-dashboard') return uiText('กลับไป Dashboard แล้วรัน Preflight อีกครั้ง', 'Open dashboard and run preflight again');
+    if (action === 'open-diagnostics') return uiText('เปิด Diagnostics เพื่อดูปัญหาล่าสุด', 'Open diagnostics for the latest problem');
+    return uiText('ตรวจรายละเอียดก่อนใช้งานจริง', 'Review details before real use');
+  }
+
+  function startupDoctorTargetView(action = '') {
+    if (action === 'open-settings') return 'settings';
+    return 'dashboard';
+  }
+
+  function renderStartupDoctorPanel(report = state.startupDoctor) {
+    const host = $('startup-doctor-panel');
+    if (!host) return;
+    if (!report) {
+      host.innerHTML = collapsibleAssistPanel(
+        'startup-doctor',
+        uiText('ตรวจเครื่องก่อนใช้จริง', 'Startup Doctor'),
+        uiText('กำลังเช็ก path, ไฟล์หลัก, permission และ command รอบแรก', 'Checking paths, core files, permissions, and commands.'),
+        '...',
+        `<div class="startup-doctor-grid"><div class="startup-doctor-check warn"><div><strong>${escapeHtml(uiText('กำลังตรวจ', 'Checking'))}</strong><small>${escapeHtml(uiText('รอผลจากเครื่องนี้สักครู่', 'Waiting for this machine report.'))}</small></div><span>${escapeHtml(readinessStatusText('warn'))}</span></div></div>`,
+        { className: 'startup-doctor-collapse', tone: 'warn' }
+      );
+      bindAssistCollapses(host);
+      return;
+    }
+    if (report.error) {
+      host.innerHTML = collapsibleAssistPanel(
+        'startup-doctor',
+        uiText('ตรวจเครื่องก่อนใช้จริง', 'Startup Doctor'),
+        uiText('ตรวจไม่ได้ ให้ลอง refresh หรือดู Diagnostics', 'Cannot run the check. Refresh or inspect diagnostics.'),
+        uiText('ผิดพลาด', 'error'),
+        `<div class="warn-card"><strong>${escapeHtml(uiText('อ่านสถานะเครื่องไม่ได้', 'Cannot read machine status'))}</strong><p class="muted">${escapeHtml(report.error)}</p></div><div class="actions tight wrap"><button id="startup-doctor-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจใหม่', 'Recheck'))}</button></div>`,
+        { className: 'startup-doctor-collapse', tone: 'warn' }
+      );
+      bindAssistCollapses(host);
+      const refresh = $('startup-doctor-refresh');
+      if (refresh) refresh.onclick = () => loadReadiness().catch((error) => showToast(error.message, true));
+      return;
+    }
+    const counts = report.counts || {};
+    const checks = Array.isArray(report.checks) ? [...report.checks] : [];
+    const sortedChecks = checks.sort((a, b) => {
+      const rank = { bad: 3, warn: 2, ok: 1 };
+      return (rank[b.status] || 0) - (rank[a.status] || 0) || String(startupDoctorCheckLabel(a)).localeCompare(String(startupDoctorCheckLabel(b)));
+    });
+    const tone = counts.bad ? 'warn' : 'good';
+    const nextStep = report.nextStep || {};
+    const nextAction = nextStep.action || (report.ready ? 'open-dashboard' : 'open-settings');
+    const summary = report.ready
+      ? uiText('เครื่องนี้พร้อมใช้ไฟล์จริงแล้ว เหลือแค่ backup ก่อนแก้ทุกครั้ง', 'This machine is ready for real files. Keep backing up before edits.')
+      : uiText('ยังมีจุดเสี่ยงก่อนใช้งานจริง ให้แก้รายการสีแดงก่อน', 'There are still first-run blockers. Fix the red checks first.');
+    const content = `<div class="startup-doctor-top"><div><div class="eyebrow">${escapeHtml(uiText('FIRST RUN / LOCAL DOCTOR', 'FIRST RUN / LOCAL DOCTOR'))}</div><h3>${escapeHtml(uiText('ตรวจเครื่องก่อนใช้จริง', 'Startup Doctor'))}</h3><p class="muted">${escapeHtml(summary)}</p></div><div class="startup-doctor-score ${report.ready ? 'ready' : 'warn'}"><strong>${escapeHtml(`${counts.ok || 0}/${checks.length || 0}`)}</strong><span>${escapeHtml(report.ready ? uiText('พร้อม', 'Ready') : uiText('ต้องแก้', 'Fix first'))}</span></div></div><div class="readiness-grid startup-doctor-counts"><div><span>${escapeHtml(uiText('ผ่าน', 'OK'))}</span><strong>${escapeHtml(String(counts.ok || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warn || 0))}</strong></div><div><span>${escapeHtml(uiText('ต้องแก้ก่อน', 'Blockers'))}</span><strong>${escapeHtml(String(counts.bad || 0))}</strong></div></div><div class="startup-doctor-next"><div><strong>${escapeHtml(startupDoctorActionText(nextAction))}</strong><p class="muted">${escapeHtml(nextStep.label || startupDoctorActionText(nextAction))}</p></div><button type="button" id="startup-doctor-next" class="ghost tiny" data-startup-next="${escapeHtml(nextAction)}">${escapeHtml(uiText('เปิดไปแก้', 'Open fix'))}</button></div><div class="startup-doctor-grid">${sortedChecks.map((check) => `<div class="startup-doctor-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(startupDoctorCheckLabel(check))}</strong><small>${escapeHtml(check.detail || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div><div class="actions tight wrap"><button id="startup-doctor-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจใหม่', 'Recheck'))}</button><button class="ghost tiny" data-startup-open="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-startup-open="dashboard">${escapeHtml(uiText('ไป Dashboard', 'Open Dashboard'))}</button></div>`;
+    host.innerHTML = collapsibleAssistPanel(
+      'startup-doctor',
+      uiText('ตรวจเครื่องก่อนใช้จริง', 'Startup Doctor'),
+      uiText('เช็ก path, ไฟล์หลัก, permission และ command แบบพับเก็บได้ ไม่ให้หน้า Settings/Dashboard ยาวรก', 'Checks paths, core files, permissions, and commands without making Settings/Dashboard noisy.'),
+      `${counts.bad || 0}/${checks.length || 0}`,
+      content,
+      { className: 'startup-doctor-collapse', tone, badgeClass: `tag ${report.ready ? 'ok' : 'warning'}` }
+    );
+    bindAssistCollapses(host);
+    const refresh = $('startup-doctor-refresh');
+    if (refresh) refresh.onclick = () => loadReadiness().catch((error) => showToast(error.message, true));
+    const next = $('startup-doctor-next');
+    if (next) next.onclick = () => {
+      const view = startupDoctorTargetView(next.dataset.startupNext || '');
+      if (typeof setView === 'function') setView(view);
+      if ((next.dataset.startupNext || '') === 'open-diagnostics') {
+        const details = document.querySelector('#diagnostics-panel details.assist-collapse');
+        if (details) details.open = true;
+      }
+    };
+    host.querySelectorAll('[data-startup-open]').forEach((button) => {
+      button.onclick = () => {
+        if (typeof setView === 'function') setView(button.dataset.startupOpen || 'dashboard');
+      };
+    });
+  }
+
+  function mountStartupDoctorPanel() {
+    const settings = document.querySelector('#view-settings.active .stack-spaced');
+    const dashboard = $('view-dashboard')?.classList.contains('active') ? $('view-dashboard') : null;
+    const target = settings || dashboard;
+    if (!target) return;
+    let panel = $('startup-doctor-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'startup-doctor-panel';
+    }
+    panel.className = 'card startup-doctor-card';
+    if (settings) {
+      const setup = $('setup-wizard-panel');
+      if (setup?.parentElement) setup.insertAdjacentElement('afterend', panel);
+      else settings.prepend(panel);
+    } else {
+      const readiness = $('readiness-panel');
+      if (readiness?.parentElement) readiness.insertAdjacentElement('afterend', panel);
+      else {
+        const setupNotice = $('setup-notice');
+        if (setupNotice?.parentElement) setupNotice.insertAdjacentElement('afterend', panel);
+        else dashboard.prepend(panel);
+      }
+    }
+    renderStartupDoctorPanel(state.startupDoctor);
+  }
+
   function readinessCheck(report, id) {
     return (Array.isArray(report?.checks) ? report.checks : []).find((check) => check.id === id) || null;
   }
@@ -1567,15 +1697,24 @@
 
   async function loadReadiness() {
     mountReadinessPanel();
+    mountStartupDoctorPanel();
     mountQuickStartPanel();
     mountDiagnosticsPanel();
     renderReadinessPanel(state.readiness);
+    renderStartupDoctorPanel(state.startupDoctor);
     renderQuickStartPanel(state.readiness);
     renderCustomerReadyPanel(state.readiness);
     renderDiagnosticsPanel();
     const data = await api('/api/readiness');
     state.readiness = data.report;
+    try {
+      const doctor = await api('/api/startup-doctor');
+      state.startupDoctor = doctor.report;
+    } catch (error) {
+      state.startupDoctor = { error: error.message };
+    }
     renderReadinessPanel(state.readiness);
+    renderStartupDoctorPanel(state.startupDoctor);
     renderQuickStartPanel(state.readiness);
     renderCustomerReadyPanel(state.readiness);
     return state.readiness;
@@ -1617,15 +1756,28 @@
       mountSetupWizard();
       renderSetupWizard(state.configInspection, state.commandHealth);
       mountReadinessPanel();
+      mountStartupDoctorPanel();
       mountQuickStartPanel();
       mountDiagnosticsPanel();
       loadReadiness().catch((error) => {
         state.readiness = { error: error.message };
+        state.startupDoctor = { error: error.message };
         renderReadinessPanel(state.readiness);
+        renderStartupDoctorPanel(state.startupDoctor);
         renderQuickStartPanel(state.readiness);
         renderCustomerReadyPanel(state.readiness);
         renderDiagnosticsPanel();
       });
+    };
+  }
+
+  const baseSetViewForStartupDoctor = typeof setView === 'function' ? setView : null;
+  if (baseSetViewForStartupDoctor) {
+    setView = function (view, options = {}) {
+      const result = baseSetViewForStartupDoctor(view, options);
+      mountStartupDoctorPanel();
+      renderStartupDoctorPanel(state.startupDoctor);
+      return result;
     };
   }
 
@@ -3060,8 +3212,10 @@
 
   mountGlobalSearchControls();
   mountReadinessPanel();
+  mountStartupDoctorPanel();
   mountQuickStartPanel();
   mountDiagnosticsPanel();
+  renderStartupDoctorPanel(state.startupDoctor);
   renderCustomerReadyPanel(state.readiness);
   applyCoreCopyPolish();
   applyLootShellCopy();
@@ -3076,7 +3230,9 @@
     bindBackupActivityOverrides();
     loadReadiness().catch((error) => {
       state.readiness = { error: error.message };
+      state.startupDoctor = { error: error.message };
       renderReadinessPanel(state.readiness);
+      renderStartupDoctorPanel(state.startupDoctor);
       renderQuickStartPanel(state.readiness);
       renderCustomerReadyPanel(state.readiness);
       renderDiagnosticsPanel();

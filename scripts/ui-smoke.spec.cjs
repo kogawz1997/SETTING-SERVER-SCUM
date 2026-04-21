@@ -85,6 +85,10 @@ test('dashboard readiness preflight renders actionable checks', async ({ page })
   await page.locator('#readiness-refresh').click();
   await expect(page.locator('.readiness-check').first()).toBeVisible({ timeout: 60000 });
   await expect(page.locator('#readiness-panel')).toContainText(/Preflight|พร้อมใช้|PRODUCTION READY/);
+  await expect(page.locator('#startup-doctor-panel')).toBeVisible({ timeout: 60000 });
+  await page.locator('#startup-doctor-panel details.assist-collapse > summary').click();
+  await expect(page.locator('#startup-doctor-panel')).toContainText(/Startup Doctor|ตรวจเครื่องก่อนใช้จริง/);
+  await expect(page.locator('#startup-doctor-panel')).toContainText(/SCUM config folder|โฟลเดอร์คอนฟิก/);
 });
 
 test('top-level routes open the matching page and support browser history', async ({ page }) => {
@@ -125,6 +129,18 @@ test('customer handoff page summarizes readiness and next action in one place', 
   await expect(page.locator('#customer-ready-panel')).toContainText(/Customer handoff|ก่อนปล่อยให้ลูกค้าใช้/);
   await expect(page.locator('#customer-ready-panel')).toContainText(/Path ready|Backup ready|Loot errors|Reload command/);
   await expect(page.locator('[data-release-next-action]').first()).toBeVisible({ timeout: 60000 });
+});
+
+test('settings page keeps startup doctor checks collapsed but available', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${baseUrl}/settings`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#startup-doctor-panel')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('#startup-doctor-panel details.assist-collapse')).toBeVisible();
+  await page.locator('#startup-doctor-panel details.assist-collapse > summary').click();
+  await expect(page.locator('#startup-doctor-panel')).toContainText(/Startup Doctor|ตรวจเครื่องก่อนใช้จริง/);
+  await expect(page.locator('#startup-doctor-panel .startup-doctor-check').first()).toBeVisible();
 });
 
 test('thai mode renders readable app copy without mojibake artifacts', async ({ page }) => {

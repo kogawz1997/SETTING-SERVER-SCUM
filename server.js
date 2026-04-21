@@ -72,6 +72,8 @@ const {
   inspectConfigFolder,
   appendActivity,
   readActivity,
+  readOperationLogs,
+  operationsLogFile,
   ensureStoreDirs,
 } = appStore;
 const LOOT_RARITIES = ['Abundant', 'Common', 'Uncommon', 'Rare', 'VeryRare', 'ExtremelyRare'];
@@ -510,6 +512,15 @@ function saveKitTemplates(templates) {
   saveJson(KIT_TEMPLATES_FILE, Array.isArray(templates) ? templates : []);
 }
 
+function itemEntryName(entry = {}) {
+  return entry?.ClassName || entry?.Id || entry?.Item || entry?.Name || '';
+}
+
+function itemEntryProbability(entry = {}) {
+  const value = Number(entry?.Probability ?? entry?.Chance ?? 1);
+  return Number.isFinite(value) ? value : 1;
+}
+
 function sanitizeKitItems(items = []) {
   return (Array.isArray(items) ? items : [])
     .map((entry) => {
@@ -665,6 +676,8 @@ const serverContext = {
   createBackup,
   appendActivity,
   readActivity,
+  readOperationLogs,
+  operationsLogFile,
   scanLootWorkspace,
   safeScanLootWorkspace,
   readJsonObject,

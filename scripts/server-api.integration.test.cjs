@@ -115,6 +115,7 @@ test('support bundle and loot preset APIs return local-safe release helpers', as
     assert.equal(support.body.fileName.endsWith('.zip'), true);
     assert.equal(support.body.mime, 'application/zip');
     assert.equal(support.body.files.includes('support/diagnostics.json'), true);
+    assert.equal(support.body.files.includes('logs/operations.jsonl'), true);
 
     const presets = await request(server, '/api/loot/presets');
     assert.equal(presets.response.status, 200);

@@ -17,6 +17,8 @@ function createAppStore(options = {}) {
   const profilesFile = path.join(dataDir, options.profilesFile || 'profiles.json');
   const rotationFile = path.join(dataDir, options.rotationFile || 'rotation.json');
   const activityFile = path.join(dataDir, options.activityFile || 'activity.jsonl');
+  const logsDir = path.resolve(root, options.logsDir || 'logs');
+  const operationsLogFile = path.join(logsDir, options.operationsLogFile || 'operations.jsonl');
   const profileStoreDir = path.join(dataDir, options.profileStoreDir || 'profile-store');
   const defaultConfig = clone(options.defaultConfig || {});
   const defaultProfiles = clone(options.defaultProfiles || { profiles: [] });
@@ -94,12 +96,27 @@ function createAppStore(options = {}) {
     ensureDir(dataDir);
     const entry = { at: new Date().toISOString(), type, ...detail };
     fs.appendFileSync(activityFile, `${JSON.stringify(entry)}\n`, 'utf8');
+    appendOperationLog(type, detail, entry.at);
     return entry;
   }
 
-  function readActivity(limit = 100, filters = {}) {
-    if (!fs.existsSync(activityFile)) return [];
-    let rows = readText(activityFile)
+  function appendOperationLog(event, detail = {}, at = new Date().toISOString()) {
+    ensureDir(logsDir);
+    const entry = {
+      at,
+      event,
+      ok: detail.ok !== false,
+      path: detail.path || detail.from || detail.to || '',
+      backup: detail.backup || '',
+      detail,
+    };
+    fs.appendFileSync(operationsLogFile, `${JSON.stringify(entry)}\n`, 'utf8');
+    return entry;
+  }
+
+  function readJsonl(filePath, limit = 100) {
+    if (!fs.existsSync(filePath)) return [];
+    return readText(filePath)
       .split(/\r?\n/)
       .filter(Boolean)
       .map((line) => {
@@ -109,7 +126,12 @@ function createAppStore(options = {}) {
           return null;
         }
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .slice(-limit);
+  }
+
+  function readActivity(limit = 100, filters = {}) {
+    let rows = readJsonl(activityFile, Number.MAX_SAFE_INTEGER);
     const type = String(filters.type || '').trim().toLowerCase();
     const term = String(filters.term || '').trim().toLowerCase();
     const pathFilter = String(filters.path || '').trim().toLowerCase();
@@ -119,8 +141,13 @@ function createAppStore(options = {}) {
     return rows.slice(-limit).reverse();
   }
 
+  function readOperationLogs(limit = 100) {
+    return readJsonl(operationsLogFile, limit).reverse();
+  }
+
   function ensureStoreDirs(config = loadConfig()) {
     ensureDir(dataDir);
+    ensureDir(logsDir);
     ensureDir(profileStoreDir);
     ensureDir(resolvedPaths(config).backupDir);
   }
@@ -132,6 +159,8 @@ function createAppStore(options = {}) {
     profilesFile,
     rotationFile,
     activityFile,
+    logsDir,
+    operationsLogFile,
     loadConfig,
     saveConfig,
     loadProfilesData,
@@ -141,7 +170,9 @@ function createAppStore(options = {}) {
     resolvedPaths,
     inspectConfigFolder,
     appendActivity,
+    appendOperationLog,
     readActivity,
+    readOperationLogs,
     ensureStoreDirs,
     posixify,
   };

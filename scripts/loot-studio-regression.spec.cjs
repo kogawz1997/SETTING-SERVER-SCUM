@@ -1,6 +1,33 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+const root = path.resolve(__dirname, '..');
+
+function readAppConfig() {
+  return JSON.parse(fs.readFileSync(path.join(root, 'data', 'config.json'), 'utf8'));
+}
+
+function resolveLootFixturePath(logicalPath) {
+  const config = readAppConfig();
+  const normalized = String(logicalPath || '').replace(/\\/g, '/');
+  if (normalized.startsWith('Nodes/')) {
+    const nodesDir = config.nodesDir || path.join(config.scumConfigDir || root, 'Loot', 'Nodes', 'Current');
+    return path.join(nodesDir, normalized.slice('Nodes/'.length));
+  }
+  if (normalized.startsWith('Spawners/')) {
+    const spawnersDir = config.spawnersDir || path.join(config.scumConfigDir || root, 'Loot', 'Spawners', 'Presets', 'Override');
+    return path.join(spawnersDir, normalized.slice('Spawners/'.length));
+  }
+  throw new Error(`Unsupported loot fixture path: ${logicalPath}`);
+}
+
+function writeRawLootFixture(logicalPath, object) {
+  const filePath = resolveLootFixturePath(logicalPath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(object, null, 2)}\n`, 'utf8');
+}
 
 async function openLootFileFromRail(page, relPath) {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
@@ -362,18 +389,13 @@ test('autofix preview merges duplicate flat items and normalizes safe probabilit
   const logicalPath = `Nodes/${fileName}`;
   await page.request.post(`${baseUrl}/api/loot/file`, { data: { kind: 'nodes', fileName } });
   try {
-    await page.request.put(`${baseUrl}/api/file`, {
-      data: {
-        path: logicalPath,
-        content: JSON.stringify({
-          Items: [
-            { ClassName: 'Weapon_AK47', Chance: 0.2 },
-            { ClassName: 'Weapon_AK47', Probability: 0.3 },
-            { ClassName: '', Probability: 1 },
-            { ClassName: 'Ammo_762x39', Probability: 0 }
-          ]
-        }, null, 2)
-      }
+    writeRawLootFixture(logicalPath, {
+      Items: [
+        { ClassName: 'Weapon_AK47', Chance: 0.2 },
+        { ClassName: 'Weapon_AK47', Probability: 0.3 },
+        { ClassName: '', Probability: 1 },
+        { ClassName: 'Ammo_762x39', Probability: 0 }
+      ]
     });
 
     const response = await page.request.post(`${baseUrl}/api/loot/autofix`, { data: { path: logicalPath, apply: false } });
@@ -397,17 +419,12 @@ test('validation quick fix updates the current draft and revalidates it', async 
   const logicalPath = `Nodes/${fileName}`;
   await page.request.post(`${baseUrl}/api/loot/file`, { data: { kind: 'nodes', fileName } });
   try {
-    await page.request.put(`${baseUrl}/api/file`, {
-      data: {
-        path: logicalPath,
-        content: JSON.stringify({
-          Name: 'QuickFixTest',
-          Items: [
-            { ClassName: 'Weapon_AK47', Probability: 1 },
-            { ClassName: '', Probability: 1 }
-          ]
-        }, null, 2)
-      }
+    writeRawLootFixture(logicalPath, {
+      Name: 'QuickFixTest',
+      Items: [
+        { ClassName: 'Weapon_AK47', Probability: 1 },
+        { ClassName: '', Probability: 1 }
+      ]
     });
 
     await openLootFileFromRail(page, logicalPath);

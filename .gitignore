@@ -7,6 +7,7 @@ artifacts/
 test-results/
 output/
 dist/
+logs/
 
 # Machine-specific config and logs
 data/config.json

@@ -236,6 +236,27 @@ test('startup doctor reports first-run path, backup, permission, and command che
   assert.equal(report.nextStep.action, 'open-dashboard');
 });
 
+test('app store writes activity and structured operation logs together', () => {
+  const { createAppStore } = require('../src/server/store/app-store.cjs');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-app-store-logs-'));
+  const store = createAppStore({
+    root: tmp,
+    dataDir: path.join(tmp, 'data'),
+    defaultConfig: { backupDir: 'Backups' },
+  });
+
+  store.appendActivity('loot_save', { path: 'Nodes/ไทย Test.json', ok: true });
+  const activity = store.readActivity(10);
+  const logs = store.readOperationLogs(10);
+
+  assert.equal(activity.length, 1);
+  assert.equal(activity[0].type, 'loot_save');
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].event, 'loot_save');
+  assert.equal(logs[0].path, 'Nodes/ไทย Test.json');
+  assert.equal(fs.existsSync(path.join(tmp, 'logs', 'operations.jsonl')), true);
+});
+
 test('workspace package export/import round-trips config and selected files', () => {
   const { createWorkspacePackage, parseWorkspacePackage } = require('../src/server/package-manager.cjs');
   const pkg = createWorkspacePackage({
