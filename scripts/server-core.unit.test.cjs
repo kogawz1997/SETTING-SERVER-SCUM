@@ -81,6 +81,82 @@ test('loot core service parses, indexes, and validates loot objects', () => {
   assert.equal(service.resolveRefNode(tree, 'ItemLootTreeNodes.Bunker.AK47').Name, 'AK47');
 });
 
+test('workspace file service resolves, scans, validates, and diffs workspace files', () => {
+  const { createWorkspaceFileService } = require('../src/server/services/workspace-file-service.cjs');
+  const { createLootCoreService } = require('../src/server/services/loot-core-service.cjs');
+  const { normalizeKey, posixify, sortByName, walkFiles } = require('../src/server/services/workspace-utils.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-workspace-files-'));
+  const configDir = path.join(root, 'Config Root');
+  const nodesDir = path.join(configDir, 'Nodes Folder');
+  const spawnersDir = path.join(configDir, 'Spawners Folder');
+  fs.mkdirSync(nodesDir, { recursive: true });
+  fs.mkdirSync(spawnersDir, { recursive: true });
+  fs.writeFileSync(path.join(configDir, 'ServerSettings.ini'), 'MaxPlayers=64\n', 'utf8');
+  fs.writeFileSync(path.join(nodesDir, 'Bunker.json'), JSON.stringify({ Name: 'ItemLootTreeNodes', Children: [{ Name: 'Bunker', Rarity: 'Rare' }] }), 'utf8');
+  fs.writeFileSync(path.join(spawnersDir, 'Military.json'), JSON.stringify({ Nodes: [{ Rarity: 'Rare', Ids: ['Bunker'] }] }), 'utf8');
+  fs.writeFileSync(path.join(spawnersDir, 'Broken.json'), '{ bad json', 'utf8');
+  const paths = { scumConfigDir: configDir, nodesDir, spawnersDir };
+  const core = createLootCoreService({
+    clone: (value) => JSON.parse(JSON.stringify(value)),
+    path,
+    stripBom: (text) => String(text || '').replace(/^\uFEFF/, ''),
+    readText: (target) => fs.readFileSync(target, 'utf8'),
+    normalizeKey,
+    posixify,
+    LOOT_RARITIES: ['Common', 'Rare'],
+    scanLootWorkspace: () => ({ nodes: [], spawners: [], refIndex: new Map() }),
+  });
+  const service = createWorkspaceFileService({
+    fs,
+    path,
+    ini: { parse: (content) => ({ MaxPlayers: Number(String(content).match(/MaxPlayers=(\d+)/)?.[1] || 0) }) },
+    Diff: { createPatch: (logicalPath, before, after) => `diff:${logicalPath}:${before}->${after}` },
+    CORE_FILES: ['ServerSettings.ini'],
+    resolvedPaths: () => paths,
+    walkProjectFiles: (dir, filter, baseDir, results = []) => walkFiles(fs, path, dir, filter, baseDir, results),
+    posixify,
+    sortByName,
+    readText: (target) => fs.readFileSync(target, 'utf8'),
+    safeParseJson: core.safeParseJson,
+    readJsonObject: core.readJsonObject,
+    collectTreeRefs: core.collectTreeRefs,
+    buildRefIndex: core.buildRefIndex,
+    buildValidation: core.buildValidation,
+    mergeValidationResults: core.mergeValidationResults,
+    analyzeLootObject: core.analyzeLootObject,
+    validateLootLogic: (_object, logicalPath) => ({
+      entries: [{ code: 'external.loot', severity: 'info', message: logicalPath, path: 'root' }],
+      counts: { critical: 0, warning: 0, info: 1 },
+      highestSeverity: 'info',
+      fixableCount: 0,
+    }),
+    validateServerSettingsLogic: (parsed) => ({
+      entries: [{ code: 'server.max_players', severity: parsed.MaxPlayers > 0 ? 'info' : 'critical', message: 'checked', path: 'MaxPlayers' }],
+      counts: { critical: parsed.MaxPlayers > 0 ? 0 : 1, warning: 0, info: parsed.MaxPlayers > 0 ? 1 : 0 },
+      highestSeverity: parsed.MaxPlayers > 0 ? 'info' : 'critical',
+      fixableCount: 0,
+    }),
+  });
+
+  const listed = service.listLootFiles(paths);
+  const scan = service.safeScanLootWorkspace(paths);
+  const lootValidation = service.validateContent('Spawners/Military.json', JSON.stringify({ Nodes: [{ Rarity: 'Rare', Ids: ['Bunker'] }] }));
+  const iniValidation = service.validateContent('ServerSettings.ini', 'MaxPlayers=64\n');
+
+  assert.equal(service.resolveLogicalPath('ServerSettings.ini', paths), path.join(configDir, 'ServerSettings.ini'));
+  assert.throws(() => service.resolveLogicalPath('Nodes/../ServerSettings.ini', paths), /Invalid node path/);
+  assert.deepEqual(listed.nodes.map((file) => file.relPath), ['Nodes/Bunker.json']);
+  assert.equal(scan.nodes.length, 1);
+  assert.equal(scan.spawners.length, 1);
+  assert.equal(scan.errors[0].path, 'Spawners/Broken.json');
+  assert.equal(scan.refIndex.has('Bunker'), true);
+  assert.equal(lootValidation.entries.some((entry) => entry.code === 'external.loot'), true);
+  assert.equal(iniValidation.entries[0].code, 'server.max_players');
+  assert.equal(service.readLogicalFile('ServerSettings.ini', paths).meta.size > 0, true);
+  assert.equal(service.createDiff('ServerSettings.ini', 'a', 'b'), 'diff:ServerSettings.ini:a->b');
+  assert.deepEqual(service.allWorkspaceLogicalPaths(paths).sort(), ['Nodes/Bunker.json', 'ServerSettings.ini', 'Spawners/Broken.json', 'Spawners/Military.json'].sort());
+});
+
 test('item catalog service builds icon-backed catalog entries and saves overrides', () => {
   const { createItemCatalogService } = require('../src/server/services/item-catalog-service.cjs');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-item-catalog-'));
