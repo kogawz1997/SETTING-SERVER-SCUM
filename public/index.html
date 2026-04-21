@@ -211,6 +211,15 @@
           <div class="card loot-files-card">
             <div class="section-head compact"><div><h4 id="loot-files-title">Loot Files</h4><p id="loot-files-hint" class="muted">Nodes and spawners with create/clone/delete.</p></div></div>
             <input id="loot-search" placeholder="Search loot files..." />
+            <div id="loot-file-tools" class="loot-file-tools">
+              <select id="loot-file-scope" aria-label="Loot file type filter">
+                <option id="loot-file-scope-all" value="all">All files</option>
+                <option id="loot-file-scope-nodes" value="nodes">Nodes only</option>
+                <option id="loot-file-scope-spawners" value="spawners">Spawners only</option>
+              </select>
+              <button id="loot-clear-search" class="ghost tiny" type="button">Clear</button>
+              <span id="loot-file-counts" class="tag">0/0 files</span>
+            </div>
             <div id="loot-shortcuts-panel" class="loot-shortcuts-panel">
               <div class="section-head compact">
                 <div>
@@ -231,10 +240,14 @@
                 <div id="loot-recent-list" class="loot-shortcut-list"></div>
               </div>
             </div>
-            <div class="list-head"><h5>Nodes</h5><button id="new-node-btn" class="ghost tiny">New</button></div>
-            <div id="nodes-list" class="file-list"></div>
-            <div class="list-head"><h5>Spawners</h5><button id="new-spawner-btn" class="ghost tiny">New</button></div>
-            <div id="spawners-list" class="file-list"></div>
+            <div id="nodes-section" class="loot-file-section">
+              <div class="list-head"><h5 id="loot-nodes-title">Nodes</h5><button id="new-node-btn" class="ghost tiny">New</button></div>
+              <div id="nodes-list" class="file-list"></div>
+            </div>
+            <div id="spawners-section" class="loot-file-section">
+              <div class="list-head"><h5 id="loot-spawners-title">Spawners</h5><button id="new-spawner-btn" class="ghost tiny">New</button></div>
+              <div id="spawners-list" class="file-list"></div>
+            </div>
           </div>
           <div class="loot-main-column">
             <div class="card loot-editor-card">

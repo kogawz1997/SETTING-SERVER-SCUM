@@ -1,6 +1,6 @@
 # SETTING SERVER SCUM
 
-Current local-ready level: `P2.7`. Loot Studio now has recent/pinned quick access plus shareable file links like `/loot-studio?file=Spawners/...`, and Analyzer/Search can open the exact loot file that needs work.
+Current local-ready level: `P2.8`. Loot Studio now has file scope filters, visible file counts, recent/pinned quick access, shareable links like `/loot-studio?file=Spawners/...`, and Analyzer/Search can open the exact loot file that needs work.
 
 เครื่องมือเว็บสำหรับคนดูแลเซิร์ฟเวอร์ SCUM ที่ไม่อยากนั่งไล่แก้ `INI` / `JSON` ดิบๆ แล้วลุ้นว่าเซิร์ฟจะพังไหมตอนกด save
 
@@ -16,7 +16,7 @@ Current local-ready level: `P2.7`. Loot Studio now has recent/pinned quick acces
 
 ## ตอนนี้ทำอะไรได้บ้าง
 
-ตอนนี้อยู่ระดับ `P2.7` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
+ตอนนี้อยู่ระดับ `P2.8` ใช้งานจริงแบบ local ได้แล้ว จุดหลักคือช่วยลดงานแก้ไฟล์ดิบ อ่านค่าลูทให้ง่ายขึ้น และช่วยกันพังก่อนเอา config ไปใช้กับเซิร์ฟจริง
 
 สิ่งที่มีแล้ว:
 
@@ -25,6 +25,7 @@ Current local-ready level: `P2.7`. Loot Studio now has recent/pinned quick acces
 - Server Settings สำหรับแก้ `ServerSettings.ini` แบบแยกหมวด มี dropdown/filter, คำอธิบายใต้ field และ True/False เป็นตัวเลือก
 - Core Files สำหรับเปิดแก้ `GameUserSettings.ini` และ `EconomyOverride.json`
 - Loot Studio สำหรับแก้ `Nodes/*.json` และ `Spawners/*.json`
+- Loot Studio มีตัวกรองไฟล์ `All / Nodes / Spawners`, ตัวนับไฟล์ที่แสดงอยู่ และปุ่มล้าง search เพื่อลดลิสต์ยาวๆ
 - Loot Studio มี Quick access สำหรับไฟล์ที่ปักไว้และไฟล์ที่เพิ่งเปิดล่าสุด
 - Loot Builder ช่วยเพิ่ม/ลบ/clone/reorder item, ปรับ probability, normalize, preset probability และใช้ autocomplete
 - Item Catalog พร้อม icon จาก `scum_items-main` เพื่อช่วยจำชื่อ item/class

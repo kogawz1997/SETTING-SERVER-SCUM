@@ -156,6 +156,31 @@ test('loot studio keeps recent and pinned files in quick access', async ({ page 
   await expect(page).toHaveURL(/\/loot-studio\?file=/);
 });
 
+test('loot file sidebar can focus nodes or spawners and clear search', async ({ page }) => {
+  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.locator('.nav[data-view="loot"]').click();
+  await expect(page.locator('[data-loot-path]').first()).toBeVisible({ timeout: 60000 });
+
+  await expect(page.locator('#loot-file-tools')).toBeVisible();
+  await expect(page.locator('#loot-file-counts')).toContainText(/\d+\/\d+/);
+
+  await page.locator('#loot-file-scope').selectOption('nodes');
+  await expect(page.locator('#nodes-section')).toBeVisible();
+  await expect(page.locator('#spawners-section')).toBeHidden();
+  await expect(page.locator('[data-loot-path^="Nodes/"]').first()).toBeVisible();
+
+  await page.locator('#loot-file-scope').selectOption('spawners');
+  await expect(page.locator('#nodes-section')).toBeHidden();
+  await expect(page.locator('#spawners-section')).toBeVisible();
+  await expect(page.locator('[data-loot-path^="Spawners/"]').first()).toBeVisible();
+
+  await page.locator('#loot-search').fill('Boar');
+  await expect(page.locator('#loot-clear-search')).toBeEnabled();
+  await expect(page.locator('#loot-file-counts')).toContainText(/\d+\/\d+/);
+  await page.locator('#loot-clear-search').click();
+  await expect(page.locator('#loot-search')).toHaveValue('');
+});
+
 test('flat item rows can be reordered with drag and drop', async ({ page }) => {
   await openLootFileFromRail(page, 'Spawners/Character-Animal_Corpses-Examine_Dead_Boar_Corpse.json');
 

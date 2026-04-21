@@ -123,6 +123,37 @@
   color: var(--muted);
 }
 
+.loot-file-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0 12px;
+}
+
+.loot-file-tools select {
+  min-height: 40px;
+  padding: 9px 12px;
+}
+
+.loot-file-tools .tag {
+  justify-self: start;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.loot-file-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.loot-file-section + .loot-file-section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .loot-shortcut-group,
 .loot-shortcut-list {
   display: grid;

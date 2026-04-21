@@ -102,11 +102,11 @@ assertIncludesAny('README.md', 'first-time setup instructions', ['First-Time Set
 assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบบกันพัง']);
 assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เอกสารเพิ่มเติม']);
 assertIncludes('README.md', ['docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
-assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'loot-shortcuts-panel']);
-assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent']);
+assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope']);
+assertIncludes('public/app.js', ['routeByView', 'routeAliases', 'popstate', '/loot-studio', '/help', 'lootRoutePath', 'pendingRouteLootPath', 'scum_loot_recent', 'fileScope', 'loot-file-counts']);
 assertIncludes('public/app.js', ['server-guide-panel', 'server-field-help', 'help-flow-map']);
 assertIncludes('public/loot-overrides.js', ['data-prob-preset', 'loot-field-cheatsheet', 'data-analyzer-target-path', 'data-analyzer-open-file']);
-assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item']);
+assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-shortcut-item', 'loot-file-tools']);
 
 const pkg = JSON.parse(read('package.json'));
 if (pkg.author !== 'KOGA.EXE') {

@@ -908,10 +908,17 @@
     setText('loot-files-title', t('lootFiles'));
     setText('loot-files-hint', t('lootHint'));
     setPlaceholder('loot-search', uiText('ค้นหาไฟล์ลูท...', 'Search loot files...'));
+    setText('loot-nodes-title', t('nodes'));
+    setText('loot-spawners-title', t('spawners'));
+    setText('loot-file-scope-all', uiText('ทุกไฟล์', 'All files'));
+    setText('loot-file-scope-nodes', uiText('เฉพาะ Nodes', 'Nodes only'));
+    setText('loot-file-scope-spawners', uiText('เฉพาะ Spawners', 'Spawners only'));
+    setText('loot-clear-search', uiText('ล้างค้นหา', 'Clear'));
     setText('loot-shortcuts-title', uiText('เปิดเร็ว', 'Quick access'));
     setText('loot-shortcuts-hint', uiText('ปักไฟล์สำคัญและกลับไปไฟล์ล่าสุดได้เร็ว', 'Pin important files and reopen recent work fast.'));
     setText('loot-pinned-title', uiText('ปักไว้', 'Pinned'));
     setText('loot-recent-title', uiText('ล่าสุด', 'Recent'));
+    if (typeof renderLootLists === 'function') renderLootLists();
     if (typeof renderLootShortcuts === 'function') renderLootShortcuts();
     setText('loot-inspector-title', uiText('ภาพรวมไฟล์', 'File overview'));
     setText('loot-inspector-hint', uiText('สรุปว่าไฟล์นี้เป็น schema แบบไหนและมีขนาดประมาณไหน', 'Quick summary of the file schema and how large it is.'));

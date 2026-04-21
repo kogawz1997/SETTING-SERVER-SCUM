@@ -54,6 +54,7 @@ const state = {
     focusMode: false,
     contextTab: 'overview',
     editorMode: 'visual',
+    fileScope: 'all',
     dirty: false
   },
 };
@@ -245,6 +246,7 @@ function applyTranslations(){
   const cH4=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) h4'); if(cH4) cH4.textContent=t('files'); const cP1=document.querySelector('#view-corefiles .grid.three .card:nth-child(1) p.muted'); if(cP1) cP1.textContent=t('rawCoreHint'); const cH42=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) h4'); if(cH42) cH42.textContent=t('meta'); const cP2=document.querySelector('#view-corefiles .grid.three .card:nth-child(2) p.muted'); if(cP2) cP2.textContent=t('metaHint'); const cEditP=document.querySelector('#view-corefiles .grid.three .card:nth-child(3) p.muted'); if(cEditP) cEditP.textContent=t('previewBeforeSaving'); if(state.selectedCorePath==='') set('#core-file-title', t('noFileSelected')); set('#core-preview-diff', t('previewDiff')); set('#core-save', t('save'));
   const lH4=document.querySelector('#view-loot .grid.three .card:nth-child(1) h4'); if(lH4) lH4.textContent=t('lootFiles'); const lP=document.querySelector('#view-loot .grid.three .card:nth-child(1) p.muted'); if(lP) lP.textContent=t('lootHint'); const listHeads=document.querySelectorAll('#view-loot .list-head h5'); if(listHeads[0]) listHeads[0].textContent=t('nodes'); if(listHeads[1]) listHeads[1].textContent=t('spawners'); set('#new-node-btn', t('new')); set('#new-spawner-btn', t('new')); set('#loot-inspector-title', t('inspector')); set('#loot-inspector-hint', t('inspectorHint')); set('#loot-validation-title', t('validation')); set('#loot-autofix-preview', t('autoFixPreview')); set('#loot-autofix-apply', t('autoFixSave')); set('#loot-usedby-title', t('usedBy')); set('#loot-simulator-title', t('simulator')); set('#loot-kit-title', t('kitTemplates')); set('#simulate-btn', t('run')); document.querySelectorAll('[data-kit="ak"]').forEach(el=>el.textContent=t('akKit')); document.querySelectorAll('[data-kit="sniper"]').forEach(el=>el.textContent=t('sniperKit')); document.querySelectorAll('[data-kit="medical"]').forEach(el=>el.textContent=t('medicalKit')); if(!state.selectedLootPath) set('#loot-editor-title', t('noLootFileSelected')); const lootP=document.querySelector('#view-loot .grid.three .card:nth-child(3) p.muted'); if(lootP) lootP.textContent=t('visualSyncHint'); set('#loot-preview-diff', t('previewDiff')); set('#loot-save', t('save')); set('#loot-save-reload', t('saveReload')); set('#toggle-visual', t('visualBuilder')); set('#toggle-raw', t('rawJson')); set('#clone-loot', t('clone')); set('#delete-loot', t('delete')); document.querySelectorAll('[data-t-normalize]').forEach(el=>el.textContent=t('normalize')); document.querySelectorAll('[data-t-duplicate]').forEach(el=>el.textContent=t('duplicate')); document.querySelectorAll('[data-t-up]').forEach(el=>el.textContent=t('moveUp')); document.querySelectorAll('[data-t-down]').forEach(el=>el.textContent=t('moveDown')); document.querySelectorAll('[data-t-apply-draft]').forEach(el=>el.textContent=t('applyAutoFixDraft')); document.querySelectorAll('[data-t-quickadd]').forEach(el=>el.textContent=t('quickAdd'));
   set('#loot-shortcuts-title', uiText('เปิดเร็ว', 'Quick access')); set('#loot-shortcuts-hint', uiText('ปักไฟล์สำคัญและกลับไปไฟล์ล่าสุดได้เร็ว', 'Pin important files and reopen recent work fast.')); set('#loot-pinned-title', uiText('ปักไว้', 'Pinned')); set('#loot-recent-title', uiText('ล่าสุด', 'Recent')); renderLootShortcuts();
+  set('#loot-nodes-title', t('nodes')); set('#loot-spawners-title', t('spawners')); set('#loot-file-scope-all', uiText('ทุกไฟล์', 'All files')); set('#loot-file-scope-nodes', uiText('เฉพาะ Nodes', 'Nodes only')); set('#loot-file-scope-spawners', uiText('เฉพาะ Spawners', 'Spawners only')); set('#loot-clear-search', uiText('ล้างค้นหา', 'Clear')); renderLootLists();
   set('#view-analyzer .grid.two .card:nth-child(1) h3', t('analyzerOverview')); set('#view-analyzer .grid.two .card:nth-child(1) p.muted', t('analyzerHint')); set('#refresh-analyzer', t('refresh')); set('#view-analyzer .grid.two .card:nth-child(2) h3', t('warnings')); set('#view-analyzer .grid.two .card:nth-child(2) p.muted', t('warningHint')); const warnHeads=document.querySelectorAll('#view-analyzer .grid.two .card:nth-child(2) h4'); if(warnHeads[0]) warnHeads[0].textContent=t('missingNodeReferences'); if(warnHeads[1]) warnHeads[1].textContent=t('unusedNodes'); const topCard=document.querySelector('#view-analyzer > .card:last-child h3'); if(topCard) topCard.textContent=t('topItems'); const topCardP=document.querySelector('#view-analyzer > .card:last-child p.muted'); if(topCardP) topCardP.textContent=t('topItemsHint');
   set('#view-graph h3', t('dependencyGraph')); set('#view-graph .section-head p.muted', t('graphHint')); setp('#graph-filter', t('graphFilter')); set('#refresh-graph', t('refresh')); const focusH=document.querySelector('#view-graph .graph-side h4'); if(focusH) focusH.textContent=t('focusInspector'); const focusP=document.querySelector('#view-graph .graph-side p.muted'); if(focusP) focusP.textContent=t('focusHint'); const focusEmpty=document.querySelector('#graph-focus-summary .muted'); if(focusEmpty) focusEmpty.textContent=t('noFocusSelected');
   set('#view-profiles .grid.two .card:nth-child(1) h3', t('profilesTitle')); set('#view-profiles .grid.two .card:nth-child(1) p.muted', t('profilesHint')); set('#profile-create', t('createSnapshot')); set('#refresh-profiles', t('refresh')); const rotationHead=document.querySelector('#view-profiles .card.stack-spaced h4'); if(rotationHead) rotationHead.textContent=t('rotation'); const rotationP=document.querySelector('#view-profiles .card.stack-spaced p.muted'); if(rotationP) rotationP.textContent=t('rotationHint'); const rotSpan=document.querySelector('#rotation-enabled + span'); if(rotSpan) rotSpan.textContent=t('enableRotation'); const rotLabel=document.querySelector('#rotation-minutes')?.parentElement?.querySelector('span'); if(rotLabel) rotLabel.textContent=t('everyMinutes'); set('#rotation-save', t('saveRotation')); set('#rotation-run', t('runNow')); const selectedP=document.querySelector('#view-profiles .card.stack-spaced > div:last-child h4'); if(selectedP) selectedP.textContent=t('selectedProfile'); const pd=document.querySelector('#profile-detail'); if(pd && pd.textContent.includes('Select a profile')) pd.textContent=t('selectProfileHint'); set('#profile-apply', t('applyReload')); set('#profile-delete', t('delete'));
@@ -1143,10 +1145,30 @@ async function loadLootFiles(){
   renderLootEmptyState();
 }
 function renderLootLists(){
-  const term = ($('loot-search').value || '').toLowerCase();
+  const term = ($('loot-search').value || '').trim().toLowerCase();
+  const scopeSelect = $('loot-file-scope');
+  const scope = ['all', 'nodes', 'spawners'].includes(scopeSelect?.value) ? scopeSelect.value : state.lootUi.fileScope || 'all';
+  state.lootUi.fileScope = scope;
+  if(scopeSelect && scopeSelect.value !== scope) scopeSelect.value = scope;
   const filterList = (items) => items.filter((file) => !term || file.relPath.toLowerCase().includes(term) || (file.logicalName || '').toLowerCase().includes(term));
-  $('nodes-list').innerHTML = filterList(state.lootFiles.nodes).map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || '<div class="muted">No node files</div>';
-  $('spawners-list').innerHTML = filterList(state.lootFiles.spawners).map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || '<div class="muted">No spawner files</div>';
+  const nodes = filterList(state.lootFiles.nodes || []);
+  const spawners = filterList(state.lootFiles.spawners || []);
+  const showNodes = scope !== 'spawners';
+  const showSpawners = scope !== 'nodes';
+  $('nodes-list').innerHTML = nodes.map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || `<div class="muted">${escapeHtml(uiText('ไม่พบไฟล์ node', 'No node files'))}</div>`;
+  $('spawners-list').innerHTML = spawners.map((file) => fileButton(file, file.relPath === state.selectedLootPath)).join('') || `<div class="muted">${escapeHtml(uiText('ไม่พบไฟล์ spawner', 'No spawner files'))}</div>`;
+  $('nodes-section')?.classList.toggle('hidden', !showNodes);
+  $('spawners-section')?.classList.toggle('hidden', !showSpawners);
+  const visibleCount = (showNodes ? nodes.length : 0) + (showSpawners ? spawners.length : 0);
+  const totalCount = (showNodes ? (state.lootFiles.nodes || []).length : 0) + (showSpawners ? (state.lootFiles.spawners || []).length : 0);
+  const countLabel = `${visibleCount}/${totalCount} ${uiText('ไฟล์', 'files')}`;
+  const countEl = $('loot-file-counts');
+  if(countEl) {
+    countEl.textContent = countLabel;
+    countEl.title = uiText(`Nodes ${nodes.length}/${(state.lootFiles.nodes || []).length} · Spawners ${spawners.length}/${(state.lootFiles.spawners || []).length}`, `Nodes ${nodes.length}/${(state.lootFiles.nodes || []).length} · Spawners ${spawners.length}/${(state.lootFiles.spawners || []).length}`);
+  }
+  const clearSearch = $('loot-clear-search');
+  if(clearSearch) clearSearch.disabled = !term;
   document.querySelectorAll('[data-loot-path]').forEach((button) => {
     button.onclick = () => openLootFile(button.dataset.lootPath).catch((error)=>showToast(error.message || String(error), true));
   });
@@ -1678,6 +1700,8 @@ function bindEvents(){
   $('server-field-filter').oninput=renderParsedServerGrid; $('server-section-filter').onchange=renderParsedServerGrid; $('server-group-filter').onchange=renderParsedServerGrid; $('reload-server-parsed').onclick=loadParsedServerSettings; $('save-server-parsed').onclick=()=>saveParsedServer(false); $('save-server-parsed-reload').onclick=()=>saveParsedServer(true);
   $('core-preview-diff').onclick=()=>previewDiff(state.selectedCorePath, $('core-editor').value); $('core-save').onclick=saveCoreFile;
   $('loot-search').oninput=renderLootLists;
+  if($('loot-file-scope')) $('loot-file-scope').onchange=renderLootLists;
+  if($('loot-clear-search')) $('loot-clear-search').onclick=()=>{ $('loot-search').value=''; renderLootLists(); };
   $('new-node-btn').onclick=()=>createLootFile('nodes');
   $('new-spawner-btn').onclick=()=>createLootFile('spawners');
   $('loot-preview-diff').onclick=()=>previewDiff(state.selectedLootPath, $('loot-editor').classList.contains('hidden') ? fmtJson(state.currentLootObject) : $('loot-editor').value);
