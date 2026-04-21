@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4 - 2026-04-21
+
+- Fix CI package import preview setup for release workflow.
+
 ## 1.0.3 - 2026-04-21
 
 - Fix GitHub release workflow for public npm registry and release notes.

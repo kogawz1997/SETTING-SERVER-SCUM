@@ -1,7 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { app } = require('../server.js');
 const { createWorkspacePackage } = require('../src/server/package-manager.cjs');
+
+const configPath = path.resolve(__dirname, '..', 'data', 'config.json');
+const sampleRoot = path.resolve(__dirname, '..', 'samples', 'scum-workspace', 'WindowsServer');
 
 function listen() {
   return new Promise((resolve) => {
@@ -57,6 +63,15 @@ test('file dry-run API rejects unsafe logical paths before touching disk', async
 
 test('package import preview returns dry-run plans without applying files', async () => {
   const server = await listen();
+  const originalConfig = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : null;
+  const tempBackupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-api-preview-backups-'));
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify({
+    scumConfigDir: sampleRoot,
+    nodesDir: path.join(sampleRoot, 'Loot', 'Nodes', 'Current'),
+    spawnersDir: path.join(sampleRoot, 'Loot', 'Spawners', 'Presets', 'Override'),
+    backupDir: tempBackupDir,
+  }, null, 2));
   const packageData = createWorkspacePackage({
     config: {},
     files: [{ path: 'ServerSettings.ini', content: '[General]\nscum.MaxPlayers=64\n' }],
@@ -75,6 +90,8 @@ test('package import preview returns dry-run plans without applying files', asyn
     assert.equal(body.plans[0].dryRun, true);
     assert.equal(body.plans[0].logicalPath, 'ServerSettings.ini');
   } finally {
+    if (originalConfig == null) fs.rmSync(configPath, { force: true });
+    else fs.writeFileSync(configPath, originalConfig);
     server.close();
   }
 });
