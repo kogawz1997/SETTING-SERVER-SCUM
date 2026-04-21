@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.11 - 2026-04-22
+
+- Sync public release metadata, add MIT license, and guard README/latest release links against stale version drift.
+
 ## 1.0.10 - 2026-04-22
 
 - Production navigation cleanup for real-use builds, with internal test utility pages removed from the public sidebar and release guards updated.

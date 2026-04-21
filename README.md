@@ -6,6 +6,7 @@
 [![Release Quality](https://img.shields.io/badge/release%20quality-guarded-2ea043)](docs/RELEASE_QUALITY.md)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-43853d)](docs/COMPATIBILITY.md)
 [![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078d4)](docs/COMPATIBILITY.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-f0b429)](LICENSE)
 [![Credit](https://img.shields.io/badge/credit-KOGA.EXE-f0b429)](#credit)
 
 Local-first control panel for SCUM server settings, loot files, backups, profiles, analyzer, graph view, and safe apply workflows. It is built for people who want to manage real `INI` and `JSON` server files without hand-editing everything blind.
@@ -14,9 +15,9 @@ Local-first control panel for SCUM server settings, loot files, backups, profile
 
 ## Current Release
 
-- Latest: [`v1.0.9-local`](https://github.com/kogawz1997/scum-server-config-manager/releases/tag/v1.0.9-local)
-- Portable zip: [`SETTING-SERVER-SCUM-v1.0.9-local.zip`](https://github.com/kogawz1997/scum-server-config-manager/releases/download/v1.0.9-local/SETTING-SERVER-SCUM-v1.0.9-local.zip)
-- Release notes: [docs/releases/v1.0.9-local.md](docs/releases/v1.0.9-local.md)
+- Latest: [`v1.0.11-local`](https://github.com/kogawz1997/scum-server-config-manager/releases/tag/v1.0.11-local)
+- Portable zip: [`SETTING-SERVER-SCUM-v1.0.11-local.zip`](https://github.com/kogawz1997/scum-server-config-manager/releases/download/v1.0.11-local/SETTING-SERVER-SCUM-v1.0.11-local.zip)
+- Release notes: [docs/releases/v1.0.11-local.md](docs/releases/v1.0.11-local.md)
 - Project track: `P2.13 local-ready`
 - Scope: local/portable app, not SaaS
 
@@ -40,7 +41,7 @@ SETTING SERVER SCUM turns a messy SCUM config folder into a safer working surfac
 Recommended for normal users who do not want to run `npm` manually.
 
 1. Open the [Latest Release](https://github.com/kogawz1997/scum-server-config-manager/releases/latest)
-2. Download `SETTING-SERVER-SCUM-v1.0.9-local.zip`
+2. Download `SETTING-SERVER-SCUM-v1.0.11-local.zip`
 3. Extract the zip into a clean folder
 4. Double-click `Start SETTING SERVER SCUM.exe`
 5. If Windows blocks the `.exe`, run `Start SETTING SERVER SCUM.cmd`
@@ -161,7 +162,7 @@ The quality gate runs:
 - portable zip extract smoke
 - full unit, integration, UI, loot, settings, and backup regression tests
 
-Latest verified release: `v1.0.9-local`
+Latest verified release: `v1.0.11-local`
 
 ## More Documentation
 
@@ -188,6 +189,10 @@ Future work can still improve:
 - larger curated item catalog
 - more ready-made loot presets
 - smarter goal-based balancing
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
 
 ## Credit
 

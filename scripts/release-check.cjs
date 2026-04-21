@@ -78,6 +78,7 @@ function assertPackageScript(name) {
   'package.json',
   'package-lock.json',
   'README.md',
+  'LICENSE',
   'CHANGELOG.md',
   'data/loot-advisory-ignore.json',
   'start-local.cmd',
@@ -253,6 +254,7 @@ assertIncludesAny('README.md', 'documentation links', ['More Documentation', 'เน
 assertIncludes('README.md', ['P2.13', 'docs/assets/dashboard.png', 'docs/INSTALL_TH.md', 'KOGA.EXE']);
 assertIncludes('README.md', ['docs/QUICK_START.md', 'npm run release:quality', 'CHANGELOG.md']);
 assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.exe', 'Start SETTING SERVER SCUM.cmd']);
+assertIncludes('LICENSE', ['MIT License', 'KOGA.EXE']);
 assertIncludes('CHANGELOG.md', ['## 1.0.0']);
 assertIncludes('docs/RELEASE_QUALITY.md', ['npm run release:quality', 'config/package roundtrip']);
 assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
@@ -300,6 +302,21 @@ const pkg = JSON.parse(read('package.json'));
 if (pkg.author !== 'KOGA.EXE') {
   fail('package.json author must be "KOGA.EXE"');
 }
+if (pkg.license !== 'MIT') {
+  fail('package.json license must be "MIT"');
+}
+const releaseTag = `v${pkg.version}-local`;
+const releaseNotePath = `docs/releases/${releaseTag}.md`;
+assertFile(releaseNotePath);
+if (fs.existsSync(path.join(root, releaseNotePath))) {
+  assertIncludes(releaseNotePath, [releaseTag]);
+}
+assertIncludes('README.md', [
+  releaseTag,
+  `SETTING-SERVER-SCUM-${releaseTag}.zip`,
+  releaseNotePath,
+]);
+assertIncludes('CHANGELOG.md', [`## ${pkg.version}`]);
 for (const dependency of ['express', 'ini', 'diff']) {
   if (!pkg.dependencies || !pkg.dependencies[dependency]) {
     fail(`package.json is missing dependency "${dependency}"`);
