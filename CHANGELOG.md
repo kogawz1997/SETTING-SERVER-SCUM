@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 - 2026-04-21
+
+- GitHub release workflow for portable zip publishing.
+
 ## 1.0.1 - 2026-04-21
 
 - Portable launcher and local trust polish release.

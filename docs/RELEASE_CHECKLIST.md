@@ -5,9 +5,11 @@ Use this before handing the project to another machine or before editing a real 
 ## Local Machine
 1. Install Node.js 18 or newer.
 2. Run `npm install`.
-3. Run `npm run release:check`.
-4. Run `npm test` when Playwright dependencies are available.
-5. Start with `start-local.cmd` or `npm start`.
+3. Run `npm run release:quality`.
+4. Run `npm run package:portable`.
+5. Zip `dist/SETTING-SERVER-SCUM-local` if you are doing a manual release.
+6. For GitHub Release automation, push a tag like `v1.0.2-local`; the workflow creates and attaches the portable zip.
+7. Start with `Start SETTING SERVER SCUM.cmd`, `start-local.cmd`, or `npm start`.
 
 ## App Setup
 1. Open **App Settings**.

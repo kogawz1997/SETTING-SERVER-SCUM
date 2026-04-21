@@ -34,6 +34,12 @@ dist/SETTING-SERVER-SCUM-local
 
 Give users the folder and tell them to double-click `Start SETTING SERVER SCUM.cmd`.
 
+GitHub release automation:
+
+- Push a tag like `v1.0.2-local`.
+- `.github/workflows/local-portable-release.yml` builds the portable folder, creates `SETTING-SERVER-SCUM-<tag>.zip`, and publishes a GitHub Release with that zip attached.
+- The workflow uses `GITHUB_TOKEN` inside GitHub Actions, so the local machine does not need `gh` CLI.
+
 ถ้าอยาก bump version:
 
 ```bash
