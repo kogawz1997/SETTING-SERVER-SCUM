@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.7 - 2026-04-21
+
+- Split remaining workspace file/domain logic into focused services and tighten release guards.
+
 ## 1.0.6 - 2026-04-21
 
 - Local readiness polish: Startup Doctor, structured operation logs, isolated UI test server, and Loot Studio kit save regression fix.
