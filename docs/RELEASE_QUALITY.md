@@ -18,7 +18,8 @@ npm run release:quality
 - docs broken-link check
 - changelog/version check
 - full test suite
-- portable package smoke via `npm run package:portable`
+- portable package build via `npm run package:portable`
+- portable package manifest/private-file smoke via `npm run package:portable:smoke`
 
 Portable package command:
 

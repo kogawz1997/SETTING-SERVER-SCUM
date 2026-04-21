@@ -107,6 +107,7 @@ function assertPackageScript(name) {
   'scripts/config-roundtrip-check.cjs',
   'scripts/create-portable-package.cjs',
   'scripts/docs-link-check.cjs',
+  'scripts/portable-package-smoke.cjs',
   'scripts/performance-smoke.cjs',
   'scripts/release-quality.cjs',
   'scripts/run-playwright-with-server.cjs',
@@ -169,6 +170,7 @@ function assertPackageScript(name) {
   'changelog:check',
   'version:bump',
   'package:portable',
+  'package:portable:smoke',
   'repair:loot-refs',
   'test',
   'test:unit',
@@ -252,7 +254,7 @@ assertIncludes('README.md', ['package:portable', 'Start SETTING SERVER SCUM.exe'
 assertIncludes('CHANGELOG.md', ['## 1.0.0']);
 assertIncludes('docs/RELEASE_QUALITY.md', ['npm run release:quality', 'config/package roundtrip']);
 assertIncludes('docs/COMPATIBILITY.md', ['Windows 10/11', 'Node.js 18+']);
-assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable']);
+assertIncludes('scripts/release-quality.cjs', ['performance:smoke', 'package:portable', 'package:portable:smoke']);
 assertIncludes('scripts/run-playwright-with-server.cjs', ['BASE_URL', 'server.js', '/api/startup-doctor']);
 assertIncludes('package.json', ['run-playwright-with-server.cjs scripts/ui-smoke.spec.cjs', 'run-playwright-with-server.cjs scripts/loot-studio-regression.spec.cjs']);
 assertIncludes('.github/workflows/local-portable-release.yml', [
@@ -261,6 +263,7 @@ assertIncludes('.github/workflows/local-portable-release.yml', [
   'node-version: 22',
   'gh release create',
   'GH_TOKEN: ${{ github.token }}',
+  'npm run package:portable:smoke',
 ]);
 assertNotIncludes('.github/workflows/local-portable-release.yml', [
   'actions/checkout@v4',
@@ -269,6 +272,7 @@ assertNotIncludes('.github/workflows/local-portable-release.yml', [
   'softprops/action-gh-release',
 ]);
 assertIncludes('scripts/create-portable-package.cjs', ['SETTING-SERVER-SCUM-local', 'README_PORTABLE.txt', 'portable-manifest.json', 'requiredFiles', 'launcherBuilt']);
+assertIncludes('scripts/portable-package-smoke.cjs', ['portable-manifest.json', 'requiredFiles', 'privateFilesExcluded', 'Portable package smoke passed']);
 assertIncludes('docs/P2_3_STATUS.md', ['P2.13', 'broken-copy guardrails']);
 assertIncludes('docs/USAGE_GUIDE.md', ['P2.13 local power-pack polish']);
 assertIncludes('public/index.html', ['KOGA.EXE', 'credit-badge', 'customer-ready-panel', 'loot-shortcuts-panel', 'loot-file-tools', 'loot-file-scope', 'toggle-split']);

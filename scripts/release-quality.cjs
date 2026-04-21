@@ -13,6 +13,7 @@ const steps = [
   ['docs link check', ['run', 'docs:check']],
   ['changelog check', ['run', 'changelog:check']],
   ['portable package build', ['run', 'package:portable']],
+  ['portable package smoke check', ['run', 'package:portable:smoke']],
   ['full test suite', ['test']],
 ];
 

@@ -71,6 +71,9 @@ jobs:
       - name: Build portable package
         run: npm run package:portable
 
+      - name: Smoke test portable package
+        run: npm run package:portable:smoke
+
       - name: Zip portable package
         shell: pwsh
         run: |
