@@ -123,10 +123,12 @@ function assertPackageScript(name) {
   'src/server/store/file-transaction.cjs',
   'src/server/services/backup-service.cjs',
   'src/server/services/command-runner.cjs',
+  'src/server/services/item-catalog-service.cjs',
   'src/server/services/kit-template-service.cjs',
   'src/server/services/profile-service.cjs',
   'src/server/services/startup-doctor.cjs',
   'src/server/services/workspace-domain.cjs',
+  'src/server/services/workspace-utils.cjs',
   'src/server/safe-apply.cjs',
   'src/server/package-manager.cjs',
   'src/server/routes/index.cjs',
@@ -203,10 +205,14 @@ assertIncludes('src/server/store/app-store.cjs', ['createAppStore', 'inspectConf
 assertIncludes('src/server/store/file-transaction.cjs', ['applyFileTransaction', 'restoreSnapshot', 'file_transaction_rollback']);
 assertIncludes('src/server/services/command-runner.cjs', ['createCommandRunner', 'allowedRoots', 'runConfiguredCommand', 'command_run']);
 assertIncludes('src/server/services/backup-service.cjs', ['createBackupService', 'restoreBackupFile', 'workspacePackageFiles']);
+assertIncludes('src/server/services/item-catalog-service.cjs', ['createItemCatalogService', 'buildItemCatalog', 'upsertItemCatalogOverride', 'categoryForItem']);
 assertIncludes('src/server/services/kit-template-service.cjs', ['createKitTemplateService', 'sanitizeKitItems']);
 assertIncludes('src/server/services/profile-service.cjs', ['createProfileService', 'applyFileTransaction', 'runRotation']);
 assertIncludes('src/server/services/startup-doctor.cjs', ['buildStartupDoctorReport', 'writeProbe', 'nextStep']);
-assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'buildGraphRefEditPlan', 'buildReadinessReport']);
+assertIncludes('src/server/services/workspace-domain.cjs', ['createWorkspaceDomain', 'workspace-utils.cjs', 'buildGraphRefEditPlan', 'buildReadinessReport']);
+assertLineCountAtMost('src/server/services/workspace-domain.cjs', 1700);
+assertNotIncludes('src/server/services/workspace-domain.cjs', ['function buildItemCatalog(', 'function upsertItemCatalogOverride(']);
+assertIncludes('src/server/services/workspace-utils.cjs', ['normalizeKey', 'posixify', 'sortByName', 'walkFiles']);
 assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
   '/api/loot/files',

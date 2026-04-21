@@ -4,6 +4,73 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+test('workspace utilities normalize file keys and walk nested JSON files', () => {
+  const { clone, normalizeKey, posixify, sortByName, walkFiles } = require('../src/server/services/workspace-utils.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-workspace-utils-'));
+  const nested = path.join(root, 'Nodes Folder', 'Military Zone');
+  fs.mkdirSync(nested, { recursive: true });
+  fs.writeFileSync(path.join(root, 'ServerSettings.ini'), '[General]\n', 'utf8');
+  fs.writeFileSync(path.join(nested, 'Bunker Loot.json'), '{}\n', 'utf8');
+
+  const files = walkFiles(fs, path, root, (_fullPath, name) => name.endsWith('.json'), root)
+    .map((entry) => entry.relPath)
+    .sort();
+  const original = { nested: { ok: true } };
+  const copy = clone(original);
+
+  assert.equal(normalizeKey('Weapon_AK-47.png'), 'weaponak47');
+  assert.equal(posixify('Nodes\\Military\\Bunker Loot.json'), 'Nodes/Military/Bunker Loot.json');
+  assert.deepEqual(copy, original);
+  assert.notEqual(copy.nested, original.nested);
+  assert.deepEqual(sortByName([{ name: 'zeta' }, { name: 'alpha' }]).map((entry) => entry.name), ['alpha', 'zeta']);
+  assert.deepEqual(files, ['Nodes Folder/Military Zone/Bunker Loot.json']);
+});
+
+test('item catalog service builds icon-backed catalog entries and saves overrides', () => {
+  const { createItemCatalogService } = require('../src/server/services/item-catalog-service.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scum-item-catalog-'));
+  const iconDir = path.join(root, 'icons');
+  fs.mkdirSync(iconDir, { recursive: true });
+  fs.writeFileSync(path.join(iconDir, 'AK47.png'), 'fake-image', 'utf8');
+  const saved = {};
+  const activity = [];
+  const { normalizeKey } = require('../src/server/services/workspace-utils.cjs');
+  const service = createItemCatalogService({
+    fs,
+    path,
+    ITEM_ICON_DIR: iconDir,
+    ITEM_CATALOG_OVERRIDES_FILE: path.join(root, 'overrides.json'),
+    ITEM_CATEGORY_RULES: [{ id: 'weapon', pattern: /ak47/i }],
+    DEFAULT_ITEM_CATALOG_PACK: [{ name: 'Bandage', category: 'medical', displayName: 'Bandage' }],
+    applyCuratedCatalogMetadata: (_name, metadata) => metadata,
+    normalizeKey,
+    walkProjectFiles: (dir, filter, baseDir, results = []) => {
+      const { walkFiles } = require('../src/server/services/workspace-utils.cjs');
+      return walkFiles(fs, path, dir, filter, baseDir, results);
+    },
+    loadJson: () => saved.overrides || {},
+    saveJson: (_file, value) => { saved.overrides = value; },
+    appendActivity: (event, detail) => activity.push({ event, detail }),
+    scanLootWorkspace: () => ({
+      nodes: [{ relPath: 'Nodes/Bunker.json', object: { Items: [{ Name: 'AK47' }, 'Bandage'] } }],
+      spawners: [],
+    }),
+    detectLootKind: (object) => (Array.isArray(object.Items) ? 'node' : 'unknown'),
+    itemEntryName: (entry) => (typeof entry === 'string' ? entry : entry.Name),
+    collectTreeLeaves: () => [],
+  });
+
+  const catalog = service.buildItemCatalog();
+  const ak = catalog.items.find((item) => item.name === 'AK47');
+  assert.equal(ak.category, 'weapon');
+  assert.equal(ak.hasIcon, true);
+  assert.equal(catalog.items.some((item) => item.name === 'Bandage'), true);
+
+  service.upsertItemCatalogOverride('AK47', { favorite: true, displayName: 'AK tuned' });
+  assert.equal(saved.overrides.AK47.favorite, true);
+  assert.equal(activity[0].event, 'item_catalog_override');
+});
+
 test('AppError serializes safe Thai-friendly API errors', () => {
   const { AppError, toHttpError } = require('../src/server/errors.cjs');
   const error = new AppError('เลือกไฟล์ไม่ถูกต้อง', {
