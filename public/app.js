@@ -8,6 +8,7 @@ const state = {
   dependencyGraph: [],
   selectedCorePath: 'GameUserSettings.ini',
   currentCoreContent: '',
+  coreDirty: false,
   selectedLootPath: '',
   pendingRouteLootPath: '',
   recentLootPaths: [],
@@ -15,6 +16,8 @@ const state = {
   currentLootObject: null,
   currentLootContent: '',
   currentLootAnalysis: null,
+  serverOriginalSnapshot: '',
+  serverDirty: false,
   itemCatalog: { items: [], categories: [], total: 0 },
   itemCatalogSearch: '',
   itemCatalogCategory: '__all',
@@ -229,7 +232,7 @@ function renderLootShortcuts(){
     button.onclick = () => openLootFile(button.dataset.lootShortcut).catch((error)=>showToast(error.message || String(error), true));
   });
 }
-function setLanguage(lang){ state.lang = lang === 'th' ? 'th' : 'en'; localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
+function setLanguage(lang){ state.lang = state.view === 'server' ? 'th' : (lang === 'th' ? 'th' : 'en'); localStorage.setItem('scum_lang', state.lang); document.documentElement.lang = state.lang; applyTranslations(); if(typeof renderCommandAssist === 'function') renderCommandAssist(); if(typeof updateLootWorkspaceCopy === 'function') updateLootWorkspaceCopy(); }
 function applyTranslations(){
   document.querySelectorAll('.nav').forEach((b)=>{ if(pageTitleKeys[b.dataset.view]) b.textContent=t(pageTitleKeys[b.dataset.view]); });
   const set=(sel,val)=>{ const el=document.querySelector(sel); if(el) el.textContent=val; };
@@ -306,7 +309,23 @@ function renderHelpGuide(){
     step(uiText('ช่องเลข', 'Number fields'), uiText('แก้เฉพาะค่าที่รู้ผลกระทบ ถ้าไม่แน่ใจให้ Preview Diff ก่อน', 'Only change values you understand. If unsure, inspect Preview Diff first.'))
   ].join('')}</ul>`);
 }
-async function api(url, options={}){ const res=await fetch(url,{ headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options }); const data=await res.json(); if(!data.ok) throw new Error(data.error||'Request failed'); return data; }
+async function api(url, options={}){
+  const res=await fetch(url,{ headers:{'Content-Type':'application/json', ...(options.headers||{})}, ...options });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = { ok:false, error:`HTTP ${res.status}` };
+  }
+  if(!res.ok || !data.ok){
+    const error = new Error(data?.error || `Request failed (${res.status})`);
+    error.code = data?.code || '';
+    error.details = data?.details;
+    error.status = res.status;
+    throw error;
+  }
+  return data;
+}
 function setLootSaveBusy(busy){
   const labelMap = {
     'loot-save': busy ? uiText('กำลังบันทึก...', 'Saving...') : t('save'),
@@ -359,6 +378,48 @@ function refreshLootDirtyState(){
 function markLootDirty(force = true){
   state.lootUi.dirty = !!force;
   updateLootWorkspaceCopy();
+}
+function serverSnapshot(parsed = state.parsedServer){
+  return JSON.stringify(parsed || {});
+}
+function refreshServerDirtyState(){
+  state.serverDirty = Boolean(state.parsedServer) && serverSnapshot(state.parsedServer) !== (state.serverOriginalSnapshot || '');
+  const save = $('save-server-parsed');
+  const saveReload = $('save-server-parsed-reload');
+  if(save){
+    save.textContent = state.serverDirty ? uiText('บันทึกค่าที่แก้', 'Save changes') : t('save');
+    save.classList.toggle('attention', state.serverDirty);
+  }
+  if(saveReload){
+    saveReload.textContent = state.serverDirty ? uiText('บันทึก + รีโหลดค่าที่แก้', 'Save changes + Reload') : t('saveReload');
+    saveReload.classList.toggle('attention', state.serverDirty);
+  }
+  return state.serverDirty;
+}
+function refreshCoreDirtyState(){
+  state.coreDirty = Boolean(state.selectedCorePath) && $('core-editor') && $('core-editor').value !== (state.currentCoreContent || '');
+  const save = $('core-save');
+  const preview = $('core-preview-diff');
+  if(save){
+    save.textContent = state.coreDirty ? uiText('บันทึกค่าที่แก้', 'Save changes') : t('save');
+    save.classList.toggle('attention', state.coreDirty);
+  }
+  if(preview){
+    preview.textContent = state.coreDirty ? uiText('Dry run / พรีวิวก่อนบันทึก', 'Dry run / Preview') : t('previewDiff');
+  }
+  return state.coreDirty;
+}
+function dryRunText(plan = {}){
+  const validation = plan.validation || {};
+  const counts = validation.counts || {};
+  const blockers = (plan.blockers || []).map((entry)=>`- [${entry.severity}] ${entry.path || ''}: ${entry.message || entry.code}`).join('\n');
+  return [
+    `SAFE APPLY DRY RUN: ${plan.logicalPath || ''}`,
+    `changed=${Boolean(plan.changed)} willWrite=${Boolean(plan.willWrite)} critical=${counts.critical || 0} warning=${counts.warning || 0}`,
+    blockers ? `\nBLOCKERS\n${blockers}` : '',
+    '\nDIFF',
+    plan.patch || '',
+  ].filter(Boolean).join('\n');
 }
 function updateLootWorkspaceLayout(){
   const view = $('view-loot');
@@ -460,6 +521,7 @@ function setView(view, options = {}){
   const viewEl = $(`view-${nextView}`);
   if(!viewEl) return;
   state.view = nextView;
+  if(nextView === 'server' && state.lang !== 'th') setLanguage('th');
   document.querySelectorAll('.nav').forEach((b)=>{
     const active = b.dataset.view === nextView;
     b.classList.toggle('active', active);
@@ -944,9 +1006,12 @@ async function loadParsedServerSettings(){
   try {
     const data=await api('/api/server-settings/parsed');
     state.parsedServer=data.parsed;
+    state.serverOriginalSnapshot = serverSnapshot(state.parsedServer);
+    state.serverDirty = false;
     state.presets=data.presets||{};
     renderPresets();
     renderParsedServerGrid();
+    refreshServerDirtyState();
   } catch (error) {
     state.parsedServer = null;
     if($('server-section-summary')) $('server-section-summary').innerHTML = `<div class="card stat compact"><span class="stat-label">Status</span><strong>${escapeHtml(uiText('ยังโหลดไม่ได้', 'Unavailable'))}</strong></div>`;
@@ -966,14 +1031,255 @@ function splitServerKeyWords(key){
     .filter(Boolean);
 }
 function titleCaseWords(words){ return words.map((word)=>word.charAt(0).toUpperCase() + word.slice(1)).join(' '); }
-function prettyServerKey(key){ const words = splitServerKeyWords(key); return words.length ? titleCaseWords(words) : String(key || ''); }
-function serverGroupLabel(key){
+const serverSectionLabels = {
+  General: 'ทั่วไป',
+  World: 'โลก / AI / เวลา',
+  Respawn: 'การเกิดใหม่',
+  Vehicles: 'ยานพาหนะ',
+  Damage: 'ดาเมจ / ความเสียหาย',
+  Features: 'ระบบเสริม / ฐาน / สกิล'
+};
+const serverKeyLabels = {
+  servername: 'ชื่อเซิร์ฟเวอร์',
+  serverdescription: 'คำอธิบายเซิร์ฟเวอร์',
+  serverpassword: 'รหัสผ่านเข้าเซิร์ฟเวอร์',
+  maxplayers: 'จำนวนผู้เล่นสูงสุด',
+  playsafeidprotection: 'ระบบกันรหัสผู้เล่นซ้ำ',
+  serverbannerurl: 'รูปแบนเนอร์เซิร์ฟเวอร์',
+  serverplaystyle: 'สไตล์การเล่นของเซิร์ฟเวอร์',
+  welcomemessage: 'ข้อความต้อนรับ',
+  messageoftheday: 'ประกาศประจำวัน',
+  messageofthedaycooldown: 'เวลารอก่อนโชว์ประกาศซ้ำ',
+  minservertickrate: 'Tick rate ต่ำสุดของเซิร์ฟเวอร์',
+  maxservertickrate: 'Tick rate สูงสุดของเซิร์ฟเวอร์',
+  maxpingcheckenabled: 'เปิดตรวจ Ping สูงสุด',
+  maxping: 'Ping สูงสุดที่ยอมให้เข้าเล่น',
+  logouttimer: 'เวลารอก่อนออกเกม',
+  logouttimerwhilecaptured: 'เวลารอออกเกมตอนถูกจับ',
+  logouttimerinbunker: 'เวลารอออกเกมใน bunker',
+  allowfirstperson: 'อนุญาตมุมมองบุคคลที่หนึ่ง',
+  allowthirdperson: 'อนุญาตมุมมองบุคคลที่สาม',
+  allowcrosshair: 'อนุญาตเป้าเล็งกลางจอ',
+  allowvoting: 'อนุญาตระบบโหวต',
+  allowmapscreen: 'อนุญาตหน้าจอแผนที่',
+  allowkillclaiming: 'อนุญาตเคลม kill',
+  allowcoma: 'อนุญาตสถานะโคม่า',
+  allowminesandtraps: 'อนุญาตทุ่นระเบิดและกับดัก',
+  allowskillgaininsafezones: 'อนุญาตเก็บสกิลใน safe zone',
+  allowevents: 'อนุญาตอีเวนต์',
+  limitglobalchat: 'จำกัดแชตรวม',
+  allowglobalchat: 'อนุญาตแชตรวม',
+  allowlocalchat: 'อนุญาตแชตระยะใกล้',
+  allowsquadchat: 'อนุญาตแชตทีม',
+  allowadminchat: 'อนุญาตแชตแอดมิน',
+  hidekillnotification: 'ซ่อนแจ้งเตือน kill',
+  usemapbasebuildingrestriction: 'ใช้ข้อจำกัดสร้างฐานตามแผนที่',
+  disablebasebuilding: 'ปิดระบบสร้างฐาน',
+  votingduration: 'เวลานับโหวต',
+  famegainmultiplier: 'ตัวคูณการได้ Fame',
+  famepointpenaltyondeath: 'Fame ที่เสียเมื่อตาย',
+  famepointpenaltyonkilled: 'Fame ที่เสียเมื่อถูกฆ่า',
+  famepointrewardonkill: 'Fame ที่ได้เมื่อฆ่าผู้เล่น',
+  partialwipe: 'ล้างข้อมูลบางส่วน',
+  goldwipe: 'ล้างข้อมูลทอง',
+  fullwipe: 'ล้างข้อมูลทั้งหมด',
+  logsuicides: 'บันทึก log การฆ่าตัวตาย',
+  enablespawnonground: 'อนุญาตเกิดบนพื้น',
+  deleteinactiveusers: 'ลบผู้เล่นที่ไม่ active',
+  dayssincelastlogintobecomeinactive: 'จำนวนวันที่ไม่เข้าเกมก่อนนับว่าไม่ active',
+  deletebannedusers: 'ลบผู้เล่นที่ถูกแบน',
+  maxallowedbirds: 'จำนวนนกสูงสุด',
+  maxallowedcharacters: 'จำนวนตัวละคร AI สูงสุด',
+  maxallowedpuppets: 'จำนวน Puppet สูงสุด',
+  maxallowedanimals: 'จำนวนสัตว์สูงสุด',
+  maxallowednpcs: 'จำนวน NPC สูงสุด',
+  maxalloweddrones: 'จำนวนโดรนสูงสุด',
+  disablesentryspawning: 'ปิดการเกิด Sentry',
+  enablesentryrespawning: 'เปิดให้ Sentry เกิดใหม่',
+  disablesuicidepuppetspawning: 'ปิด Puppet ระเบิด',
+  disablelootpuppetspawning: 'ปิด Puppet ที่มี loot',
+  enablelootpuppethorde: 'เปิด Horde จาก Puppet ที่มี loot',
+  puppetscanopendoors: 'Puppet เปิดประตูได้',
+  puppetscanvaultwindows: 'Puppet ปีนหน้าต่างได้',
+  puppethealthmultiplier: 'ตัวคูณเลือด Puppet',
+  puppetrunningspeedmultiplier: 'ตัวคูณความเร็ววิ่ง Puppet',
+  starttimeofday: 'เวลาเริ่มต้นของวัน',
+  timeofdayspeed: 'ความเร็วเวลาภายในเกม',
+  sunrisetime: 'เวลาเช้า',
+  sunsettime: 'เวลาเย็น',
+  enablefog: 'เปิดหมอก',
+  enablelockedlootcontainers: 'เปิดกล่อง loot ที่ล็อก',
+  cargodropcooldownminimum: 'เวลารอ cargo drop ต่ำสุด',
+  cargodropcooldownmaximum: 'เวลารอ cargo drop สูงสุด',
+  maxallowedhunts: 'จำนวน hunt สูงสุด',
+  nighttimedarkness: 'ความมืดตอนกลางคืน',
+  allowsectorrespawn: 'อนุญาตเกิดตาม sector',
+  allowshelterrespawn: 'อนุญาตเกิดที่ shelter',
+  allowsquadmaterespawn: 'อนุญาตเกิดกับเพื่อนในทีม',
+  randomrespawnprice: 'ราคาเกิดแบบสุ่ม',
+  sectorrespawnprice: 'ราคาเกิดตาม sector',
+  shelterrespawnprice: 'ราคาเกิดที่ shelter',
+  squadrespawnprice: 'ราคาเกิดกับทีม',
+  randomrespawncooldown: 'Cooldown เกิดแบบสุ่ม',
+  sectorrespawncooldown: 'Cooldown เกิดตาม sector',
+  shelterrespawncooldown: 'Cooldown เกิดที่ shelter',
+  squadrespawncooldown: 'Cooldown เกิดกับทีม',
+  commitsuicidecooldown: 'Cooldown ฆ่าตัวตาย',
+  maximumbaseproximitywhenspawning: 'ระยะใกล้ฐานสูงสุดตอนเกิด',
+  permadeaththreshold: 'เกณฑ์ permadeath',
+  fueldrainfromenginemultiplier: 'ตัวคูณการใช้น้ำมันเครื่องยนต์',
+  batterydrainfromenginemultiplier: 'ตัวคูณแบตเตอรี่หมดจากเครื่องยนต์',
+  batterydrainfromdevicesmultiplier: 'ตัวคูณแบตเตอรี่หมดจากอุปกรณ์',
+  batterydrainfrominactivitymultiplier: 'ตัวคูณแบตเตอรี่หมดเมื่อจอดทิ้งไว้',
+  batterychargewithalternatormultiplier: 'ตัวคูณชาร์จแบตด้วย alternator',
+  batterychargewithdynamomultiplier: 'ตัวคูณชาร์จแบตด้วย dynamo',
+  maximumtimeofvehicleinactivity: 'เวลาสูงสุดที่ยานพาหนะจอดทิ้งไว้',
+  maximumtimeforvehiclesinforbiddenzones: 'เวลาสูงสุดของรถในเขตห้ามจอด',
+  logvehicledestroyed: 'บันทึก log รถถูกทำลาย',
+  humantohumandamagemultiplier: 'ตัวคูณดาเมจผู้เล่นต่อผู้เล่น',
+  zombiedamagemultiplier: 'ตัวคูณดาเมจซอมบี้',
+  sentrydamagemultiplier: 'ตัวคูณดาเมจ Sentry',
+  itemdecaydamagemultiplier: 'ตัวคูณของเสื่อมสภาพ',
+  fooddecaydamagemultiplier: 'ตัวคูณอาหารเสื่อมสภาพ',
+  weapondecaydamageonfiring: 'ความเสื่อมของปืนตอนยิง',
+  lockprotectiondamagemultiplier: 'ตัวคูณดาเมจระบบกันงัดล็อก',
+  spawnerprobabilitymultiplier: 'ตัวคูณโอกาสเกิด loot',
+  examinespawnerprobabilitymultiplier: 'ตัวคูณโอกาส loot จากการ examine',
+  spawnerexpirationtimemultiplier: 'ตัวคูณเวลาอยู่ของ loot',
+  examinespawnerexpirationtimemultiplier: 'ตัวคูณเวลาอยู่ของ loot จาก examine',
+  movementinertiaamount: 'แรงเฉื่อยการเคลื่อนที่',
+  bodysimulationspeedmultiplier: 'ตัวคูณความเร็วจำลองร่างกาย',
+  staminadrainonjumpmultiplier: 'ตัวคูณใช้ stamina ตอนกระโดด',
+  staminadrainonclimbmultiplier: 'ตัวคูณใช้ stamina ตอนปีน',
+  disableexhaustion: 'ปิดอาการเหนื่อยล้า',
+  raidprotectiontype: 'ชนิดระบบกัน raid',
+  runningskillmultiplier: 'ตัวคูณสกิลวิ่ง',
+  enduranceskillmultiplier: 'ตัวคูณสกิลความอึด',
+  questsenabled: 'เปิดระบบเควสต์',
+  maxquestspercyclepertrader: 'จำนวนเควสต์ต่อรอบต่อ trader',
+  maxsimultaneousqueststrader: 'จำนวนเควสต์พร้อมกันต่อ trader',
+  flagovertakeduration: 'เวลายึดธง',
+  maximumamountofelementsperflag: 'จำนวนชิ้นส่วนฐานสูงสุดต่อธง',
+  allowmultipleflagsperplayer: 'อนุญาตให้ผู้เล่นมีหลายธง',
+  allowflagplacementonbbelements: 'อนุญาตวางธงบนชิ้นส่วนฐาน',
+  chestacquisitionduration: 'เวลายึดกล่อง',
+  enablesquadmembernamewidget: 'เปิดชื่อสมาชิกทีมบนจอ',
+  enableitemcooldowngroups: 'เปิดกลุ่ม cooldown ของ item',
+  enablebculocking: 'เปิดระบบล็อก BCU',
+  namechangecooldown: 'Cooldown เปลี่ยนชื่อ',
+  namechangecost: 'ค่าใช้จ่ายเปลี่ยนชื่อ',
+  enablenewplayerprotection: 'เปิดระบบคุ้มครองผู้เล่นใหม่',
+  newplayerprotectionduration: 'ระยะเวลาคุ้มครองผู้เล่นใหม่',
+  allowautomaticparachuteopening: 'อนุญาตเปิดร่มอัตโนมัติ',
+  hidequickaccessbar: 'ซ่อนแถบ quick access',
+  hidelifeindicators: 'ซ่อนตัวบอกสถานะชีวิต'
+};
+const serverWordLabels = {
+  max: 'สูงสุด',
+  maximum: 'สูงสุด',
+  min: 'ต่ำสุด',
+  minimum: 'ต่ำสุด',
+  allowed: 'ที่อนุญาต',
+  allow: 'อนุญาต',
+  enable: 'เปิด',
+  enabled: 'เปิด',
+  disable: 'ปิด',
+  disabled: 'ปิด',
+  multiplier: 'ตัวคูณ',
+  amount: 'จำนวน',
+  time: 'เวลา',
+  duration: 'ระยะเวลา',
+  cooldown: 'Cooldown',
+  price: 'ราคา',
+  chance: 'โอกาส',
+  probability: 'โอกาส',
+  damage: 'ดาเมจ',
+  health: 'เลือด',
+  speed: 'ความเร็ว',
+  distance: 'ระยะ',
+  radius: 'รัศมี',
+  player: 'ผู้เล่น',
+  players: 'ผู้เล่น',
+  squad: 'ทีม',
+  squadmate: 'เพื่อนร่วมทีม',
+  respawn: 'เกิดใหม่',
+  random: 'สุ่ม',
+  sector: 'Sector',
+  shelter: 'Shelter',
+  puppet: 'Puppet',
+  puppets: 'Puppet',
+  zombie: 'ซอมบี้',
+  sentry: 'Sentry',
+  npc: 'NPC',
+  armed: 'ติดอาวุธ',
+  animal: 'สัตว์',
+  animals: 'สัตว์',
+  bird: 'นก',
+  birds: 'นก',
+  drone: 'โดรน',
+  drones: 'โดรน',
+  loot: 'Loot',
+  spawner: 'Spawner',
+  cargo: 'Cargo',
+  drop: 'Drop',
+  base: 'ฐาน',
+  building: 'สิ่งปลูกสร้าง',
+  raid: 'Raid',
+  protection: 'การป้องกัน',
+  flag: 'ธง',
+  flags: 'ธง',
+  vehicle: 'ยานพาหนะ',
+  vehicles: 'ยานพาหนะ',
+  fuel: 'น้ำมัน',
+  battery: 'แบตเตอรี่',
+  skill: 'สกิล',
+  fame: 'Fame',
+  chat: 'แชต',
+  map: 'แผนที่',
+  screen: 'หน้าจอ',
+  global: 'รวม',
+  local: 'ใกล้ตัว',
+  admin: 'แอดมิน',
+  server: 'เซิร์ฟเวอร์',
+  name: 'ชื่อ',
+  password: 'รหัสผ่าน',
+  description: 'คำอธิบาย',
+  message: 'ข้อความ',
+  day: 'วัน',
+  night: 'กลางคืน',
+  nighttime: 'กลางคืน',
+  darkness: 'ความมืด',
+  fog: 'หมอก',
+  door: 'ประตู',
+  doors: 'ประตู',
+  window: 'หน้าต่าง',
+  windows: 'หน้าต่าง'
+};
+function serverKeyId(key){ return String(key || '').replace(/^scum\./i, '').replace(/[^a-z0-9]/gi, '').toLowerCase(); }
+function serverSectionLabel(section){ return serverSectionLabels[section] || String(section || 'ทั่วไป'); }
+function serverFallbackLabel(key){
   const words = splitServerKeyWords(key);
-  if(!words.length) return 'General';
-  const generic = new Set(['scum', 'enable', 'disable', 'max', 'min']);
-  const filtered = words.filter((word)=>!generic.has(word.toLowerCase()));
-  const picked = (filtered.length ? filtered : words).slice(0, 2);
-  return titleCaseWords(picked) || 'General';
+  const translated = words.map((word)=>serverWordLabels[word.toLowerCase()] || word).filter(Boolean);
+  return translated.length ? translated.join(' ') : String(key || '');
+}
+function prettyServerKey(key){ return serverKeyLabels[serverKeyId(key)] || serverFallbackLabel(key); }
+function serverGroupLabel(key){
+  const normalized = serverKeyId(key);
+  if(/servername|serverdescription|serverpassword|serverbannerurl|serverplaystyle|welcomemessage|messageoftheday/.test(normalized)) return 'ข้อมูลหน้าเซิร์ฟเวอร์';
+  if(/maxplayers|ping|tickrate|logout|voting|chat|firstperson|thirdperson|crosshair|mapscreen|killclaiming|coma/.test(normalized)) return 'กฎผู้เล่น';
+  if(/fame|skillgain|skillmultiplier|running|endurance|archery|aviation|awareness|brawling|camouflage|cooking|demolition|driving|engineering|farming|handgun|medical|melee|motorcycle|rifles|sniping|stealth|survival|thievery/.test(normalized)) return 'Fame / สกิล';
+  if(/puppet|horde|encounter|zombie/.test(normalized)) return 'Puppet / Horde';
+  if(/sentry|dropship|armednpc|npc/.test(normalized)) return 'NPC / Sentry';
+  if(/animal|bear|boar|chicken|deer|donkey|goat|horse|rabbit|wolf|hunt/.test(normalized)) return 'สัตว์ / Hunt';
+  if(/timeofday|sunrise|sunset|night|fog|darkness/.test(normalized)) return 'เวลา / อากาศ';
+  if(/cargo|loot|spawner|container|keycard|bunker/.test(normalized)) return 'Loot / Bunker';
+  if(/respawn|shelter|sector|suicide|permadeath|spawn/.test(normalized)) return 'การเกิดใหม่';
+  if(/laika|wolfswagen|rager|dirtbike|cruiser|tractor|bicycle|wheelbarrow|motorboat|dinghy|kinglet|vehicle|fuel|battery/.test(normalized)) return 'ยานพาหนะ';
+  if(/damage|decay|durability|lockprotection/.test(normalized)) return 'ดาเมจ / ความทนทาน';
+  if(/basebuilding|flag|raid|chest|weaponrack|well|turret|oven|garden|element|floor|wall/.test(normalized)) return 'ฐาน / Raid';
+  if(/quest|trader|tradeable|noticeboard|phone/.test(normalized)) return 'เควสต์ / Trader';
+  if(/wipe|delete|log|inactive|banned|settingsversion/.test(normalized)) return 'ระบบ / Log';
+  return 'ทั่วไป';
 }
 function parsedServerSummary(parsed){
   const sections = Object.entries(parsed || {}).filter(([, fields]) => fields && typeof fields === 'object');
@@ -990,7 +1296,7 @@ function buildServerSections(parsed, term=''){
         key,
         value,
         group: serverGroupLabel(key)
-      })).filter((entry)=>!term || `${section} ${entry.group} ${entry.key} ${entry.value}`.toLowerCase().includes(term));
+      })).filter((entry)=>!term || `${serverSectionLabel(section)} ${section} ${entry.group} ${prettyServerKey(entry.key)} ${entry.key} ${entry.value}`.toLowerCase().includes(term));
       if(!entries.length) return null;
       const grouped = {};
       entries.forEach((entry)=>{
@@ -1007,7 +1313,7 @@ function syncServerFilterOptions(allSections, selectedSection, selectedGroup){
   const groupSelect = $('server-group-filter');
   if(sectionSelect){
     const nextSection = allSections.some((section)=>section.section === selectedSection) ? selectedSection : '__all';
-    sectionSelect.innerHTML = `<option value="__all">${escapeHtml(uiText('ทุกหมวด', 'All sections'))}</option>${allSections.map((section)=>`<option value="${escapeHtml(section.section)}">${escapeHtml(section.section)}</option>`).join('')}`;
+    sectionSelect.innerHTML = `<option value="__all">${escapeHtml(uiText('ทุกหมวด', 'All sections'))}</option>${allSections.map((section)=>`<option value="${escapeHtml(section.section)}">${escapeHtml(serverSectionLabel(section.section))}</option>`).join('')}`;
     sectionSelect.value = nextSection;
     selectedSection = nextSection;
   }
@@ -1038,29 +1344,32 @@ function serverFieldKind(value){
 }
 function serverFieldExplanation(key, value){
   const normalized = String(key || '').toLowerCase();
+  const humanLabel = prettyServerKey(key);
   const kind = serverFieldKind(value);
-  if(normalized.includes('maxplayers')) return uiText('จำนวนผู้เล่นสูงสุดที่เซิร์ฟเวอร์รับได้ ปรับแล้วควรเช็ก performance ด้วย', 'Maximum players the server accepts. Check performance after changing it.');
-  if(normalized.includes('allowmapscreen')) return uiText('เปิดหรือปิดหน้าจอแผนที่ของผู้เล่น', 'Turns the player map screen on or off.');
-  if(normalized.includes('allowglobalchat')) return uiText('เปิดหรือปิดแชตรวมของเซิร์ฟเวอร์', 'Turns global server chat on or off.');
-  if(normalized.includes('allowthirdperson')) return uiText('อนุญาตมุมมองบุคคลที่สาม ถ้าต้องการ hardcore มักปิดค่านี้', 'Allows third-person camera. Hardcore servers often disable this.');
-  if(normalized.includes('allowfirstperson')) return uiText('อนุญาตมุมมองบุคคลที่หนึ่ง ปกติควรเปิดไว้', 'Allows first-person camera. Usually this should stay enabled.');
-  if(normalized.includes('famegain')) return uiText('ตัวคูณ Fame ยิ่งสูงยิ่งเก็บแต้มเร็ว', 'Fame multiplier. Higher values make fame progress faster.');
-  if(normalized.includes('logout')) return uiText('เวลาหรือกติกาที่เกี่ยวกับการออกจากเกม ใช้กัน combat logging', 'Logout timing or behavior. Useful for reducing combat logging.');
-  if(normalized.includes('puppet')) return uiText('จำนวนหรือพฤติกรรม puppet/zombie ส่งผลกับความยากและ performance', 'Puppet/zombie amount or behavior. Affects difficulty and performance.');
-  if(normalized.includes('sentry')) return uiText('จำนวนหรือพฤติกรรมหุ่น sentry ส่งผลกับพื้นที่ military และ performance', 'Sentry amount or behavior. Affects military areas and performance.');
-  if(normalized.includes('damage')) return uiText('ค่าความเสียหายหรือสภาพไอเท็ม แก้ทีละน้อยแล้วทดสอบในเกม', 'Damage or item condition value. Change in small steps and test in game.');
-  if(normalized.includes('time')) return uiText('ค่าที่เกี่ยวกับเวลาในเกม เช่น รอบกลางวัน/กลางคืน หรือ cooldown', 'Time-related value such as day/night pacing or cooldowns.');
-  if(kind === 'boolean') return uiText('เลือกเปิดหรือปิด ไม่ต้องพิมพ์ True/False เอง', 'Choose enabled or disabled instead of typing True/False manually.');
-  if(kind === 'number') return uiText('ค่าเป็นตัวเลข แนะนำให้แก้ทีละน้อยแล้ว Preview Diff ก่อนบันทึก', 'Numeric value. Change gradually and inspect Preview Diff before saving.');
-  return uiText('ค่าแบบข้อความ คงรูปแบบเดิมไว้ถ้าไม่แน่ใจว่าระบบต้องการอะไร', 'Text value. Keep the existing format if you are not sure what the server expects.');
+  if(normalized.includes('maxplayers')) return 'จำนวนผู้เล่นสูงสุดที่เซิร์ฟเวอร์รับได้ ปรับแล้วควรเช็ก performance ด้วย';
+  if(normalized.includes('allowmapscreen')) return 'เปิดหรือปิดหน้าจอแผนที่ของผู้เล่น';
+  if(normalized.includes('allowglobalchat')) return 'เปิดหรือปิดแชตรวมของเซิร์ฟเวอร์';
+  if(normalized.includes('allowthirdperson')) return 'อนุญาตมุมมองบุคคลที่สาม ถ้าต้องการแนว hardcore มักปิดค่านี้';
+  if(normalized.includes('allowfirstperson')) return 'อนุญาตมุมมองบุคคลที่หนึ่ง ปกติควรเปิดไว้';
+  if(normalized.includes('famegain')) return 'ตัวคูณ Fame ยิ่งสูงยิ่งเก็บแต้มเร็ว';
+  if(normalized.includes('logout')) return 'เวลาหรือกติกาที่เกี่ยวกับการออกจากเกม ใช้กัน combat logging';
+  if(normalized.includes('puppet')) return 'จำนวนหรือพฤติกรรม Puppet/Zombie ส่งผลกับความยากและ performance';
+  if(normalized.includes('sentry')) return 'จำนวนหรือพฤติกรรมหุ่น Sentry ส่งผลกับพื้นที่ military และ performance';
+  if(normalized.includes('respawn')) return 'กติกาการเกิดใหม่ ส่งผลกับความยากหลังตายและระบบเงินในเกม';
+  if(normalized.includes('vehicle') || normalized.includes('fuel') || normalized.includes('battery')) return 'ค่ายานพาหนะหรือพลังงานรถ แก้แล้วควรทดสอบรถในเกมจริง';
+  if(normalized.includes('damage')) return 'ค่าความเสียหายหรือสภาพไอเท็ม แก้ทีละน้อยแล้วทดสอบในเกม';
+  if(normalized.includes('time')) return 'ค่าที่เกี่ยวกับเวลาในเกม เช่น รอบกลางวัน/กลางคืน หรือ cooldown';
+  if(kind === 'boolean') return `${humanLabel}: เลือกเปิดหรือปิดจากเมนูนี้ ไม่ต้องพิมพ์ค่าเอง`;
+  if(kind === 'number') return `${humanLabel}: ค่าเป็นตัวเลข แนะนำให้แก้ทีละน้อยแล้ว Preview Diff ก่อนบันทึก`;
+  return `${humanLabel}: ค่าแบบข้อความ คงรูปแบบเดิมไว้ถ้าไม่แน่ใจว่าระบบต้องการอะไร`;
 }
 function renderServerGuidePanel(summary, visibleFieldCount){
-  return `<div class="server-guide-panel"><div><strong>${escapeHtml(uiText('เริ่มจากหมวดเดียวก่อน', 'Start with one section first'))}</strong><p class="muted">${escapeHtml(uiText('ใช้ dropdown เลือกหมวด/กลุ่ม แล้วค่อยแก้เฉพาะค่าที่รู้ผลกระทบ ช่วยให้หน้าไม่รกและลดโอกาสแก้ผิดช่อง', 'Use the section and group dropdowns first, then edit only values whose impact you understand. This keeps the page readable and reduces wrong edits.'))}</p></div><div class="server-guide-steps"><span class="tag">${escapeHtml(`${visibleFieldCount}/${summary.fieldCount} ${uiText('ฟิลด์ที่เห็น', 'visible fields')}`)}</span><span class="tag">${escapeHtml(uiText('True/False เป็นตัวเลือก', 'True/False uses selects'))}</span><span class="tag">${escapeHtml(uiText('ดูคำอธิบายใต้ช่อง', 'Read the hint under each field'))}</span></div></div>`;
+  return `<div class="server-guide-panel"><div><strong>${escapeHtml('เริ่มจากหมวดเดียวก่อน')}</strong><p class="muted">${escapeHtml('ใช้ dropdown เลือกหมวด/กลุ่ม แล้วค่อยแก้เฉพาะค่าที่รู้ผลกระทบ ช่วยให้หน้าไม่รกและลดโอกาสแก้ผิดช่อง')}</p></div><div class="server-guide-steps"><span class="tag">${escapeHtml(`${visibleFieldCount}/${summary.fieldCount} ฟิลด์ที่เห็น`)}</span><span class="tag">${escapeHtml('ค่าเปิด/ปิดเป็นตัวเลือก')}</span><span class="tag">${escapeHtml('ดูคำอธิบายใต้ช่อง')}</span></div></div>`;
 }
 function renderServerValueControl(section, entry){
   const booleanMeta = booleanFieldMeta(entry.value);
   if(booleanMeta){
-    return `<select class="field-input server-boolean-select" data-field-kind="boolean" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}"><option value="${escapeHtml(booleanMeta.trueValue)}"${booleanMeta.current === 'true' ? ' selected' : ''}>${escapeHtml(uiText('เปิด (True)', 'Enabled (True)'))}</option><option value="${escapeHtml(booleanMeta.falseValue)}"${booleanMeta.current === 'false' ? ' selected' : ''}>${escapeHtml(uiText('ปิด (False)', 'Disabled (False)'))}</option></select>`;
+    return `<select class="field-input server-boolean-select" data-field-kind="boolean" data-server-section="${escapeHtml(section)}" data-server-key="${escapeHtml(entry.key)}"><option value="${escapeHtml(booleanMeta.trueValue)}"${booleanMeta.current === 'true' ? ' selected' : ''}>${escapeHtml('เปิดใช้งาน')}</option><option value="${escapeHtml(booleanMeta.falseValue)}"${booleanMeta.current === 'false' ? ' selected' : ''}>${escapeHtml('ปิดใช้งาน')}</option></select>`;
   }
   const kind = serverFieldKind(entry.value);
   const type = kind === 'number' ? 'number' : 'text';
@@ -1095,15 +1404,25 @@ function renderParsedServerGrid(){
     const groupCards = groups.map((group)=>`<div class="server-group"><div class="server-group-head"><h5>${escapeHtml(group.group)}</h5><span class="tag">${group.entries.length}</span></div>${group.entries.map((entry)=>`<label class="field-card"><div class="field-meta"><strong>${escapeHtml(prettyServerKey(entry.key))}</strong><code class="field-key">${escapeHtml(entry.key)}</code><small class="server-field-help">${escapeHtml(serverFieldExplanation(entry.key, entry.value))}</small></div>${renderServerValueControl(section, entry)}</label>`).join('')}</div>`).join('');
     const sectionCount = groups.reduce((sum, group)=>sum + group.entries.length, 0);
     const open = term || selectedSection !== '__all' || selectedGroup !== '__all' || sectionIndex === 0 ? ' open' : '';
-    return `<details class="section-card server-section-card"${open}><summary class="section-toggle"><div><h4>${escapeHtml(section)}</h4><p class="muted">${sectionCount} ${escapeHtml(uiText('ฟิลด์', 'fields'))}</p></div><span class="tag">${groups.length} ${escapeHtml(uiText('กลุ่ม', 'groups'))}</span></summary><div class="server-group-grid">${groupCards}</div></details>`;
+    return `<details class="section-card server-section-card"${open}><summary class="section-toggle"><div><h4>${escapeHtml(serverSectionLabel(section))}</h4><p class="muted">${sectionCount} ${escapeHtml('ฟิลด์')}</p></div><span class="tag">${groups.length} ${escapeHtml('กลุ่ม')}</span></summary><div class="server-group-grid">${groupCards}</div></details>`;
   }).join('') : `<div class="section-card"><div class="muted">${escapeHtml(uiText('ไม่มีค่าตั้งค่าที่ตรงกับคำค้น', 'No settings matched the current filter.'))}</div></div>`;
   document.querySelectorAll('[data-server-key]').forEach((input)=>{
-    const handler = (event)=>{ state.parsedServer[event.target.dataset.serverSection][event.target.dataset.serverKey]=event.target.value; };
+    const handler = (event)=>{
+      state.parsedServer[event.target.dataset.serverSection][event.target.dataset.serverKey]=event.target.value;
+      refreshServerDirtyState();
+    };
     input.oninput = handler;
     input.onchange = handler;
   });
+  refreshServerDirtyState();
 }
-async function saveParsedServer(reloadAfter=false){ await api('/api/server-settings/parsed',{method:'PUT',body:JSON.stringify({parsed:state.parsedServer,reloadAfter})}); showToast(reloadAfter?t('serverSettingsSavedReload'):t('serverSettingsSaved')); }
+async function saveParsedServer(reloadAfter=false){
+  const data = await api('/api/server-settings/parsed',{method:'PUT',body:JSON.stringify({parsed:state.parsedServer,reloadAfter})});
+  state.serverOriginalSnapshot = serverSnapshot(state.parsedServer);
+  refreshServerDirtyState();
+  if(data.plan?.validation) $('diff-output').textContent = dryRunText(data.plan);
+  showToast(reloadAfter?t('serverSettingsSavedReload'):t('serverSettingsSaved'));
+}
 async function applyPreset(id, apply){ const data=await api('/api/server-settings/preset',{method:'POST',body:JSON.stringify({presetId:id,apply,reloadAfter:apply})}); $('diff-output').textContent=data.patch||''; if(apply){ showToast(t('presetApplied')); await loadParsedServerSettings(); } setView('diff'); }
 
 async function openCoreFile(path){
@@ -1111,10 +1430,12 @@ async function openCoreFile(path){
   try {
     const data=await api(`/api/file?path=${encodeURIComponent(path)}`);
     state.currentCoreContent=data.content;
+    state.coreDirty=false;
     $('core-editor').value=data.content;
     $('core-file-title').textContent=path;
     $('core-file-meta').innerHTML=`<div class="info-pair"><span>${t('updated')}</span><strong>${fmtDate(data.meta.updatedAt)}</strong></div><div class="info-pair"><span>${t('size')}</span><strong>${data.meta.size} ${t('bytes')}</strong></div>`;
     $('core-file-validation').innerHTML=renderValidation(data.validation);
+    refreshCoreDirtyState();
     renderCoreFileList();
   } catch (error) {
     state.currentCoreContent = '';
@@ -1122,20 +1443,34 @@ async function openCoreFile(path){
     $('core-file-title').textContent=path;
     $('core-file-meta').innerHTML=`<div class="muted">${escapeHtml(uiText('ไฟล์นี้ยังไม่พร้อมใช้งานใน path ปัจจุบัน', 'This file is not available for the current config path.'))}</div>`;
     $('core-file-validation').innerHTML=`<div class="warn-card"><strong>${escapeHtml(uiText('ยังโหลดไม่ได้', 'Unavailable'))}</strong><div class="muted">${escapeHtml(error.message)}</div></div>`;
+    refreshCoreDirtyState();
     renderCoreFileList();
     throw error;
   }
 }
 function renderCoreFileList(){ const files=['GameUserSettings.ini','EconomyOverride.json']; $('core-file-list').innerHTML=files.map((p)=>`<button class="file-item ${p===state.selectedCorePath?'active':''}" data-core-path="${p}"><strong>${p}</strong></button>`).join(''); document.querySelectorAll('[data-core-path]').forEach((b)=>b.onclick=()=>openCoreFile(b.dataset.corePath)); }
-async function saveCoreFile(){ const content=$('core-editor').value; await api('/api/file',{method:'PUT',body:JSON.stringify({path:state.selectedCorePath,content})}); showToast(t('coreSaved')); state.currentCoreContent=content; await openCoreFile(state.selectedCorePath); }
-async function previewDiff(path, content){ const data=await api('/api/file/diff',{method:'POST',body:JSON.stringify({path,content})}); $('diff-output').textContent=data.patch||''; setView('diff'); }
+async function saveCoreFile(){
+  const content=$('core-editor').value;
+  const data = await api('/api/file/safe-apply',{method:'POST',body:JSON.stringify({path:state.selectedCorePath,content})});
+  showToast(t('coreSaved'));
+  state.currentCoreContent=content;
+  state.coreDirty=false;
+  refreshCoreDirtyState();
+  if(data.plan) $('diff-output').textContent = dryRunText(data.plan);
+  await openCoreFile(state.selectedCorePath);
+}
+async function previewDiff(path, content){
+  const data=await api('/api/file/dry-run',{method:'POST',body:JSON.stringify({path,content})});
+  $('diff-output').textContent=dryRunText(data.plan);
+  setView('diff');
+}
 
 async function saveLoot(reloadAfter=false){
   if(!state.selectedLootPath) return showToast(uiText('เลือกไฟล์ลูทก่อน', 'Select a loot file first'), true);
   setLootSaveBusy(true);
   try {
     const content = getLootDraftContent();
-    const data = await api('/api/file', { method:'PUT', body: JSON.stringify({ path: state.selectedLootPath, content, reloadAfter }) });
+    const data = await api('/api/file/safe-apply', { method:'POST', body: JSON.stringify({ path: state.selectedLootPath, content, reloadAfter }) });
     state.currentLootContent = content;
     state.lootUi.dirty = false;
     updateLootWorkspaceCopy();
@@ -1196,7 +1531,7 @@ function makeKit(type){ if(type==='sniper') return { Name:'Sniper_KIT', Notes:'G
 function applyKit(type){ state.currentLootObject = makeKit(type); $('loot-editor').value = fmtJson(state.currentLootObject); renderVisualBuilder(); showToast(`${type.toUpperCase()} kit loaded into editor`); }
 
 function fileButton(file, active){ return `<button class="file-item ${active?'active':''}" data-loot-path="${file.relPath}"><strong>${escapeHtml(file.logicalName||file.name)}</strong><span class="item-sub">${escapeHtml(file.relPath)}</span><span class="item-sub">${escapeHtml(lootFileBlurb(file.summary))}</span></button>`; }
-async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; $('loot-editor-title').textContent=path; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); rememberLootPath(path); renderVisualBuilder(); setLootEditorMode('visual'); renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
+async function openLootFile(path, options = {}){ if(path !== state.selectedLootPath && !confirmDiscardLootChanges(path)) { renderLootLists(); return; } state.selectedLootPath=path; if(!options.fromRoute && state.view === 'loot') updateRoute('loot', 'replace', { file: path }); state.focusedLootField = null; state.treeSearch = ''; state.itemCatalogSearch = ''; state.itemCatalogCategory = '__all'; state.nodeRefSearch = ''; state.nodeRefNodeFilter = '__all'; const data=await api(`/api/file?path=${encodeURIComponent(path)}`); state.currentLootContent=data.content; $('loot-editor').value=data.content; const analysis=await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`); state.currentLootAnalysis=analysis; state.currentLootObject=analysis.object || {}; state.lootUi.treeFocusPath = 'root'; state.lootUi.itemCatalogOpen = false; state.lootUi.refCatalogOpen = false; state.lootUi.editorMode = 'visual'; state.lootUi.dirty = false; const kind = analysis.summary?.kind || 'unknown'; const totalNodes = analysis.summary?.totalNodes || 0; const groupCount = analysis.summary?.groupCount || 0; const itemCount = analysis.summary?.itemCount || 0; const nodeRefCount = analysis.summary?.nodeRefCount || 0; state.lootUi.compact = kind === 'node_tree' ? totalNodes > 18 : kind === 'spawner' ? (groupCount > 2 || nodeRefCount > 8) : itemCount > 1; state.lootUi.showGuides = !state.lootUi.compact && (totalNodes || groupCount || itemCount) <= 18; $('loot-summary').innerHTML=renderLootSummaryPanel(analysis.summary); $('loot-validation').innerHTML=renderValidation(analysis.validation); $('loot-deps').innerHTML=renderLootDependencyPanel(analysis); rememberLootPath(path); renderVisualBuilder(); setLootEditorMode('visual'); $('loot-editor-title').textContent=path; renderLootLists(); updateLootWorkspaceLayout(); updateLootWorkspaceCopy(); }
 function syncVisualBuilderToRaw(){ $('loot-editor').value=fmtJson(state.currentLootObject || {}); state.currentLootContent=$('loot-editor').value; showToast(uiText('อัปเดต JSON ดิบแล้ว','Raw JSON updated')); }
 
 function refreshLootItemDatalist(){
@@ -1723,7 +2058,7 @@ function bindEvents(){
   $('global-refresh').onclick=refreshAll; $('global-backup').onclick=backupCore; $('global-reload').onclick=()=>runAction('/api/action/reload-loot'); $('global-restart').onclick=()=>runAction('/api/action/restart-server'); $('clear-console').onclick=()=>writeConsole('');
   $('save-config-btn').onclick=saveConfig; $('check-config-btn').onclick=()=>checkConfigFolder(); $('discover-config-btn').onclick=()=>discoverConfigFolders().catch((error)=>showToast(error.message, true)); if($('cfg-reload-cmd')) $('cfg-reload-cmd').addEventListener('input', ()=>{ state.commandDraftHealth.reload = null; renderCommandAssist(); }); if($('cfg-restart-cmd')) $('cfg-restart-cmd').addEventListener('input', ()=>{ state.commandDraftHealth.restart = null; renderCommandAssist(); }); $('global-search-btn').onclick=globalSearch; $('global-search-term').addEventListener('keydown',(e)=>{ if(e.key==='Enter') globalSearch(); });
   $('server-field-filter').oninput=renderParsedServerGrid; $('server-section-filter').onchange=renderParsedServerGrid; $('server-group-filter').onchange=renderParsedServerGrid; $('reload-server-parsed').onclick=loadParsedServerSettings; $('save-server-parsed').onclick=()=>saveParsedServer(false); $('save-server-parsed-reload').onclick=()=>saveParsedServer(true);
-  $('core-preview-diff').onclick=()=>previewDiff(state.selectedCorePath, $('core-editor').value); $('core-save').onclick=saveCoreFile;
+  $('core-preview-diff').onclick=()=>previewDiff(state.selectedCorePath, $('core-editor').value); $('core-save').onclick=saveCoreFile; $('core-editor').oninput=refreshCoreDirtyState;
   $('loot-search').oninput=renderLootLists;
   if($('loot-file-scope')) $('loot-file-scope').onchange=renderLootLists;
   if($('loot-clear-search')) $('loot-clear-search').onclick=()=>{ $('loot-search').value=''; renderLootLists(); };
@@ -1752,12 +2087,15 @@ function bindEvents(){
   document.addEventListener('keydown', (event)=>{
     const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
     if(!isSave) return;
-    if(state.view !== 'loot' || !state.selectedLootPath) return;
+    const canSave = (state.view === 'loot' && state.selectedLootPath) || (state.view === 'corefiles' && state.selectedCorePath) || (state.view === 'server' && state.parsedServer);
+    if(!canSave) return;
     event.preventDefault();
-    saveLoot(false).catch((error)=>showToast(error.message, true));
+    if(state.view === 'loot' && state.selectedLootPath) return saveLoot(false).catch((error)=>showToast(error.message, true));
+    if(state.view === 'corefiles' && state.selectedCorePath) return saveCoreFile().catch((error)=>showToast(error.message, true));
+    if(state.view === 'server' && state.parsedServer) return saveParsedServer(false).catch((error)=>showToast(error.message, true));
   });
   window.addEventListener('beforeunload', (event)=>{
-    if(!state.lootUi.dirty) return;
+    if(!state.lootUi.dirty && !state.coreDirty && !state.serverDirty) return;
     event.preventDefault();
     event.returnValue = '';
   });

@@ -43,6 +43,35 @@ test('server settings explain fields and boolean choices in human labels', async
 
   const booleanField = page.locator(`[data-field-kind="boolean"][data-server-section="${firstBooleanSection}"]`).first();
   await expect(booleanField).toBeVisible();
-  await expect(booleanField.locator('option').first()).toContainText(/Enabled \(True\)|เปิด \(True\)/);
-  await expect(booleanField.locator('option').nth(1)).toContainText(/Disabled \(False\)|ปิด \(False\)/);
+  await expect(booleanField.locator('option').first()).toContainText('เปิดใช้งาน');
+  await expect(booleanField.locator('option').nth(1)).toContainText('ปิดใช้งาน');
+});
+
+test('server settings route uses Thai UI labels even from an old English session', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('scum_lang', 'en'));
+  await page.goto(`${baseUrl}/server-settings`, { waitUntil: 'networkidle' });
+
+  await expect(page.locator('#page-title')).toHaveText('ตั้งค่าเซิร์ฟเวอร์');
+  await expect(page.locator('#server-title')).toHaveText('ตั้งค่าเซิร์ฟเวอร์แบบแยกช่อง');
+  await expect(page.locator('#server-hint')).toContainText('กรอง');
+  await expect(page.locator('#server-field-filter')).toHaveAttribute('placeholder', 'กรองคีย์...');
+  await expect(page.locator('#reload-server-parsed')).toHaveText('รีโหลด');
+  await expect(page.locator('#save-server-parsed')).toHaveText('บันทึก');
+  await expect(page.locator('#save-server-parsed-reload')).toHaveText('บันทึก + รีโหลด');
+
+  await expect(page.locator('.server-guide-panel')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('.server-guide-panel')).toContainText('เริ่มจากหมวดเดียวก่อน');
+  await expect(page.locator('.server-guide-panel')).toContainText('ฟิลด์ที่เห็น');
+  await expect(page.locator('.server-section-card summary h4').filter({ hasText: 'ทั่วไป' })).toBeVisible();
+  await page.locator('#server-section-filter').selectOption('General');
+  await expect(page.locator('.field-card').filter({ hasText: 'ชื่อเซิร์ฟเวอร์' }).first()).toBeVisible();
+  await expect(page.locator('.field-card').filter({ hasText: 'จำนวนผู้เล่นสูงสุด' }).first()).toBeVisible();
+
+  const firstBooleanSection = await page.locator('[data-field-kind="boolean"]').first().getAttribute('data-server-section');
+  await page.locator('#server-section-filter').selectOption(firstBooleanSection);
+  const booleanField = page.locator(`[data-field-kind="boolean"][data-server-section="${firstBooleanSection}"]`).first();
+  await expect(booleanField.locator('option').first()).toHaveText('เปิดใช้งาน');
+  await expect(booleanField.locator('option').nth(1)).toHaveText('ปิดใช้งาน');
+
+  await expect(page.locator('#view-server')).not.toContainText(/Parsed Server Settings|Filter keys|Start with one section first|Enabled \(True\)|Disabled \(False\)|All sections|All groups/);
 });

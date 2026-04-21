@@ -81,6 +81,21 @@ function assertPackageScript(name) {
   'docs/P2_3_STATUS.md',
   'docs/SAAS_TENANT_ARCHITECTURE.md',
   'scripts/repair-loot-refs.cjs',
+  'scripts/server-core.unit.test.cjs',
+  'scripts/server-api.integration.test.cjs',
+  'src/server/errors.cjs',
+  'src/server/command-sandbox.cjs',
+  'src/server/validation.cjs',
+  'src/server/safe-apply.cjs',
+  'src/server/package-manager.cjs',
+  'src/server/routes/index.cjs',
+  'src/server/routes/system.cjs',
+  'src/server/routes/settings-files.cjs',
+  'src/server/routes/loot.cjs',
+  'src/server/routes/analysis.cjs',
+  'src/server/routes/profiles.cjs',
+  'src/server/routes/backups-package.cjs',
+  'src/server/routes/static.cjs',
 ].forEach(assertFile);
 
 [
@@ -95,6 +110,8 @@ function assertPackageScript(name) {
   'release:check',
   'repair:loot-refs',
   'test',
+  'test:unit',
+  'test:integration',
   'test:ui-smoke',
   'test:loot-regression',
   'test:settings-regression',
@@ -105,12 +122,23 @@ assertIncludes('start-local.cmd', ['where node', 'node_modules\\express', 'node 
 assertIncludes('start-local.ps1', ['Get-Command node', 'node_modules\\express', 'node server.js']);
 assertIncludes('public/index.html', ['/loot-overrides.css', '/app.js', '/loot-overrides.js']);
 assertIncludes('server.js', [
+  'registerRoutes(app, serverContext)',
+  'module.exports',
+]);
+assertIncludes('src/server/routes/system.cjs', [
   '/api/bootstrap',
   '/api/readiness',
   '/api/diagnostics',
   '/api/schemas/loot',
+]);
+assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
+  '/api/loot/files',
+]);
+assertIncludes('src/server/routes/backups-package.cjs', [
   '/api/backups',
+  '/api/package/export',
+  '/api/package/import/preview',
 ]);
 assertIncludesAny('README.md', 'first-time setup instructions', ['First-Time Setup', 'วิธีตั้งค่าครั้งแรก']);
 assertIncludesAny('README.md', 'safety model notes', ['Safety Model', 'ระบบกันพัง']);

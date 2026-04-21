@@ -1,9 +1,14 @@
-const fs = require('node:fs');
+﻿const fs = require('node:fs');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
 const express = require('express');
 const ini = require('ini');
 const Diff = require('diff');
+const { sendError } = require('./src/server/errors.cjs');
+const commandSandbox = require('./src/server/command-sandbox.cjs');
+const { validateServerSettingsLogic, validateLootLogic } = require('./src/server/validation.cjs');
+const { buildSafeApplyPlan, applySafePlan } = require('./src/server/safe-apply.cjs');
+const { createWorkspacePackage, parseWorkspacePackage } = require('./src/server/package-manager.cjs');
+const registerRoutes = require('./src/server/routes/index.cjs');
 
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -297,65 +302,15 @@ function inspectConfigFolder(rootPath, nodesPath = '', spawnersPath = '') {
 }
 
 function inspectCommand(command) {
-  const raw = String(command || '').trim();
-  if (!raw) return { configured: false, runnable: false, reason: 'missing', command: '' };
-  const patterns = [
-    /^\s*cmd(?:\.exe)?\s+\/c\s+"([^"]+)"/i,
-    /^\s*powershell(?:\.exe)?(?:\s+[^\r\n]+?)*\s+-file\s+"([^"]+)"/i,
-    /^\s*"([^"]+)"/,
-    /^([^\s]+)/,
-  ];
-  let candidate = '';
-  for (const pattern of patterns) {
-    const match = raw.match(pattern);
-    if (match) {
-      candidate = match[1];
-      break;
-    }
-  }
-  const looksLikePath = /[\\/]/.test(candidate) || /\.(cmd|bat|ps1|exe)$/i.test(candidate);
-  if (looksLikePath) {
-    const resolved = path.resolve(ROOT, candidate);
-    if (!fs.existsSync(resolved)) return { configured: true, runnable: false, reason: 'missing_path', command: raw };
-    const stat = fs.statSync(resolved);
-    if (stat.isDirectory()) return { configured: true, runnable: false, reason: 'directory', command: raw };
-    return { configured: true, runnable: true, reason: 'file', command: raw };
-  }
-  return { configured: true, runnable: true, reason: 'shell_lookup', command: raw };
+  return commandSandbox.inspectCommand(command, { cwd: ROOT });
 }
 
 function runShellCommand(command) {
-  const inspection = inspectCommand(command);
-  if (!inspection.runnable) {
-    return {
-      ok: false,
-      inspection,
-      output: inspection.reason === 'directory'
-        ? 'Configured value points to a folder, not a runnable command'
-        : inspection.reason === 'missing_path'
-          ? 'Configured command path was not found'
-          : 'Command is not configured',
-      status: null,
-    };
-  }
-  const result = spawnSync(command, {
-    shell: true,
-    cwd: ROOT,
-    encoding: 'utf8',
-    timeout: 30000,
-    windowsHide: true,
-  });
-  const output = [result.stdout || '', result.stderr || ''].filter(Boolean).join('\n').trim();
-  return {
-    ok: result.status === 0,
-    inspection,
-    output,
-    status: result.status,
-  };
+  return commandSandbox.runShellCommand(command, { cwd: ROOT, timeout: 30000 });
 }
 
 function errorResponse(res, status, error) {
-  res.status(status).json({ ok: false, error: error instanceof Error ? error.message : String(error) });
+  sendError(res, error, status);
 }
 
 function detectLootKind(object) {
@@ -397,6 +352,17 @@ function buildValidation(entries = []) {
     if (rank[entry.severity] > rank[highestSeverity]) highestSeverity = entry.severity;
   }
   return { entries, counts, highestSeverity, fixableCount };
+}
+
+function mergeValidationResults(...validations) {
+  const entries = validations.flatMap((validation) => Array.isArray(validation?.entries) ? validation.entries : []);
+  const seen = new Set();
+  return buildValidation(entries.filter((entry) => {
+    const key = `${entry.code}:${entry.path}:${entry.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }));
 }
 
 function summarizeFlatNode(object, relPath) {
@@ -873,14 +839,17 @@ function readLogicalFile(logicalPath, paths = resolvedPaths()) {
 function resolveLogicalPath(logicalPath, paths = resolvedPaths()) {
   const normalized = posixify(logicalPath).replace(/^\/+/, '');
   if (CORE_FILES.includes(normalized)) {
+    if (!paths.scumConfigDir) throw new Error('SCUM config folder is not configured');
     return path.join(paths.scumConfigDir, normalized);
   }
   if (normalized.startsWith('Nodes/')) {
+    if (!paths.nodesDir) throw new Error('Nodes folder is not configured');
     const candidate = path.resolve(paths.nodesDir, normalized.slice('Nodes/'.length));
     if (!candidate.startsWith(path.resolve(paths.nodesDir))) throw new Error('Invalid node path');
     return candidate;
   }
   if (normalized.startsWith('Spawners/')) {
+    if (!paths.spawnersDir) throw new Error('Spawners folder is not configured');
     const candidate = path.resolve(paths.spawnersDir, normalized.slice('Spawners/'.length));
     if (!candidate.startsWith(path.resolve(paths.spawnersDir))) throw new Error('Invalid spawner path');
     return candidate;
@@ -943,12 +912,20 @@ function validateContent(logicalPath, content) {
   if (/\.json$/i.test(logicalPath)) {
     const object = safeParseJson(content);
     if (/^(Nodes|Spawners)\//.test(posixify(logicalPath))) {
-      return analyzeLootObject(object, logicalPath).validation;
+      const scan = safeScanLootWorkspace();
+      const knownRefs = scan?.refIndex instanceof Map ? new Set(scan.refIndex.keys()) : null;
+      return mergeValidationResults(
+        analyzeLootObject(object, logicalPath, scan).validation,
+        validateLootLogic(object, logicalPath, knownRefs ? { knownRefs } : {}),
+      );
     }
     return buildValidation([]);
   }
   if (/\.ini$/i.test(logicalPath)) {
-    ini.parse(content);
+    const parsed = ini.parse(content);
+    if (posixify(logicalPath) === 'ServerSettings.ini') {
+      return validateServerSettingsLogic(parsed);
+    }
     return buildValidation([]);
   }
   return buildValidation([]);
@@ -1154,6 +1131,14 @@ function cleanupBackups(options = {}, paths = resolvedPaths()) {
 function allWorkspaceLogicalPaths(paths = resolvedPaths()) {
   const loot = listLootFiles(paths);
   return [...CORE_FILES.filter((file) => fs.existsSync(resolveLogicalPath(file, paths))), ...loot.nodes.map((file) => file.relPath), ...loot.spawners.map((file) => file.relPath)];
+}
+
+function workspacePackageFiles(paths = resolvedPaths(), requestedPaths = []) {
+  const available = new Set(allWorkspaceLogicalPaths(paths).map(posixify));
+  const selected = requestedPaths.length ? requestedPaths.map(posixify) : [...available];
+  return selected
+    .filter((logicalPath) => available.has(logicalPath))
+    .map((logicalPath) => ({ path: logicalPath, content: readText(resolveLogicalPath(logicalPath, paths)) }));
 }
 
 function loadKitTemplates() {
@@ -2179,644 +2164,102 @@ if (fs.existsSync(ITEM_ICON_DIR)) {
 }
 app.use(express.static(PUBLIC_DIR, { etag: false }));
 
-app.get('/api/bootstrap', (req, res) => {
-  try {
-    const config = loadConfig();
-    const paths = resolvedPaths(config);
-    const inspection = inspectConfigFolder(config.scumConfigDir, config.nodesDir, config.spawnersDir);
-    const commandHealth = {
-      reload: inspectCommand(config.reloadLootCommand),
-      restart: inspectCommand(config.restartServerCommand),
-    };
-    const health = {
-      configSet: Boolean(config.scumConfigDir),
-      configPathExists: inspection.rootExists,
-      nodesDirSet: Boolean(config.nodesDir || config.scumConfigDir),
-      spawnersDirSet: Boolean(config.spawnersDir || config.scumConfigDir),
-      backupDirSet: Boolean(config.backupDir),
-      reloadConfigured: commandHealth.reload.configured,
-      restartConfigured: commandHealth.restart.configured,
-      ready: inspection.ready,
-    };
-    res.json({
-      ok: true,
-      config,
-      health,
-      fileHealth: inspection.fileHealth,
-      configInspection: inspection,
-      commandHealth,
-      presets: SERVER_PRESETS,
-      activity: readActivity(20),
-      rotation: loadRotation(),
-      backupDir: paths.backupDir,
-    });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
+const serverContext = {
+  fs,
+  path,
+  ini,
+  ROOT,
+  PUBLIC_DIR,
+  PROFILE_STORE_DIR,
+  SERVER_PRESETS,
+  loadConfig,
+  saveConfig,
+  loadProfilesData,
+  saveProfilesData,
+  loadRotation,
+  saveRotation,
+  resolvedPaths,
+  inspectConfigFolder,
+  inspectCommand,
+  runShellCommand,
+  errorResponse,
+  readLogicalFile,
+  resolveLogicalPath,
+  validateContent,
+  validateServerSettingsLogic,
+  buildSafeApplyPlan,
+  applySafePlan,
+  createDiff,
+  readText,
+  writeText,
+  createBackup,
+  appendActivity,
+  readActivity,
+  scanLootWorkspace,
+  safeScanLootWorkspace,
+  readJsonObject,
+  safeParseJson,
+  analyzeLootObject,
+  autoFixLootObject,
+  simulateLootFile,
+  simulateLootObject,
+  compareSimulationResults,
+  buildItemCatalog,
+  upsertItemCatalogOverride,
+  loadItemCatalogOverrides,
+  importItemCatalogOverrides,
+  deleteItemCatalogOverride,
+  loadKitTemplates,
+  createKitTemplate,
+  deleteKitTemplate,
+  analyzeOverview,
+  buildGraph,
+  searchWorkspace,
+  createProfileSnapshot,
+  applyProfileSnapshot,
+  nextRotationRun,
+  runRotation,
+  listBackups,
+  listBackupFiles,
+  resolveBackupRoot,
+  resolveBackupFilePath,
+  updateBackupMeta,
+  backupCleanupCandidates,
+  cleanupBackups,
+  compareBackupFiles,
+  restoreBackupFile,
+  workspacePackageFiles,
+  createWorkspacePackage,
+  parseWorkspacePackage,
+  buildReadinessReport,
+  buildDiagnosticsReport,
+  buildLootSchemaReport,
+};
 
-app.get('/api/readiness', (req, res) => {
-  try {
-    res.json({ ok: true, report: buildReadinessReport() });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/diagnostics', (req, res) => {
-  try {
-    res.json({ ok: true, report: buildDiagnosticsReport({ includePaths: req.query.includePaths }) });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/schemas/loot', (req, res) => {
-  try {
-    res.json({ ok: true, schema: buildLootSchemaReport(safeScanLootWorkspace(), { includeHints: true }) });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/config', (req, res) => {
-  try {
-    const nextConfig = { ...loadConfig(), ...req.body };
-    saveConfig(nextConfig);
-    appendActivity('config_save', { keys: Object.keys(req.body || {}) });
-    res.json({ ok: true, config: nextConfig });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/config/check', (req, res) => {
-  try {
-    const inspection = inspectConfigFolder(req.query.path || '', req.query.nodesPath || '', req.query.spawnersPath || '');
-    res.json({ ok: true, inspection });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/config/discover', (req, res) => {
-  try {
-    const config = loadConfig();
-    const localAppData = process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || '', 'AppData', 'Local');
-    const candidates = [
-      config.scumConfigDir,
-      path.join(localAppData, 'SCUM', 'Saved', 'Config', 'WindowsNoEditor'),
-      path.join(localAppData, 'SCUM', 'Saved', 'Config', 'WindowsServer'),
-      path.join('C:\\', 'SCUM', 'Saved', 'Config', 'WindowsServer'),
-    ].filter(Boolean);
-    const seen = new Set();
-    const found = candidates
-      .map((candidate) => path.resolve(ROOT, candidate))
-      .filter((candidate) => {
-        if (seen.has(candidate)) return false;
-        seen.add(candidate);
-        return fs.existsSync(candidate);
-      })
-      .map((candidate) => inspectConfigFolder(candidate))
-      .sort((a, b) => Number(b.ready) - Number(a.ready) || a.path.localeCompare(b.path));
-    res.json({ ok: true, found });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.post('/api/command/check', (req, res) => {
-  try {
-    res.json({ ok: true, inspection: inspectCommand(req.body?.command || '') });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/action/reload-loot', (req, res) => {
-  try {
-    const config = loadConfig();
-    const commandResult = runShellCommand(config.reloadLootCommand);
-    appendActivity('action_reload', { ok: commandResult.ok, output: commandResult.output.slice(0, 500) });
-    res.json({ ok: commandResult.ok, commandResult });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.post('/api/action/restart-server', (req, res) => {
-  try {
-    const config = loadConfig();
-    const commandResult = runShellCommand(config.restartServerCommand);
-    appendActivity('action_restart', { ok: commandResult.ok, output: commandResult.output.slice(0, 500) });
-    res.json({ ok: commandResult.ok, commandResult });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/server-settings/parsed', (req, res) => {
-  try {
-    const file = readLogicalFile('ServerSettings.ini');
-    const parsed = ini.parse(file.content);
-    res.json({ ok: true, parsed, presets: SERVER_PRESETS, validation: buildValidation([]) });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/server-settings/parsed', (req, res) => {
-  try {
-    const config = loadConfig();
-    const paths = resolvedPaths(config);
-    const parsed = req.body?.parsed || {};
-    const nextContent = ini.stringify(parsed);
-    createBackup(paths, ['ServerSettings.ini'], 'server-settings-save');
-    writeText(resolveLogicalPath('ServerSettings.ini', paths), nextContent);
-    const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
-    appendActivity('server_settings_save', { reloadAfter: !!req.body?.reloadAfter });
-    res.json({ ok: true, commandResult });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/server-settings/preset', (req, res) => {
-  try {
-    const preset = SERVER_PRESETS[req.body?.presetId];
-    if (!preset) throw new Error('Preset was not found');
-    const current = ini.parse(readText(resolveLogicalPath('ServerSettings.ini')));
-    const nextParsed = preset.apply(current);
-    const currentText = ini.stringify(current);
-    const nextText = ini.stringify(nextParsed);
-    const patch = createDiff('ServerSettings.ini', currentText, nextText);
-    if (req.body?.apply) {
-      createBackup(resolvedPaths(), ['ServerSettings.ini'], `preset-${req.body.presetId}`);
-      writeText(resolveLogicalPath('ServerSettings.ini'), nextText);
-      if (req.body?.reloadAfter) runShellCommand(loadConfig().reloadLootCommand);
-    }
-    res.json({ ok: true, patch, parsed: nextParsed });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/file', (req, res) => {
-  try {
-    const logicalPath = String(req.query.path || '');
-    const file = readLogicalFile(logicalPath);
-    const validation = validateContent(logicalPath, file.content);
-    res.json({ ok: true, content: file.content, meta: file.meta, validation });
-  } catch (error) {
-    errorResponse(res, 404, error);
-  }
-});
-
-app.put('/api/file', (req, res) => {
-  try {
-    const config = loadConfig();
-    const paths = resolvedPaths(config);
-    const logicalPath = String(req.body?.path || '');
-    const content = String(req.body?.content || '');
-    validateContent(logicalPath, content);
-    createBackup(paths, [logicalPath], `file-save:${logicalPath}`);
-    writeText(resolveLogicalPath(logicalPath, paths), content);
-    appendActivity('file_save', { path: logicalPath, reloadAfter: !!req.body?.reloadAfter });
-    const commandResult = req.body?.reloadAfter ? runShellCommand(config.reloadLootCommand) : null;
-    res.json({ ok: true, commandResult });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/file/diff', (req, res) => {
-  try {
-    const logicalPath = String(req.body?.path || '');
-    const nextContent = String(req.body?.content || '');
-    const fullPath = resolveLogicalPath(logicalPath);
-    const currentContent = fs.existsSync(fullPath) ? readText(fullPath) : '';
-    res.json({ ok: true, patch: createDiff(logicalPath, currentContent, nextContent) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/loot/files', (req, res) => {
-  try {
-    const scan = scanLootWorkspace();
-    res.json({
-      ok: true,
-      nodes: scan.nodes.map((file) => ({ relPath: file.relPath, name: file.name, logicalName: file.logicalName, summary: analyzeLootObject(file.object, file.relPath, scan).summary })),
-      spawners: scan.spawners.map((file) => ({ relPath: file.relPath, name: file.name, logicalName: file.logicalName, summary: analyzeLootObject(file.object, file.relPath, scan).summary })),
-    });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/loot/analyze', (req, res) => {
-  try {
-    const relPath = String(req.query.path || '');
-    const scan = scanLootWorkspace();
-    const object = readJsonObject(resolveLogicalPath(relPath));
-    res.json(analyzeLootObject(object, relPath, scan));
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/analyze-content', (req, res) => {
-  try {
-    const relPath = String(req.body?.path || '');
-    const content = String(req.body?.content || '{}');
-    const object = safeParseJson(content);
-    res.json(analyzeLootObject(object, relPath, scanLootWorkspace()));
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/simulate', (req, res) => {
-  try {
-    const count = Math.max(1, Math.min(10000, Number(req.body?.count || 100)));
-    const pathValue = String(req.body?.path || '');
-    const scan = scanLootWorkspace();
-    res.json({ ok: true, result: simulateLootFile(pathValue, count, scan) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/simulate/compare', (req, res) => {
-  try {
-    const count = Math.max(1, Math.min(10000, Number(req.body?.count || 1000)));
-    const pathValue = String(req.body?.path || '');
-    const content = String(req.body?.content || '{}');
-    const scan = scanLootWorkspace();
-    const saved = simulateLootFile(pathValue, count, scan);
-    const draftObject = JSON.parse(content);
-    const draft = simulateLootObject(draftObject, pathValue, count, scan);
-    res.json({ ok: true, saved, draft, comparison: compareSimulationResults(saved, draft) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/file', (req, res) => {
-  try {
-    const kind = String(req.body?.kind || '');
-    const fileName = String(req.body?.fileName || '').trim();
-    if (!fileName) throw new Error('File name is required');
-    const normalizedName = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
-    const logicalPath = kind === 'spawners' ? `Spawners/${normalizedName}` : `Nodes/${normalizedName}`;
-    const template = kind === 'spawners'
-      ? { Nodes: [{ Rarity: 'Uncommon', Ids: ['ItemLootTreeNodes.NewGroup'] }], Probability: 1, QuantityMin: 1, QuantityMax: 1, AllowDuplicates: false }
-      : { Name: path.basename(normalizedName, '.json'), Notes: '', Items: [] };
-    writeText(resolveLogicalPath(logicalPath), `${JSON.stringify(template, null, 2)}\n`);
-    appendActivity('loot_create', { path: logicalPath });
-    res.json({ ok: true, path: logicalPath });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/clone', (req, res) => {
-  try {
-    const sourcePath = String(req.body?.sourcePath || '');
-    const kind = String(req.body?.kind || '');
-    const fileName = String(req.body?.fileName || '').trim();
-    const targetLogicalPath = kind === 'spawners' ? `Spawners/${fileName.endsWith('.json') ? fileName : `${fileName}.json`}` : `Nodes/${fileName.endsWith('.json') ? fileName : `${fileName}.json`}`;
-    const source = readText(resolveLogicalPath(sourcePath));
-    writeText(resolveLogicalPath(targetLogicalPath), source);
-    appendActivity('loot_clone', { from: sourcePath, to: targetLogicalPath });
-    res.json({ ok: true, path: targetLogicalPath });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.delete('/api/loot/file', (req, res) => {
-  try {
-    const logicalPath = String(req.query.path || '');
-    createBackup(resolvedPaths(), [logicalPath], `delete:${logicalPath}`);
-    fs.unlinkSync(resolveLogicalPath(logicalPath));
-    appendActivity('loot_delete', { path: logicalPath });
-    res.json({ ok: true });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/loot/autofix', (req, res) => {
-  try {
-    const config = loadConfig();
-    const paths = resolvedPaths(config);
-    const logicalPath = String(req.body?.path || '');
-    const scan = scanLootWorkspace(paths);
-    const currentText = readText(resolveLogicalPath(logicalPath, paths));
-    const currentObject = safeParseJson(currentText);
-    const fixed = autoFixLootObject(currentObject, logicalPath, scan);
-    const patch = createDiff(logicalPath, currentText, fixed.content);
-    let commandResult = null;
-    if (req.body?.apply) {
-      createBackup(paths, [logicalPath], `autofix:${logicalPath}`);
-      writeText(resolveLogicalPath(logicalPath, paths), fixed.content);
-      appendActivity('loot_autofix_apply', { path: logicalPath, changes: fixed.changes.length });
-      if (req.body?.reloadAfter) commandResult = runShellCommand(config.reloadLootCommand);
-    }
-    res.json({ ok: true, patch, content: fixed.content, changes: fixed.changes, warnings: fixed.changes, validation: fixed.validation, commandResult });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/items', (req, res) => {
-  try {
-    const catalog = buildItemCatalog(scanLootWorkspace(), req.query);
-    res.json({ ok: true, ...catalog });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/items/override', (req, res) => {
-  try {
-    const name = String(req.body?.name || '');
-    const override = upsertItemCatalogOverride(name, req.body || {});
-    res.json({ ok: true, override });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/items/overrides', (req, res) => {
-  try {
-    const overrides = loadItemCatalogOverrides();
-    res.json({ ok: true, overrides, count: Object.keys(overrides).length });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/items/overrides', (req, res) => {
-  try {
-    const result = importItemCatalogOverrides(req.body?.overrides || {}, String(req.body?.mode || 'merge'));
-    res.json({ ok: true, ...result });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.delete('/api/items/override', (req, res) => {
-  try {
-    const deleted = deleteItemCatalogOverride(req.query.name || req.body?.name);
-    res.json({ ok: true, deleted });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/kits', (req, res) => {
-  try {
-    res.json({ ok: true, kits: loadKitTemplates() });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.post('/api/kits', (req, res) => {
-  try {
-    const kit = createKitTemplate(req.body?.name, req.body?.notes, req.body?.items);
-    res.json({ ok: true, kit });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.delete('/api/kits', (req, res) => {
-  try {
-    const kit = deleteKitTemplate(req.query.id || req.body?.id);
-    res.json({ ok: true, kit });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/node-refs', (req, res) => {
-  try {
-    const scan = scanLootWorkspace();
-    const refs = [...scan.refs];
-    const nodes = [...new Set(refs.map((entry) => entry.node))].sort((a, b) => a.localeCompare(b));
-    const query = String(req.query.q || '').trim().toLowerCase();
-    const nodeFilter = String(req.query.node || '__all');
-    let filtered = refs;
-    if (nodeFilter !== '__all') filtered = filtered.filter((entry) => entry.node === nodeFilter);
-    if (query) filtered = filtered.filter((entry) => `${entry.ref} ${entry.label} ${entry.node}`.toLowerCase().includes(query));
-    const limit = Number(req.query.limit || 8000);
-    res.json({ ok: true, refs: filtered.slice(0, limit), nodes, total: filtered.length });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/analyzer/overview', (req, res) => {
-  try {
-    res.json({ ok: true, overview: analyzeOverview(scanLootWorkspace()) });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/graph', (req, res) => {
-  try {
-    res.json({ ok: true, ...buildGraph(scanLootWorkspace(), req.query.focus || '') });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/search', (req, res) => {
-  try {
-    res.json({
-      ok: true,
-      results: searchWorkspace(req.query.term || '', resolvedPaths(), {
-        scope: req.query.scope,
-        match: req.query.match,
-        issue: req.query.issue,
-      }),
-    });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/profiles', (req, res) => {
-  try {
-    res.json({ ok: true, profiles: loadProfilesData().profiles || [] });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.post('/api/profiles', (req, res) => {
-  try {
-    const profile = createProfileSnapshot(String(req.body?.name || '').trim(), String(req.body?.notes || ''));
-    res.json({ ok: true, profile });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/profiles/apply', (req, res) => {
-  try {
-    const result = applyProfileSnapshot(String(req.body?.id || ''), !!req.body?.reloadAfter);
-    res.json({ ok: true, ...result });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.delete('/api/profiles', (req, res) => {
-  try {
-    const id = String(req.query.id || '');
-    const data = loadProfilesData();
-    data.profiles = (data.profiles || []).filter((profile) => profile.id !== id);
-    saveProfilesData(data);
-    const snapshotPath = path.join(PROFILE_STORE_DIR, `${id}.json`);
-    if (fs.existsSync(snapshotPath)) fs.unlinkSync(snapshotPath);
-    appendActivity('profile_delete', { id });
-    res.json({ ok: true });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/rotation', (req, res) => {
-  try {
-    res.json({ ok: true, rotation: loadRotation() });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/rotation', (req, res) => {
-  try {
-    const next = { ...loadRotation(), ...req.body, nextRunAt: nextRotationRun(req.body || {}) };
-    saveRotation(next);
-    appendActivity('rotation_save', { enabled: !!next.enabled, everyMinutes: next.everyMinutes });
-    res.json({ ok: true, rotation: next });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/rotation/run', (req, res) => {
-  try {
-    res.json({ ok: true, ...runRotation(!!req.body?.force) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/backups', (req, res) => {
-  try {
-    res.json({ ok: true, backups: listBackups() });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('/api/backup/files', (req, res) => {
-  try {
-    res.json({ ok: true, files: listBackupFiles(String(req.query.backup || '')) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/backup/file', (req, res) => {
-  try {
-    const backup = String(req.query.backup || '');
-    const filePath = String(req.query.path || '');
-    const fullPath = resolveBackupFilePath(resolveBackupRoot(backup), filePath);
-    if (!fs.existsSync(fullPath)) throw new Error('Backup file was not found');
-    res.json({ ok: true, content: readText(fullPath) });
-  } catch (error) {
-    errorResponse(res, 404, error);
-  }
-});
-
-app.post('/api/backup', (req, res) => {
-  try {
-    const result = createBackup(resolvedPaths(), [], { note: req.body?.note || 'manual-backup', tag: req.body?.tag || 'manual' });
-    res.json({ ok: true, backupPath: result.backupName, files: result.files });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.put('/api/backup/meta', (req, res) => {
-  try {
-    const backup = String(req.body?.backup || '');
-    const meta = updateBackupMeta(backup, { note: req.body?.note, tag: req.body?.tag });
-    res.json({ ok: true, meta });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/backups/cleanup/preview', (req, res) => {
-  try {
-    res.json({ ok: true, plan: backupCleanupCandidates(req.body || {}) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/backups/cleanup', (req, res) => {
-  try {
-    const confirmed = Boolean(req.body?.confirm);
-    if (!confirmed) throw new Error('Cleanup must be confirmed');
-    res.json({ ok: true, result: cleanupBackups(req.body || {}) });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/backup/compare', (req, res) => {
-  try {
-    const result = compareBackupFiles(String(req.query.base || ''), String(req.query.target || ''), String(req.query.path || ''));
-    res.json({ ok: true, ...result });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.post('/api/restore', (req, res) => {
-  try {
-    restoreBackupFile(String(req.body?.backup || ''), String(req.body?.path || ''));
-    res.json({ ok: true });
-  } catch (error) {
-    errorResponse(res, 400, error);
-  }
-});
-
-app.get('/api/activity', (req, res) => {
-  try {
-    res.json({ ok: true, entries: readActivity(Number(req.query.limit || 200), { type: req.query.type, term: req.query.term, path: req.query.path }) });
-  } catch (error) {
-    errorResponse(res, 500, error);
-  }
-});
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
-
+registerRoutes(app, serverContext);
 const port = Number(process.env.PORT || 3000);
-app.listen(port, () => {
+function startServer(listenPort = port) {
   ensureDir(DATA_DIR);
   ensureDir(PROFILE_STORE_DIR);
   ensureDir(resolvedPaths(loadConfig()).backupDir);
-  console.log(`SCUM control plane listening on http://127.0.0.1:${port}`);
-});
+  return app.listen(listenPort, () => {
+    console.log(`SCUM control plane listening on http://127.0.0.1:${listenPort}`);
+  });
+}
+
+if (require.main === module) {
+  startServer(port);
+}
+
+module.exports = {
+  app,
+  startServer,
+  inspectCommand,
+  validateContent,
+  buildReadinessReport,
+  buildDiagnosticsReport,
+  buildSafeApplyPlan,
+  createWorkspacePackage,
+  parseWorkspacePackage,
+};
+

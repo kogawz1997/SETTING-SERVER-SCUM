@@ -18,6 +18,7 @@
   state.searchUi = state.searchUi || { scope: '__all', match: 'partial', issue: '__all' };
   state.graphUi = state.graphUi || { zoom: 1, panX: 0, panY: 0, kind: '__all', selectedId: '' };
   state.backupUi = state.backupUi || { compareTarget: '', tagFilter: '__all', pathFilter: '' };
+  state.packageUi = state.packageUi || { text: '', preview: null, lastExportName: '' };
   state.activityUi = state.activityUi || { type: '__all', term: '', path: '' };
   state.readiness = state.readiness || null;
   state.quickStart = state.quickStart || {};
@@ -1121,11 +1122,11 @@
     const host = $('readiness-panel');
     if (!host) return;
     if (!report) {
-      host.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('Preflight พร้อมใช้งานจริง', 'Real-use preflight'))}</h3><p class="muted">${escapeHtml(uiText('กำลังตรวจ path, loot, backup และ command', 'Checking paths, loot, backups, and commands.'))}</p></div><span class="tag">...</span></div>`;
+      host.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('Workspace Health Center', 'Workspace Health Center'))}</h3><p class="muted">${escapeHtml(uiText('กำลังตรวจ path, loot, backup และ command', 'Checking paths, loot, backups, and commands.'))}</p></div><span class="tag">...</span></div>`;
       return;
     }
     if (report.error) {
-      host.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('Preflight พร้อมใช้งานจริง', 'Real-use preflight'))}</h3><p class="muted">${escapeHtml(report.error)}</p></div><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจใหม่', 'Recheck'))}</button></div>`;
+      host.innerHTML = `<div class="section-head compact"><div><h3>${escapeHtml(uiText('Workspace Health Center', 'Workspace Health Center'))}</h3><p class="muted">${escapeHtml(report.error)}</p></div><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจใหม่', 'Recheck'))}</button></div>`;
       const refresh = $('readiness-refresh');
       if (refresh) refresh.onclick = () => loadReadiness().catch((error) => showToast(error.message, true));
       return;
@@ -1140,7 +1141,7 @@
     const latestBackup = report.latestBackup
       ? `${report.latestBackup.name} · ${new Date(report.latestBackup.updatedAt).toLocaleString()}`
       : uiText('ยังไม่มี backup', 'No backup yet');
-    host.innerHTML = `<div class="readiness-top"><div><div class="eyebrow">${escapeHtml(uiText('พร้อมใช้จริง', 'PRODUCTION READY'))}</div><h3>${escapeHtml(uiText('Preflight ก่อนแก้/เซฟ/รีโหลด', 'Preflight before edit/save/reload'))}</h3><p class="muted">${escapeHtml(uiText('รวมผล path, syntax, validation, missing refs, backup และคำสั่ง reload ไว้จุดเดียว', 'One place for paths, syntax, validation, missing refs, backups, and reload command readiness.'))}</p></div><div class="readiness-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมใช้', 'Ready') : uiText('ยังต้องแก้', 'Needs work'))}</span></div></div><div class="readiness-grid"><div><span>${escapeHtml(uiText('ปัญหาหนัก', 'Critical'))}</span><strong>${escapeHtml(String(counts.critical || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warning || 0))}</strong></div><div><span>${escapeHtml(uiText('Missing refs', 'Missing refs'))}</span><strong>${escapeHtml(String(counts.missingRefs || 0))}</strong></div><div><span>${escapeHtml(uiText('ไฟล์ลูท', 'Loot files'))}</span><strong>${escapeHtml(`${counts.nodes || 0}/${counts.spawners || 0}`)}</strong></div><div><span>${escapeHtml(uiText('Backup ล่าสุด', 'Latest backup'))}</span><strong>${escapeHtml(latestBackup)}</strong></div></div><div class="readiness-checks">${visibleChecks.map((check) => `<div class="readiness-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(check.label || '-')}</strong><small>${escapeHtml(check.detail || check.action || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div>${report.validationFiles?.length ? `<div class="readiness-files"><strong>${escapeHtml(uiText('ไฟล์ที่ควรเปิดไปแก้ก่อน', 'Files to fix first'))}</strong>${report.validationFiles.slice(0, 5).map((file) => `<button type="button" class="ghost tiny" data-readiness-file="${escapeHtml(file.path)}">${escapeHtml(`${file.path} · C${file.critical}/W${file.warning}`)}</button>`).join('')}</div>` : ''}<div class="actions tight wrap"><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run preflight'))}</button><button class="ghost tiny" data-readiness-view="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-readiness-view="loot">${escapeHtml(uiText('ไป Loot Studio', 'Open Loot Studio'))}</button><button class="ghost tiny" data-readiness-view="analyzer">${escapeHtml(uiText('ไป Analyzer', 'Open Analyzer'))}</button><button class="ghost tiny" data-readiness-view="backups">${escapeHtml(uiText('ไป Backups', 'Open Backups'))}</button></div>`;
+    host.innerHTML = `<div class="readiness-top"><div><div class="eyebrow">${escapeHtml(uiText('WORKSPACE HEALTH CENTER / PRODUCTION READY', 'WORKSPACE HEALTH CENTER / PRODUCTION READY'))}</div><h3>${escapeHtml(uiText('Preflight ศูนย์ตรวจสุขภาพก่อนแก้/เซฟ/รีโหลด', 'Preflight health center before edit/save/reload'))}</h3><p class="muted">${escapeHtml(uiText('รวมผล path, syntax, validation, missing refs, backup และคำสั่ง reload ไว้จุดเดียว', 'One place for paths, syntax, validation, missing refs, backups, and reload command readiness.'))}</p></div><div class="readiness-score ${readinessScoreClass(Number(report.score || 0))}"><strong>${escapeHtml(String(report.score ?? 0))}</strong><span>${escapeHtml(report.ready ? uiText('พร้อมใช้', 'Ready') : uiText('ยังต้องแก้', 'Needs work'))}</span></div></div><div class="readiness-grid"><div><span>${escapeHtml(uiText('ปัญหาหนัก', 'Critical'))}</span><strong>${escapeHtml(String(counts.critical || 0))}</strong></div><div><span>${escapeHtml(uiText('คำเตือน', 'Warnings'))}</span><strong>${escapeHtml(String(counts.warning || 0))}</strong></div><div><span>${escapeHtml(uiText('Missing refs', 'Missing refs'))}</span><strong>${escapeHtml(String(counts.missingRefs || 0))}</strong></div><div><span>${escapeHtml(uiText('ไฟล์ลูท', 'Loot files'))}</span><strong>${escapeHtml(`${counts.nodes || 0}/${counts.spawners || 0}`)}</strong></div><div><span>${escapeHtml(uiText('Backup ล่าสุด', 'Latest backup'))}</span><strong>${escapeHtml(latestBackup)}</strong></div></div><div class="readiness-checks">${visibleChecks.map((check) => `<div class="readiness-check ${escapeHtml(check.status || 'warn')}"><div><strong>${escapeHtml(check.label || '-')}</strong><small>${escapeHtml(check.detail || check.action || '')}</small>${check.action ? `<small>${escapeHtml(check.action)}</small>` : ''}</div><span>${escapeHtml(readinessStatusText(check.status))}</span></div>`).join('')}</div>${report.validationFiles?.length ? `<div class="readiness-files"><strong>${escapeHtml(uiText('ไฟล์ที่ควรเปิดไปแก้ก่อน', 'Files to fix first'))}</strong>${report.validationFiles.slice(0, 5).map((file) => `<button type="button" class="ghost tiny" data-readiness-file="${escapeHtml(file.path)}">${escapeHtml(`${file.path} · C${file.critical}/W${file.warning}`)}</button>`).join('')}</div>` : ''}<div class="actions tight wrap"><button id="readiness-refresh" class="ghost tiny">${escapeHtml(uiText('ตรวจตอนนี้', 'Run preflight'))}</button><button class="ghost tiny" data-readiness-view="settings">${escapeHtml(uiText('ไป Settings', 'Open Settings'))}</button><button class="ghost tiny" data-readiness-view="loot">${escapeHtml(uiText('ไป Loot Studio', 'Open Loot Studio'))}</button><button class="ghost tiny" data-readiness-view="analyzer">${escapeHtml(uiText('ไป Analyzer', 'Open Analyzer'))}</button><button class="ghost tiny" data-readiness-view="backups">${escapeHtml(uiText('ไป Backups', 'Open Backups'))}</button></div>`;
     bindReadinessPanel();
   }
 
@@ -1425,6 +1426,12 @@
       panel.className = 'backup-control-panel';
       backupsCard.insertBefore(panel, $('backups-list'));
     }
+    if (backupsCard && !$('package-control-panel')) {
+      const panel = document.createElement('div');
+      panel.id = 'package-control-panel';
+      panel.className = 'package-control-panel';
+      backupsCard.insertBefore(panel, $('backups-list'));
+    }
     const filesCard = $('backup-files-list')?.closest('.card');
     if (filesCard && !$('backup-compare-panel')) {
       const panel = document.createElement('div');
@@ -1450,7 +1457,76 @@
       $('backup-tag-filter').onchange = (event) => { state.backupUi.tagFilter = event.target.value; renderBackupList(); };
       bindBackupCleanupControls();
     }
+    renderPackagePanel();
     renderBackupComparePanel();
+  }
+
+  function renderPackagePanel() {
+    mountBackupControls();
+    const panel = $('package-control-panel');
+    if (!panel) return;
+    const preview = state.packageUi.preview;
+    const counts = preview?.counts;
+    const blocked = Number(counts?.blocked || 0);
+    const previewText = counts
+      ? `${counts.files} ${uiText('ไฟล์', 'files')} · ${counts.changed} ${uiText('เปลี่ยน', 'changed')} · ${counts.critical} critical`
+      : uiText('ยังไม่ได้พรีวิว package', 'No package preview yet.');
+    panel.innerHTML = `<details class="package-panel"><summary class="section-head compact"><div><h4>${escapeHtml(uiText('Import / Export Package', 'Import / Export Package'))}</h4><p class="muted">${escapeHtml(uiText('ส่งออก config+loot เป็นไฟล์ JSON ก้อนเดียว หรือพรีวิวก่อนนำเข้าแบบ dry-run', 'Export config+loot as one JSON package, or dry-run before importing.'))}</p></div><span class="tag ${blocked ? 'danger' : counts ? 'ok' : ''}">${escapeHtml(previewText)}</span></summary><div class="stack-spaced"><div class="actions tight wrap"><button id="package-export" class="ghost tiny">${escapeHtml(uiText('Export ทั้ง workspace', 'Export workspace'))}</button><button id="package-download" class="ghost tiny" ${state.packageUi.text ? '' : 'disabled'}>${escapeHtml(uiText('ดาวน์โหลด JSON', 'Download JSON'))}</button><button id="package-preview" class="ghost tiny">${escapeHtml(uiText('Dry run import', 'Dry run import'))}</button><button id="package-apply" class="danger-outline tiny" ${preview && !blocked ? '' : 'disabled'}>${escapeHtml(uiText('Apply package', 'Apply package'))}</button></div><textarea id="package-json" class="editor code package-json-input" rows="7" placeholder="${escapeHtml(uiText('วาง package JSON ที่ export มา แล้วกด Dry run import ก่อน apply จริง', 'Paste exported package JSON here, then dry-run before applying.'))}">${escapeHtml(state.packageUi.text || '')}</textarea><div id="package-preview-result" class="muted small">${escapeHtml(previewText)}</div></div></details>`;
+    const input = $('package-json');
+    if (input) input.oninput = (event) => { state.packageUi.text = event.target.value; state.packageUi.preview = null; const apply = $('package-apply'); if (apply) apply.disabled = true; };
+    const exportButton = $('package-export');
+    if (exportButton) exportButton.onclick = exportWorkspacePackage;
+    const previewButton = $('package-preview');
+    if (previewButton) previewButton.onclick = previewWorkspacePackageImport;
+    const applyButton = $('package-apply');
+    if (applyButton) applyButton.onclick = applyWorkspacePackageImport;
+    const downloadButton = $('package-download');
+    if (downloadButton) downloadButton.onclick = downloadWorkspacePackage;
+  }
+
+  async function exportWorkspacePackage() {
+    const data = await api('/api/package/export');
+    const text = JSON.stringify(data.package, null, 2);
+    state.packageUi.text = text;
+    state.packageUi.preview = null;
+    state.packageUi.lastExportName = `scum-package-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+    renderPackagePanel();
+    showToast(uiText('Export package แล้ว ตรวจ JSON หรือกดดาวน์โหลดได้เลย', 'Package exported. Review JSON or download it.'));
+  }
+
+  function downloadWorkspacePackage() {
+    if (!state.packageUi.text) return showToast(uiText('ยังไม่มี package ให้ดาวน์โหลด', 'No package to download'), true);
+    const blob = new Blob([state.packageUi.text], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = state.packageUi.lastExportName || 'scum-package.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(link.href);
+  }
+
+  async function previewWorkspacePackageImport() {
+    const raw = $('package-json')?.value || state.packageUi.text || '';
+    if (!raw.trim()) return showToast(uiText('วาง package JSON ก่อน', 'Paste package JSON first'), true);
+    const data = await api('/api/package/import/preview', { method: 'POST', body: JSON.stringify({ text: raw }) });
+    state.packageUi.text = raw;
+    state.packageUi.preview = data;
+    renderPackagePanel();
+    showToast(uiText('Dry run package เสร็จแล้ว ดูจำนวนไฟล์ที่จะเปลี่ยนก่อน apply', 'Package dry-run complete. Review changed files before applying.'));
+  }
+
+  async function applyWorkspacePackageImport() {
+    const raw = $('package-json')?.value || state.packageUi.text || '';
+    const preview = state.packageUi.preview;
+    if (!preview?.counts) return showToast(uiText('ต้อง Dry run import ก่อน', 'Run dry-run import first'), true);
+    if (preview.counts.blocked) return showToast(uiText('package ยังมี critical validation ห้าม apply', 'Package has critical validation and cannot be applied'), true);
+    if (!window.confirm(uiText(`Apply package ${preview.counts.changed} ไฟล์? ระบบจะ backup ก่อนเขียน`, `Apply package to ${preview.counts.changed} files? A backup will be created first.`))) return;
+    const data = await api('/api/package/import/apply', { method: 'POST', body: JSON.stringify({ text: raw, confirm: true }) });
+    showToast(uiText(`Import แล้ว ${data.changedFiles?.length || 0} ไฟล์`, `Imported ${data.changedFiles?.length || 0} files`));
+    state.packageUi.preview = null;
+    await loadBackups();
+    await refreshAll();
   }
 
   function backupCleanupOptions() {
@@ -2322,7 +2398,6 @@
     const data = await api(`/api/file?path=${encodeURIComponent(path)}`);
     state.currentLootContent = data.content;
     $('loot-editor').value = data.content;
-    $('loot-editor-title').textContent = path;
     const analysis = await api(`/api/loot/analyze?path=${encodeURIComponent(path)}`);
     state.currentLootAnalysis = analysis;
     state.currentLootObject = analysis.object || {};
@@ -2345,6 +2420,7 @@
     rememberLootPath(path);
     renderVisualBuilder();
     setLootEditorMode('visual');
+    $('loot-editor-title').textContent = path;
     renderLootLists();
     updateLootWorkspaceLayout();
     updateLootWorkspaceCopy();
@@ -2468,6 +2544,8 @@
       el.oninput = (event) => {
         const index = Number(event.target.dataset.entryName);
         setItemEntryName(obj.Items[index], event.target.value);
+        if (typeof refreshSplitRawPreview === 'function') refreshSplitRawPreview();
+        if (typeof refreshLootDirtyState === 'function') refreshLootDirtyState();
         renderInlineItemSuggestions(event.target, { kind: 'flat', index });
       };
       el.onblur = () => closeInlineItemSuggestions(el);

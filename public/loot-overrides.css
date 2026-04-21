@@ -939,6 +939,7 @@
 
 .backup-control-panel,
 .backup-compare-panel,
+.package-control-panel,
 .activity-filter-panel {
   display: grid;
   gap: 10px;
@@ -947,6 +948,15 @@
   border: 1px solid rgba(136, 194, 255, 0.14);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.04);
+}
+
+.package-panel {
+  display: block;
+}
+
+.package-json-input {
+  min-height: 160px;
+  max-height: 320px;
 }
 
 .backup-create-grid,

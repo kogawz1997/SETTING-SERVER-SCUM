@@ -773,6 +773,11 @@ label > span {
   background: rgba(255, 196, 112, 0.14);
 }
 
+button.attention {
+  border-color: rgba(255, 196, 112, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 196, 112, 0.12) inset;
+}
+
 .tag.success {
   border-color: rgba(95, 224, 191, 0.24);
   background: rgba(95, 224, 191, 0.12);
