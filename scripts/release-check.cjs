@@ -229,6 +229,7 @@ assertIncludes('src/server/services/workspace-file-service.cjs', ['createWorkspa
 assertIncludes('src/server/services/workspace-health-service.cjs', ['createWorkspaceHealthService', 'buildReadinessReport', 'buildDiagnosticsReport']);
 assertIncludes('src/server/services/workspace-search-service.cjs', ['createWorkspaceSearchService', 'searchWorkspace', 'matchesSearchScope']);
 assertIncludes('src/server/services/workspace-utils.cjs', ['normalizeKey', 'posixify', 'sortByName', 'walkFiles']);
+assertIncludes('src/server/item-catalog-curated.cjs', ['12_Gauge_Buckshot', 'Military_Backpack', 'Gold_Bar', 'displayNameTh']);
 assertIncludes('src/server/routes/loot.cjs', [
   '/api/items',
   '/api/loot/files',
@@ -269,6 +270,7 @@ assertIncludes('public/loot-overrides.css', ['loot-shortcuts-panel', 'loot-short
   'docs/USAGE_GUIDE.md',
   'public/app.js',
   'public/loot-overrides.js',
+  'src/server/item-catalog-curated.cjs',
 ].forEach(assertNoMojibake);
 
 const pkg = JSON.parse(read('package.json'));

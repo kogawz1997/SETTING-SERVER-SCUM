@@ -174,7 +174,19 @@ test('curated item catalog applies human Thai names, category, rarity, and tags'
   const restoreConfig = withConfigRestore();
   writeWorkspaceConfig(sampleRoot);
   try {
-    const names = ['Magazine_AK47', 'Car_Repair_Kit', 'Antibiotics_01', 'BabyFood', 'Screwdriver'];
+    const names = [
+      'Magazine_AK47',
+      'Car_Repair_Kit',
+      'Antibiotics_01',
+      'BabyFood',
+      'Screwdriver',
+      '12_Gauge_Buckshot',
+      '2H_Katana',
+      'Military_Backpack',
+      'Gold_Bar',
+      'FuelCan',
+      'Absinthe',
+    ];
     const catalog = new Map();
     for (const name of names) {
       const { response, body } = await request(server, `/api/items?q=${encodeURIComponent(name)}&limit=20`);
@@ -199,6 +211,19 @@ test('curated item catalog applies human Thai names, category, rarity, and tags'
     assert.equal(catalog.get('BabyFood').displayNameTh, 'อาหารเด็ก');
     assert.equal(catalog.get('Screwdriver').displayNameTh, 'ไขควง');
     assert.equal(catalog.get('Screwdriver').tags.includes('raid'), true);
+
+    assert.equal(catalog.get('12_Gauge_Buckshot').displayNameTh, 'กระสุนลูกปราย 12 เกจ');
+    assert.equal(catalog.get('12_Gauge_Buckshot').tags.includes('shotgun'), true);
+    assert.equal(catalog.get('2H_Katana').category, 'weapon');
+    assert.equal(catalog.get('2H_Katana').displayNameTh, 'คาตานะสองมือ');
+    assert.equal(catalog.get('Military_Backpack').category, 'clothing');
+    assert.equal(catalog.get('Military_Backpack').displayNameTh, 'กระเป๋าทหาร');
+    assert.equal(catalog.get('Gold_Bar').category, 'currency');
+    assert.equal(catalog.get('Gold_Bar').displayNameTh, 'ทองแท่ง');
+    assert.equal(catalog.get('FuelCan').category, 'vehicle');
+    assert.equal(catalog.get('FuelCan').displayNameTh, 'ถังน้ำมัน');
+    assert.equal(catalog.get('Absinthe').category, 'food');
+    assert.equal(catalog.get('Absinthe').displayNameTh, 'แอ็บซินธ์');
   } finally {
     restoreConfig();
     server.close();
